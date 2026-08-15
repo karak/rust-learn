@@ -9,3 +9,7 @@
 .DS_Store
 .env
 .claude/settings.local.json
+
+# 開発ツールのローカル状態。公開リポジトリに個人の環境設定を含めないため追跡しない。
+# Serena はプロジェクトを開いた際に再生成する。
+.serena/
