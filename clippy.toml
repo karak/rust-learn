@@ -1,0 +1,7 @@
+# 学習用途では「なぜこの閾値なのか」を考える材料として明示的に置く。
+too-many-arguments-threshold = 5
+cognitive-complexity-threshold = 20
+# panic を許すのはテストのみ、という方針を機械的に支える。
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true

@@ -1,0 +1,11 @@
+/target
+**/*.rs.bk
+*.pdb
+
+# insta のスナップショット差分（承認前）
+**/*.snap.new
+
+# ローカル環境
+.DS_Store
+.env
+.claude/settings.local.json

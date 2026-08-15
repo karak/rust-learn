@@ -1,0 +1,12 @@
+[alias]
+# 学習ループで叩く頻度が高いものだけを短縮する。
+c = "check --workspace --all-targets"
+t = "nextest run --workspace"
+lint = "clippy --workspace --all-targets -- -D warnings"
+
+[build]
+# rustc の型エラーはデフォルトでも十分だが、学習中は完全な説明を読みたい。
+rustflags = []
+
+[term]
+verbose = false

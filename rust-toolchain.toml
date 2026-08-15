@@ -1,0 +1,6 @@
+[toolchain]
+# 学習環境はツールチェーンを固定する。
+# 「手元では通るが CI で落ちる」を最初から潰しておくため。
+channel = "1.97.1"
+components = ["rustfmt", "clippy", "rust-src", "rust-analyzer"]
+profile = "default"

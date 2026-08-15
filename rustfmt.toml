@@ -1,0 +1,4 @@
+edition = "2024"
+# 議論の余地をなくすため、既定値からの逸脱は最小限にとどめる。
+max_width = 100
+use_field_init_shorthand = true

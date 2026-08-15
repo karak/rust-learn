@@ -1,0 +1,86 @@
+//! 引数定義。
+//!
+//! `main.rs` に置かず独立させているのは、`Cli::try_parse_from(...)` で
+//! **プロセスを起動せずに** 引数解釈をテストできるようにするため。
+
+use std::path::PathBuf;
+
+use clap::{Parser, ValueEnum};
+
+use crate::core::Key;
+
+/// 出力形式。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum Format {
+    /// `件数<TAB>キー` のタブ区切り。他の Unix ツールに繋ぐ前提。
+    Text,
+    /// JSON。機械可読な連携用。
+    Json,
+}
+
+/// 行指向データの度数を集計する。
+#[derive(Debug, Parser)]
+#[command(name = "tally", version, about, long_about = None)]
+pub struct Cli {
+    /// 入力ファイル。省略時は標準入力を読む。
+    pub input: Option<PathBuf>,
+
+    /// 各行を JSON として解釈し、このフィールドの値を集計する。
+    ///
+    /// 省略時は行全体をキーにする。
+    #[arg(short, long, value_name = "NAME")]
+    pub field: Option<String>,
+
+    /// 上位 N 件だけ出力する。
+    #[arg(short = 'n', long, value_name = "N")]
+    pub limit: Option<usize>,
+
+    /// 出力形式。
+    #[arg(long, value_enum, default_value_t = Format::Text)]
+    pub format: Format,
+
+    /// 集計対象の行数・スキップ行数を標準エラーに出す。
+    #[arg(long)]
+    pub stats: bool,
+}
+
+impl Cli {
+    /// 引数から集計キーを決める。
+    #[must_use]
+    pub fn key(&self) -> Key {
+        match &self.field {
+            Some(name) => Key::JsonField(name.clone()),
+            None => Key::WholeLine,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::CommandFactory;
+
+    #[test]
+    fn clap_の定義自体が矛盾していない() {
+        // 短縮フラグの重複などを clap が検証してくれる。CLI が増えたら効いてくる。
+        Cli::command().debug_assert();
+    }
+
+    #[test]
+    fn field_省略時は行全体がキーになる() {
+        let cli = Cli::try_parse_from(["tally"]).expect("引数なしで解釈できるはず");
+        assert_eq!(cli.key(), Key::WholeLine);
+        assert_eq!(cli.format, Format::Text);
+    }
+
+    #[test]
+    fn field_指定時は_json_フィールドがキーになる() {
+        let cli = Cli::try_parse_from(["tally", "--field", "lvl"]).expect("解釈できるはず");
+        assert_eq!(cli.key(), Key::JsonField("lvl".to_owned()));
+    }
+
+    #[test]
+    fn 未知のフラグは失敗する() {
+        Cli::try_parse_from(["tally", "--nope"]).expect_err("未知のフラグは拒否されるはず");
+    }
+}

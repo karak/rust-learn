@@ -1,0 +1,37 @@
+# cargo-deny: 依存関係の脆弱性・ライセンス・重複を機械的に検査する。
+# 学習環境でも入れておくのは、Rust では「依存を足す判断」がスキルの一部だから。
+# `cargo deny check` で実行。
+
+[graph]
+all-features = true
+
+[advisories]
+# RustSec に既知の脆弱性がある依存は失敗させる。
+yanked = "deny"
+
+[licenses]
+# 許可リスト方式。ここに無いライセンスの依存が入ったら止まる。
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "MPL-2.0",
+    "CDLA-Permissive-2.0",
+]
+confidence-threshold = 0.9
+
+[bans]
+# 同じクレートの複数バージョンが同居している状態は、コンパイル時間と
+# 「同名だが別の型」問題の温床。学習中は警告にとどめる。
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(cargo check:*)",
+      "Bash(cargo c:*)",
+      "Bash(cargo build:*)",
+      "Bash(cargo test:*)",
+      "Bash(cargo t:*)",
+      "Bash(cargo nextest:*)",
+      "Bash(cargo clippy:*)",
+      "Bash(cargo lint:*)",
+      "Bash(cargo fmt:*)",
+      "Bash(cargo doc:*)",
+      "Bash(cargo tree:*)",
+      "Bash(cargo expand:*)",
+      "Bash(cargo deny check:*)",
+      "Bash(cargo metadata:*)",
+      "Bash(cargo run -p tally:*)",
+      "Bash(rustc --explain:*)",
+      "Bash(rustup show:*)",
+      "Bash(rustup component list:*)"
+    ],
+    "ask": [
+      "Bash(cargo add:*)",
+      "Bash(cargo remove:*)",
+      "Bash(cargo install:*)",
+      "Bash(cargo publish:*)",
+      "Bash(rustup default:*)",
+      "Bash(rustup toolchain:*)"
+    ]
+  },
+  "env": {
+    "RUST_BACKTRACE": "1"
+  }
+}
