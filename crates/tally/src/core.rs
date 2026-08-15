@@ -56,6 +56,69 @@ impl Key {
     }
 }
 
+/// 大小無視のために小文字化する。**変換が不要なら借用のまま返す。**
+///
+/// 判定に `char::is_uppercase()` を使わないのが要点。
+/// `'ǅ'` (U+01C5) は Unicode 上 Titlecase であり `is_uppercase()` は `false` を返すが、
+/// `to_lowercase()` では `'ǆ'` に変わる。「大文字か」ではなく
+/// **「小文字化で変化するか」** を直接見る必要がある。
+fn needs_lowering(value: &str) -> bool {
+    value.chars().any(|c| {
+        let mut lowered = c.to_lowercase();
+        // to_lowercase() は 1 文字とは限らない（'İ' U+0130 は 2 文字に伸びる）。
+        // 「1 文字に収まり、かつ元と同じ」ときだけ変換不要と判定する。
+        match (lowered.next(), lowered.next()) {
+            (Some(first), None) => first != c,
+            _ => true,
+        }
+    })
+}
+
+/// 小文字化した値を返す。呼び出し側のアロケーションを最小化する。
+fn fold_case(value: Cow<'_, str>) -> Cow<'_, str> {
+    if !needs_lowering(&value) {
+        // 大半の行がここを通る。借用は借用のまま、所有は所有のまま、追加確保なし。
+        return value;
+    }
+
+    if value.is_ascii() {
+        // ASCII に限れば小文字化で長さが変わらないため、その場で書き換えられる。
+        // 元が Cow::Owned なら into_owned() は確保を伴わないので、
+        // to_lowercase() と違って **2 度目のアロケーションを避けられる**。
+        let mut owned = value.into_owned();
+        owned.make_ascii_lowercase();
+        return Cow::Owned(owned);
+    }
+
+    // 非 ASCII は長さが変わりうるので、新しい String を組み立てるほかない。
+    Cow::Owned(value.to_lowercase())
+}
+
+/// 「どこからキーを取り、どう正規化するか」。
+///
+/// [`Key`][] を包むだけの薄い型だが、抽出（どこから）と正規化（どう揃えるか）を
+/// 分けておくと、後続のフラグ（`--strict`、`--filter`）を足すときに
+/// 各所のシグネチャを壊さずに済む。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Selector {
+    pub key: Key,
+    pub ignore_case: bool,
+}
+
+impl Selector {
+    /// 1 行からキーを取り出し、必要なら正規化する。
+    pub fn select<'a>(&self, line: &'a str, line_no: usize) -> Result<Option<Cow<'a, str>>> {
+        let Some(value) = self.key.extract(line, line_no)? else {
+            return Ok(None);
+        };
+        Ok(Some(if self.ignore_case {
+            fold_case(value)
+        } else {
+            value
+        }))
+    }
+}
+
 /// 集計結果の 1 行。
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Entry {
@@ -88,13 +151,13 @@ impl Counter {
     }
 
     /// 1 行を取り込む。空行は総数にも数えない。
-    pub fn push_line(&mut self, key: &Key, line: &str, line_no: usize) -> Result<()> {
+    pub fn push_line(&mut self, selector: &Selector, line: &str, line_no: usize) -> Result<()> {
         if line.trim().is_empty() {
             return Ok(());
         }
         self.total += 1;
 
-        match key.extract(line, line_no)? {
+        match selector.select(line, line_no)? {
             Some(extracted) => {
                 // entry API を使うと、存在チェックと挿入で 2 回ハッシュを引かずに済む。
                 // `into_owned()` はここで初めて確定的にアロケーションする。
@@ -135,11 +198,15 @@ impl Counter {
 }
 
 /// `BufRead` を丸ごと集計する。I/O に触れるのはこの関数だけ。
-pub fn tally_reader<R: BufRead>(reader: R, key: &Key, limit: Option<usize>) -> Result<Report> {
+pub fn tally_reader<R: BufRead>(
+    reader: R,
+    selector: &Selector,
+    limit: Option<usize>,
+) -> Result<Report> {
     let mut counter = Counter::new();
     for (index, line) in reader.lines().enumerate() {
         let line = line?;
-        counter.push_line(key, &line, index + 1)?;
+        counter.push_line(selector, &line, index + 1)?;
     }
     Ok(counter.report(limit))
 }
@@ -148,8 +215,35 @@ pub fn tally_reader<R: BufRead>(reader: R, key: &Key, limit: Option<usize>) -> R
 mod tests {
     use super::*;
 
+    /// 既存テスト用。大小無視なしの `Selector` を作る。
+    fn sel(key: Key) -> Selector {
+        Selector {
+            key,
+            ignore_case: false,
+        }
+    }
+
+    /// 大小無視ありの `Selector`。
+    fn sel_ci(key: Key) -> Selector {
+        Selector {
+            key,
+            ignore_case: true,
+        }
+    }
+
     fn tally_str(input: &str, key: &Key) -> Report {
-        tally_reader(input.as_bytes(), key, None).expect("集計に成功するはず")
+        tally_reader(input.as_bytes(), &sel(key.clone()), None).expect("集計に成功するはず")
+    }
+
+    /// 1 行だけ通してキーを取り出す。`Cow` の借用/所有を検査するために使う。
+    ///
+    /// 参照が 2 つあるため省略規則では出力の寿命が決まらない（E0106）。
+    /// 戻り値が借用しうるのは `line` の側なので、明示的に紐づける。
+    fn select_one<'a>(selector: &Selector, line: &'a str) -> Cow<'a, str> {
+        selector
+            .select(line, 1)
+            .expect("抽出に成功するはず")
+            .expect("値が存在するはず")
     }
 
     #[test]
@@ -208,8 +302,12 @@ mod tests {
     #[test]
     fn json_として壊れている行は行番号つきで失敗する() {
         let input = "{\"lvl\":\"info\"}\nnot json\n";
-        let err = tally_reader(input.as_bytes(), &Key::JsonField("lvl".to_owned()), None)
-            .expect_err("2 行目で失敗するはず");
+        let err = tally_reader(
+            input.as_bytes(),
+            &sel(Key::JsonField("lvl".to_owned())),
+            None,
+        )
+        .expect_err("2 行目で失敗するはず");
         assert!(
             matches!(err, TallyError::InvalidJson { line_no: 2, .. }),
             "実際のエラー: {err:?}"
@@ -218,9 +316,102 @@ mod tests {
 
     #[test]
     fn limit_は件数の多い順に切り詰める() {
-        let report = tally_reader("a\na\nb\nc\n".as_bytes(), &Key::WholeLine, Some(2))
+        let report = tally_reader("a\na\nb\nc\n".as_bytes(), &sel(Key::WholeLine), Some(2))
             .expect("集計に成功するはず");
         assert_eq!(report.entries.len(), 2);
         assert_eq!(report.entries[0].key, "a");
+    }
+
+    // --- 段階 1: --ignore-case ---
+
+    #[test]
+    fn ignore_case_で大文字小文字が同じキーに畳まれる() {
+        let report = tally_reader(
+            "Info\nINFO\ninfo\n".as_bytes(),
+            &sel_ci(Key::WholeLine),
+            None,
+        )
+        .expect("集計に成功するはず");
+        assert_eq!(
+            report.entries,
+            vec![Entry {
+                key: "info".to_owned(),
+                count: 3
+            }]
+        );
+    }
+
+    #[test]
+    fn ignore_case_なしなら大文字小文字は区別される() {
+        let report = tally_str("Info\ninfo\n", &Key::WholeLine);
+        assert_eq!(report.entries.len(), 2, "実際: {:?}", report.entries);
+    }
+
+    #[test]
+    fn 小文字化で変化しない値は借用のまま返る() {
+        // 段階 1 の主眼。to_lowercase() を無条件に呼ぶ実装にすると、
+        // Cow::Owned になってこのテストが落ちる。
+        let selector = sel_ci(Key::WholeLine);
+        let extracted = select_one(&selector, "already lower");
+        assert!(
+            matches!(extracted, Cow::Borrowed(_)),
+            "不要なアロケーションが発生している: {extracted:?}"
+        );
+    }
+
+    #[test]
+    fn 小文字化が必要な値だけが所有値になる() {
+        let selector = sel_ci(Key::WholeLine);
+        let extracted = select_one(&selector, "HAS Upper");
+        assert_eq!(extracted.as_ref(), "has upper");
+        assert!(matches!(extracted, Cow::Owned(_)));
+    }
+
+    #[test]
+    fn タイトルケース文字も畳まれる() {
+        // 'ǅ' (U+01C5) は Unicode 上 Titlecase であり to_lowercase() では 'ǆ' に変わる。
+        // まず「is_uppercase() では検出できない」という前提自体を固定しておく。
+        // この assert が落ちたら、needs_lowering の実装根拠が変わったということ。
+        assert!(
+            !'ǅ'.is_uppercase(),
+            "前提が崩れている: 'ǅ' が Uppercase 扱い"
+        );
+
+        let selector = sel_ci(Key::WholeLine);
+        assert_eq!(select_one(&selector, "ǅ").as_ref(), "ǆ");
+    }
+
+    #[test]
+    fn 小文字化で長さが変わる文字も壊れない() {
+        // 'İ' (U+0130) の小文字化は 2 文字（'i' + 合成用ドット）に伸びる。
+        // ASCII 前提の in-place 変換で処理すると壊れる。
+        let selector = sel_ci(Key::WholeLine);
+        let extracted = select_one(&selector, "İ");
+        assert_eq!(
+            extracted.chars().count(),
+            2,
+            "実際: {:?}",
+            extracted.as_ref()
+        );
+    }
+
+    #[test]
+    fn ignore_case_は値に効きフィールド名には効かない() {
+        // フィールド名の一致は厳密なまま。"Lvl" は "lvl" とは一致せずスキップされる。
+        let input = "{\"Lvl\":\"INFO\"}\n{\"lvl\":\"INFO\"}\n";
+        let report = tally_reader(
+            input.as_bytes(),
+            &sel_ci(Key::JsonField("lvl".to_owned())),
+            None,
+        )
+        .expect("集計に成功するはず");
+        assert_eq!(report.skipped, 1);
+        assert_eq!(
+            report.entries,
+            vec![Entry {
+                key: "info".to_owned(),
+                count: 1
+            }]
+        );
     }
 }

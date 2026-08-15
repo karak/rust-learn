@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, ValueEnum};
 
-use crate::core::Key;
+use crate::core::{Key, Selector};
 
 /// 出力形式。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -39,6 +39,13 @@ pub struct Cli {
     #[arg(long, value_enum, default_value_t = Format::Text)]
     pub format: Format,
 
+    /// 大文字小文字を区別せずに集計する。
+    ///
+    /// 正規化されるのは集計対象の値のみ。`--field` で指定するフィールド名の
+    /// 一致判定は厳密なままである点に注意。
+    #[arg(short = 'i', long)]
+    pub ignore_case: bool,
+
     /// 集計対象の行数・スキップ行数を標準エラーに出す。
     #[arg(long)]
     pub stats: bool,
@@ -51,6 +58,15 @@ impl Cli {
         match &self.field {
             Some(name) => Key::JsonField(name.clone()),
             None => Key::WholeLine,
+        }
+    }
+
+    /// 引数から「どこから取り、どう正規化するか」を決める。
+    #[must_use]
+    pub fn selector(&self) -> Selector {
+        Selector {
+            key: self.key(),
+            ignore_case: self.ignore_case,
         }
     }
 }
@@ -77,6 +93,33 @@ mod tests {
     fn field_指定時は_json_フィールドがキーになる() {
         let cli = Cli::try_parse_from(["tally", "--field", "lvl"]).expect("解釈できるはず");
         assert_eq!(cli.key(), Key::JsonField("lvl".to_owned()));
+    }
+
+    #[test]
+    fn ignore_case_は既定で無効() {
+        let cli = Cli::try_parse_from(["tally"]).expect("解釈できるはず");
+        assert!(!cli.ignore_case);
+        assert!(!cli.selector().ignore_case);
+    }
+
+    #[test]
+    fn ignore_case_は短縮形でも指定できる() {
+        for args in [["tally", "-i"], ["tally", "--ignore-case"]] {
+            let cli = Cli::try_parse_from(args).expect("解釈できるはず");
+            assert!(cli.selector().ignore_case, "失敗した引数: {args:?}");
+        }
+    }
+
+    #[test]
+    fn selector_は_field_と_ignore_case_の両方を反映する() {
+        let cli = Cli::try_parse_from(["tally", "--field", "lvl", "-i"]).expect("解釈できるはず");
+        assert_eq!(
+            cli.selector(),
+            Selector {
+                key: Key::JsonField("lvl".to_owned()),
+                ignore_case: true,
+            }
+        );
     }
 
     #[test]

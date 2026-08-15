@@ -96,6 +96,35 @@ fn stats_は標準出力を汚さず標準エラーに出る() {
 }
 
 #[test]
+fn ignore_case_で大文字小文字をまとめて集計する() {
+    tally()
+        .arg("--ignore-case")
+        .write_stdin("Info\nINFO\nwarn\ninfo\n")
+        .assert()
+        .success()
+        .stdout("3\tinfo\n1\twarn\n");
+}
+
+#[test]
+fn ignore_case_なしでは大文字小文字が分かれる() {
+    tally()
+        .write_stdin("Info\ninfo\n")
+        .assert()
+        .success()
+        .stdout("1\tInfo\n1\tinfo\n");
+}
+
+#[test]
+fn ignore_case_は_json_の値にも効く() {
+    tally()
+        .args(["--field", "lvl", "-i"])
+        .write_stdin("{\"lvl\":\"INFO\"}\n{\"lvl\":\"info\"}\n")
+        .assert()
+        .success()
+        .stdout("2\tinfo\n");
+}
+
+#[test]
 fn limit_で上位だけに絞る() {
     tally()
         .args(["-n", "1"])

@@ -9,7 +9,7 @@ use anyhow::Context as _;
 use clap::Parser as _;
 
 use tally::cli::{Cli, Format};
-use tally::core::{Report, tally_reader};
+use tally::core::{Report, Selector, tally_reader};
 use tally::error::TallyError;
 
 fn main() -> ExitCode {
@@ -45,15 +45,15 @@ fn init_tracing() {
 }
 
 fn run(cli: &Cli) -> anyhow::Result<()> {
-    let key = cli.key();
+    let selector = cli.selector();
 
     let report = if let Some(path) = cli.input.as_deref() {
         tracing::debug!(path = %path.display(), "ファイルから読み込みます");
-        read_file(path, &key, cli.limit)?
+        read_file(path, &selector, cli.limit)?
     } else {
         tracing::debug!("標準入力から読み込みます");
         let stdin = io::stdin();
-        tally_reader(stdin.lock(), &key, cli.limit).context("標準入力の集計に失敗しました")?
+        tally_reader(stdin.lock(), &selector, cli.limit).context("標準入力の集計に失敗しました")?
     };
 
     // stdout は行バッファリングされるため、大量出力では明示的に BufWriter で包む。
@@ -72,12 +72,12 @@ fn run(cli: &Cli) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn read_file(path: &Path, key: &tally::core::Key, limit: Option<usize>) -> anyhow::Result<Report> {
+fn read_file(path: &Path, selector: &Selector, limit: Option<usize>) -> anyhow::Result<Report> {
     let file = File::open(path).map_err(|source| TallyError::OpenInput {
         path: path.to_path_buf(),
         source,
     })?;
-    tally_reader(BufReader::new(file), key, limit)
+    tally_reader(BufReader::new(file), selector, limit)
         .with_context(|| format!("{} の集計に失敗しました", path.display()))
 }
 
