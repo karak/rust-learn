@@ -35,13 +35,12 @@
 
 - **実装は段階 1 まで完了。段階 2（エラーモデル）は未着手。**
   各段階の完了状況は `docs/curriculum.md` の見出しの（済）が正本
-- **精読済みは `crates/tally/src/core.rs` のみ。**
-  `error.rs` / `cli.rs` / `main.rs` / `tests/cli.rs` は未精読
+- **`crates/tally` の `.rs` は全て精読済み**（2026-08-15）
 - 公開済み: <https://github.com/karak/rust-learn>（public）
 - 題材は `crates/tally`（行指向データの度数集計 CLI）。ワークスペースのメンバはこれ 1 つ
 
-`docs/learning-log.md` には **未精読のファイルに触れる節がある。**
-読む順序を保ちたい場合、各節の冒頭に明記された対象ファイルを見て飛ばすこと。
+`docs/learning-log.md` は節ごとに対象ファイルを明記してある。
+全ファイルを精読済みなので、現時点で読む順序の制約はない。
 
 ## 再開の手順
 
