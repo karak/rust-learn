@@ -1,0 +1,51 @@
+{
+  "$schema": "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.schema.json",
+  "name": "rust-learn",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "workspaceFolder": "/workspaces/rust-learn",
+  "remoteUser": "vscode",
+
+  // target/ と cargo のキャッシュを名前付きボリュームに逃がす。
+  // macOS の bind mount は I/O が遅く、target/ を共有すると
+  // ビルドが数倍遅くなる。ホスト側の target/ とも分離される。
+  "mounts": [
+    "source=rust-learn-target,target=/workspaces/rust-learn/target,type=volume",
+    "source=rust-learn-cargo-registry,target=/usr/local/cargo/registry,type=volume"
+  ],
+
+  "containerEnv": {
+    "CARGO_TERM_COLOR": "always",
+    "RUST_BACKTRACE": "1"
+  },
+
+  // ボリュームは root 所有で作られるため、vscode に渡し直す。
+  // cargo fetch で依存を先に取り、初回ビルドをオフラインでも通るようにする。
+  "postCreateCommand": "sudo chown -R vscode:vscode /workspaces/rust-learn/target /usr/local/cargo/registry && cargo fetch --locked",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml",
+        "vadimcn.vscode-lldb",
+        "fill-labs.dependi"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        // rust-analyzer にも clippy を使わせ、エディタ上の診断を
+        // cargo lint / CI と一致させる。
+        "rust-analyzer.check.command": "clippy",
+        "rust-analyzer.check.extraArgs": ["--all-targets"],
+        "rust-analyzer.cargo.features": "all"
+      }
+    }
+  }
+
+  // 任意: コンテナ内で Claude Code を動かす場合は features に追加する。
+  // "features": {
+  //   "ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
+  // }
+  // 未検証のため既定では無効にしてある。
+}

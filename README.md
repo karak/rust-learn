@@ -8,6 +8,25 @@ CLI ツール開発を題材にした Rust 学習環境。
 
 ## セットアップ
 
+### A. devcontainer（推奨）
+
+コンパイラ・ツール・依存をコンテナに固定し、ホスト環境から隔離する。
+
+必要なもの: Docker 互換ランタイム（OrbStack / Docker Desktop / colima）。
+
+- **VS Code**: リポジトリを開き「Reopen in Container」。
+- **CLI**: `devcontainer up --workspace-folder .`
+
+`.devcontainer/Dockerfile` はツールチェーンを **`rust-toolchain.toml` と同じ 1.97.1** で
+焼き込んでいる。**片方を上げたら必ずもう片方も上げること。** ずれていると
+コンテナ起動後に rustup が別バージョンを追加取得し、固定した意味が消える。
+
+`target/` と cargo レジストリは名前付きボリュームに置いてある。
+macOS の bind mount は I/O が遅く、`target/` を共有するとビルドが大幅に遅くなるため。
+副作用として **ホスト側の `target/` とは完全に別物** になる。
+
+### B. ホストに直接
+
 `rust-toolchain.toml` があるため、`rustup` が自動でツールチェーンを揃える。
 追加で必要なもの:
 
