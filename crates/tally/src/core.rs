@@ -54,6 +54,17 @@ impl Key {
             }
         }
     }
+
+    /// 対象の JSON フィールド名。行全体をキーにする場合は `None`。
+    ///
+    /// `WholeLine` は値を取り出せないことが無いため、`--strict` の対象にならない。
+    /// その区別をここで型に落としている。
+    fn field_name(&self) -> Option<&str> {
+        match self {
+            Self::WholeLine => None,
+            Self::JsonField(name) => Some(name),
+        }
+    }
 }
 
 /// 大小無視のために小文字化する。**変換が不要なら借用のまま返す。**
@@ -94,22 +105,60 @@ fn fold_case(value: Cow<'_, str>) -> Cow<'_, str> {
     Cow::Owned(value.to_lowercase())
 }
 
-/// 「どこからキーを取り、どう正規化するか」。
+/// エラーメッセージに載せる行の抜粋の長さ（文字数）。
 ///
-/// [`Key`][] を包むだけの薄い型だが、抽出（どこから）と正規化（どう揃えるか）を
-/// 分けておくと、後続のフラグ（`--strict`、`--filter`）を足すときに
-/// 各所のシグネチャを壊さずに済む。
+/// 表示上の契約なので公開している。バイト数ではなく **文字数** である点に注意。
+pub const SNIPPET_CHARS: usize = 40;
+
+/// エラーメッセージ用に行の先頭を切り詰める。
+///
+/// **バイトではなく文字で数える。** `&line[..SNIPPET_CHARS]` と書くと、
+/// 日本語のようなマルチバイト文字の途中に当たった瞬間に panic する。
+///
+/// `char_indices().nth(n)` が返すバイト位置は **必ず文字境界** なので、
+/// そこで切る限りスライスは安全。文字を 1 つずつ `String` に積むより、
+/// 境界を求めて一度にコピーするほうが確保回数が少ない。
+fn snippet(line: &str) -> String {
+    match line.char_indices().nth(SNIPPET_CHARS) {
+        Some((boundary, _)) => {
+            let mut out = String::with_capacity(boundary + '…'.len_utf8());
+            out.push_str(&line[..boundary]);
+            out.push('…');
+            out
+        }
+        // 切り詰めが不要なら省略記号も付けない。
+        None => line.to_owned(),
+    }
+}
+
+/// 「どこからキーを取り、どう正規化し、欠損をどう扱うか」。
+///
+/// [`Key`][] を包むだけの薄い型だが、抽出（どこから）と正規化（どう揃えるか）と
+/// 厳格さ（欠損を許すか）を分けておくと、後続のフラグ（`--filter`）を足すときに
+/// 各所のシグネチャを壊さずに済む。段階 2 の `--strict` 追加では、
+/// 実際に `select` の呼び出し側を 1 箇所も変えずに済んだ。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selector {
     pub key: Key,
     pub ignore_case: bool,
+    /// キーを取り出せない行をエラーにするか。
+    pub strict: bool,
 }
 
 impl Selector {
     /// 1 行からキーを取り出し、必要なら正規化する。
     pub fn select<'a>(&self, line: &'a str, line_no: usize) -> Result<Option<Cow<'a, str>>> {
         let Some(value) = self.key.extract(line, line_no)? else {
-            return Ok(None);
+            // `--strict` は「取り出せたか否か」で一貫させる。
+            // キーの不在も値が null の場合も、区別せず失敗にする。
+            return match (self.strict, self.key.field_name()) {
+                (true, Some(field)) => Err(TallyError::MissingField {
+                    line_no,
+                    field: field.to_owned(),
+                    snippet: snippet(line),
+                }),
+                _ => Ok(None),
+            };
         };
         Ok(Some(if self.ignore_case {
             fold_case(value)
@@ -220,6 +269,7 @@ mod tests {
         Selector {
             key,
             ignore_case: false,
+            strict: false,
         }
     }
 
@@ -228,6 +278,16 @@ mod tests {
         Selector {
             key,
             ignore_case: true,
+            strict: false,
+        }
+    }
+
+    /// `--strict` ありの `Selector`。
+    fn sel_strict(key: Key) -> Selector {
+        Selector {
+            key,
+            ignore_case: false,
+            strict: true,
         }
     }
 
@@ -392,6 +452,131 @@ mod tests {
             2,
             "実際: {:?}",
             extracted.as_ref()
+        );
+    }
+
+    // --- 段階 2: --strict ---
+
+    /// `strict` で失敗させ、`MissingField` の中身を取り出す。
+    fn missing_field_err(input: &str, field: &str) -> (usize, String) {
+        let err = tally_reader(
+            input.as_bytes(),
+            &sel_strict(Key::JsonField(field.to_owned())),
+            None,
+        )
+        .expect_err("strict なので失敗するはず");
+        match err {
+            TallyError::MissingField {
+                line_no, snippet, ..
+            } => (line_no, snippet),
+            other => panic!("MissingField を期待したが {other:?}"),
+        }
+    }
+
+    #[test]
+    fn strict_でフィールドが無い行はエラーになる() {
+        let input = "{\"lvl\":\"info\"}\n{\"other\":1}\n";
+        let (line_no, _) = missing_field_err(input, "lvl");
+        assert_eq!(line_no, 2, "2 行目で失敗するはず");
+    }
+
+    #[test]
+    fn strict_では_null_値もエラーになる() {
+        // 「取り出せたか否か」で一貫させる設計なので、null も欠損と同じ扱い。
+        let input = "{\"lvl\":null}\n";
+        let (line_no, _) = missing_field_err(input, "lvl");
+        assert_eq!(line_no, 1);
+    }
+
+    #[test]
+    fn strict_なしなら従来どおりスキップされる() {
+        let input = "{\"lvl\":\"info\"}\n{\"other\":1}\n";
+        let report = tally_reader(
+            input.as_bytes(),
+            &sel(Key::JsonField("lvl".to_owned())),
+            None,
+        )
+        .expect("strict でなければ成功するはず");
+        assert_eq!(report.skipped, 1);
+    }
+
+    #[test]
+    fn strict_でも取り出せる行だけなら成功する() {
+        let input = "{\"lvl\":\"info\"}\n{\"lvl\":\"warn\"}\n";
+        let report = tally_reader(
+            input.as_bytes(),
+            &sel_strict(Key::JsonField("lvl".to_owned())),
+            None,
+        )
+        .expect("全行取り出せるので成功するはず");
+        assert_eq!(report.total, 2);
+        assert_eq!(report.skipped, 0);
+    }
+
+    #[test]
+    fn 行全体がキーなら_strict_でも失敗しない() {
+        // WholeLine は None を返さないため、strict は無効。
+        let report = tally_reader("a\nb\n".as_bytes(), &sel_strict(Key::WholeLine), None)
+            .expect("成功するはず");
+        assert_eq!(report.total, 2);
+    }
+
+    #[test]
+    fn 抜粋は先頭_40_文字に切り詰められる() {
+        let long = "x".repeat(100);
+        let input = format!("{{\"a\":1,\"pad\":\"{long}\"}}\n");
+        let (_, snippet) = missing_field_err(&input, "lvl");
+        assert_eq!(
+            snippet.chars().count(),
+            SNIPPET_CHARS + 1,
+            "40 文字 + 省略記号のはず: {snippet:?}"
+        );
+        assert!(snippet.ends_with('…'), "省略記号が無い: {snippet:?}");
+    }
+
+    #[test]
+    fn 抜粋がマルチバイト境界で切れても_panic_しない() {
+        // `&line[..40]` で切ると UTF-8 の途中に当たって panic する入力。
+        let ja = "あ".repeat(60);
+        let input = format!("{{\"a\":\"{ja}\"}}\n");
+        let (_, snippet) = missing_field_err(&input, "lvl");
+        assert_eq!(snippet.chars().count(), SNIPPET_CHARS + 1);
+    }
+
+    #[test]
+    fn 短い行には省略記号が付かない() {
+        let input = "{\"a\":1}\n";
+        let (_, snippet) = missing_field_err(input, "lvl");
+        assert_eq!(snippet, "{\"a\":1}");
+    }
+
+    #[test]
+    fn 抜粋の制御文字は生のまま表示されない() {
+        // 入力は信頼できない。復帰 (CR) が stderr にそのまま流れると、
+        // 端末ではカーソルが行頭へ戻り、直前の出力を上書きできてしまう。
+        //
+        // CR は JSON の空白として妥当なので、**この行は JSON としては正しい**。
+        // 逆に生の ESC を含む行は JSON として不正なので、この経路には到達しない
+        // （JSON 文字列は U+0000..=U+001F のエスケープを要求する）。
+        let input = "{\"a\":\r1}\n";
+        let err = tally_reader(
+            input.as_bytes(),
+            &sel_strict(Key::JsonField("lvl".to_owned())),
+            None,
+        )
+        .expect_err("strict なので失敗するはず");
+        assert!(
+            matches!(err, TallyError::MissingField { .. }),
+            "MissingField を期待したが {err:?}"
+        );
+        let msg = err.to_string();
+        assert!(
+            !msg.contains('\r'),
+            "生の制御文字がメッセージに含まれている: {msg:?}"
+        );
+        assert!(
+            msg.contains("\\r"),
+            "エスケープされた形で含まれるはず: {msg}"
         );
     }
 

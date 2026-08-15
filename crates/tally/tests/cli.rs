@@ -125,6 +125,27 @@ fn ignore_case_は_json_の値にも効く() {
 }
 
 #[test]
+fn strict_はフィールド欠損で失敗し行番号と抜粋を示す() {
+    tally()
+        .args(["--field", "lvl", "--strict"])
+        .write_stdin("{\"lvl\":\"info\"}\n{\"other\":1}\n")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("2 行目"))
+        .stderr(predicate::str::contains("other"));
+}
+
+#[test]
+fn strict_なしでは欠損行をスキップして成功する() {
+    tally()
+        .args(["--field", "lvl"])
+        .write_stdin("{\"lvl\":\"info\"}\n{\"other\":1}\n")
+        .assert()
+        .success()
+        .stdout("1\tinfo\n");
+}
+
+#[test]
 fn limit_で上位だけに絞る() {
     tally()
         .args(["-n", "1"])

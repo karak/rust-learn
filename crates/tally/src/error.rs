@@ -38,6 +38,20 @@ pub enum TallyError {
     /// 抽出対象のフィールドが文字列でも数値でもなかった。
     #[error("{line_no} 行目のフィールド `{field}` は文字列・数値・真偽値ではありません")]
     UnsupportedFieldType { line_no: usize, field: String },
+
+    /// `--strict` 指定時に、キーを取り出せない行を見つけた。
+    ///
+    /// **抜粋は `{:?}`（`str` の `Debug`）で出す。** 入力は信頼できず、
+    /// ANSI エスケープや制御文字をそのまま stderr へ流すと端末が乗っ取られる
+    /// （ログインジェクション）。`Debug` は制御文字を `\u{1b}` の形に直し、
+    /// 全体を引用符で囲むため、追加依存なしにこれを防げる。
+    #[error("{line_no} 行目からフィールド `{field}` を取り出せません: {snippet:?}")]
+    MissingField {
+        line_no: usize,
+        field: String,
+        /// 該当行の先頭を切り詰めたもの。
+        snippet: String,
+    },
 }
 
 /// このクレート共通の `Result`。

@@ -46,6 +46,13 @@ pub struct Cli {
     #[arg(short = 'i', long)]
     pub ignore_case: bool,
 
+    /// キーを取り出せない行があればエラーにする。
+    ///
+    /// 既定では、フィールドを持たない行は黙ってスキップする。
+    /// 入力の健全性を検査したいときに指定する。
+    #[arg(long)]
+    pub strict: bool,
+
     /// 集計対象の行数・スキップ行数を標準エラーに出す。
     #[arg(long)]
     pub stats: bool,
@@ -67,6 +74,7 @@ impl Cli {
         Selector {
             key: self.key(),
             ignore_case: self.ignore_case,
+            strict: self.strict,
         }
     }
 }
@@ -118,7 +126,23 @@ mod tests {
             Selector {
                 key: Key::JsonField("lvl".to_owned()),
                 ignore_case: true,
+                strict: false,
             }
+        );
+    }
+
+    #[test]
+    fn strict_は既定で無効() {
+        let cli = Cli::try_parse_from(["tally"]).expect("解釈できるはず");
+        assert!(!cli.selector().strict);
+    }
+
+    #[test]
+    fn strict_指定が_selector_に反映される() {
+        let cli = Cli::try_parse_from(["tally", "--strict"]).expect("解釈できるはず");
+        assert!(
+            cli.selector().strict,
+            "--strict が selector に伝わっていない"
         );
     }
 
