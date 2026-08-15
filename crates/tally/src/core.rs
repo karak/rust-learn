@@ -115,6 +115,10 @@ pub const SNIPPET_CHARS: usize = 40;
 /// **バイトではなく文字で数える。** `&line[..SNIPPET_CHARS]` と書くと、
 /// 日本語のようなマルチバイト文字の途中に当たった瞬間に panic する。
 ///
+/// ここでの「文字」は `char`（Unicode スカラ値）であって書記素クラスタではない。
+/// 結合文字や ZWJ 絵文字の途中で切れることはある（panic はしないが表示は崩れる）。
+/// 書記素まで見るには `unicode-segmentation` が要り、診断表示に見合わない。
+///
 /// `char_indices().nth(n)` が返すバイト位置は **必ず文字境界** なので、
 /// そこで切る限りスライスは安全。文字を 1 つずつ `String` に積むより、
 /// 境界を求めて一度にコピーするほうが確保回数が少ない。
@@ -532,6 +536,12 @@ mod tests {
             "40 文字 + 省略記号のはず: {snippet:?}"
         );
         assert!(snippet.ends_with('…'), "省略記号が無い: {snippet:?}");
+        // 長さだけ見ると「別の 40 文字」を取る実装（skip(1).take(40) 等）も通ってしまう。
+        let expected: String = input.trim_end().chars().take(SNIPPET_CHARS).collect();
+        assert!(
+            snippet.starts_with(&expected),
+            "先頭から取れていない: {snippet:?}"
+        );
     }
 
     #[test]
@@ -541,6 +551,12 @@ mod tests {
         let input = format!("{{\"a\":\"{ja}\"}}\n");
         let (_, snippet) = missing_field_err(&input, "lvl");
         assert_eq!(snippet.chars().count(), SNIPPET_CHARS + 1);
+        // 「どの 40 文字が残ったか」まで見る。境界処理を誤れば先頭からずれる。
+        let expected: String = input.trim_end().chars().take(SNIPPET_CHARS).collect();
+        assert!(
+            snippet.starts_with(&expected),
+            "先頭から取れていない: {snippet:?}"
+        );
     }
 
     #[test]
@@ -556,8 +572,10 @@ mod tests {
         // 端末ではカーソルが行頭へ戻り、直前の出力を上書きできてしまう。
         //
         // CR は JSON の空白として妥当なので、**この行は JSON としては正しい**。
-        // 逆に生の ESC を含む行は JSON として不正なので、この経路には到達しない
-        // （JSON 文字列は U+0000..=U+001F のエスケープを要求する）。
+        //
+        // 注意: JSON がエスケープを要求するのは C0 制御文字（U+0000..=U+001F）だけ。
+        // U+202E（RTL override）や U+007F（DEL）は合法な JSON 文字列を素通りして
+        // ここへ到達する。「JSON なら安全」は成り立たない。
         let input = "{\"a\":\r1}\n";
         let err = tally_reader(
             input.as_bytes(),

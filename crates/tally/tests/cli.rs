@@ -130,7 +130,8 @@ fn strict_はフィールド欠損で失敗し行番号と抜粋を示す() {
         .args(["--field", "lvl", "--strict"])
         .write_stdin("{\"lvl\":\"info\"}\n{\"other\":1}\n")
         .assert()
-        .failure()
+        // 完了条件は「終了コードが 1」。failure() は非ゼロしか見ないので code(1) を使う。
+        .code(1)
         .stderr(predicate::str::contains("2 行目"))
         .stderr(predicate::str::contains("other"));
 }

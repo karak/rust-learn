@@ -48,9 +48,17 @@ pub struct Cli {
 
     /// キーを取り出せない行があればエラーにする。
     ///
-    /// 既定では、フィールドを持たない行は黙ってスキップする。
+    /// 既定では、**指定フィールドを持たない行と、値が `null` の行**は黙ってスキップする。
     /// 入力の健全性を検査したいときに指定する。
-    #[arg(long)]
+    ///
+    /// なお、値が文字列・数値・真偽値のいずれでもない場合（配列やオブジェクト）は
+    /// このフラグに関わらず常にエラーになる。「値が無い」のではなく
+    /// 「集計に使えない形をしている」ため、既定でも見逃さない。
+    ///
+    /// `--field` を伴わないと意味を持たない（行全体をキーにする場合、
+    /// 取り出しに失敗しようがない）ため、clap の `requires` で関係を表明している。
+    /// 実行時に黙って無視するより、引数解釈の時点で拒否するほうが親切。
+    #[arg(long, requires = "field")]
     pub strict: bool,
 
     /// 集計対象の行数・スキップ行数を標準エラーに出す。
@@ -139,11 +147,20 @@ mod tests {
 
     #[test]
     fn strict_指定が_selector_に反映される() {
-        let cli = Cli::try_parse_from(["tally", "--strict"]).expect("解釈できるはず");
+        let cli =
+            Cli::try_parse_from(["tally", "--field", "lvl", "--strict"]).expect("解釈できるはず");
         assert!(
             cli.selector().strict,
             "--strict が selector に伝わっていない"
         );
+    }
+
+    #[test]
+    fn strict_は_field_なしでは指定できない() {
+        // --field が無ければキーは行全体になり、取り出しに失敗しようがない。
+        // 黙って無反応になるより、引数解釈の時点で拒否するほうが親切。
+        Cli::try_parse_from(["tally", "--strict"])
+            .expect_err("--field を伴わない --strict は拒否されるはず");
     }
 
     #[test]
