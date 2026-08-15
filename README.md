@@ -2,7 +2,10 @@
 
 CLI ツール開発を題材にした Rust 学習環境。
 
-- **学習の進め方** → [`docs/curriculum.md`](docs/curriculum.md)
+- **いまどこまで進んだか・再開するには** → [`docs/handoff.md`](docs/handoff.md)
+- **学習の進め方（全 10 段階）** → [`docs/curriculum.md`](docs/curriculum.md)
+- **得られた学び** → [`docs/learning-log.md`](docs/learning-log.md)
+- **進め方の振り返り** → [`docs/journal/`](docs/journal/)
 - **リポジトリの方針・Claude への指示** → [`CLAUDE.md`](CLAUDE.md)
 - **題材の CLI** → [`crates/tally/`](crates/tally/)
 
@@ -58,4 +61,5 @@ $ cat app.log | cargo run -q -p tally -- --field level -n 5 --format json
 ```
 
 `lib` と `bin` を分離し、集計ロジック（`core.rs`）は I/O を持たない。
-テスト 19 件のうち 11 件はプロセス起動なしで走る。
+**テストの大半がプロセス起動なしで走る**のが、この分割の目的。
+（件数は変動するので記載しない。`cargo t` で確認すること。）
