@@ -54,17 +54,6 @@ impl Key {
             }
         }
     }
-
-    /// 対象の JSON フィールド名。行全体をキーにする場合は `None`。
-    ///
-    /// `WholeLine` は値を取り出せないことが無いため、`--strict` の対象にならない。
-    /// その区別をここで型に落としている。
-    fn field_name(&self) -> Option<&str> {
-        match self {
-            Self::WholeLine => None,
-            Self::JsonField(name) => Some(name),
-        }
-    }
 }
 
 /// 大小無視のために小文字化する。**変換が不要なら借用のまま返す。**
@@ -105,10 +94,12 @@ fn fold_case(value: Cow<'_, str>) -> Cow<'_, str> {
     Cow::Owned(value.to_lowercase())
 }
 
-/// エラーメッセージに載せる行の抜粋の長さ（文字数）。
+/// エラーメッセージに載せる行の抜粋の長さ（文字数）。バイト数ではない。
 ///
-/// 表示上の契約なので公開している。バイト数ではなく **文字数** である点に注意。
-pub const SNIPPET_CHARS: usize = 40;
+/// 公開していないのは、外部に利用者がいないため。段階 5 で `tally-core` を
+/// 別クレートに切り出すと公開 API は semver の対象になるので、
+/// 必要になるまで surface を広げない。
+const SNIPPET_CHARS: usize = 40;
 
 /// エラーメッセージ用に行の先頭を切り詰める。
 ///
@@ -120,27 +111,33 @@ pub const SNIPPET_CHARS: usize = 40;
 /// 書記素まで見るには `unicode-segmentation` が要り、診断表示に見合わない。
 ///
 /// `char_indices().nth(n)` が返すバイト位置は **必ず文字境界** なので、
-/// そこで切る限りスライスは安全。文字を 1 つずつ `String` に積むより、
-/// 境界を求めて一度にコピーするほうが確保回数が少ない。
-fn snippet(line: &str) -> String {
+/// そこで切る限りスライスは安全。しかも `nth` は高々 41 文字で打ち切るため、
+/// 長い行を最後まで走査しない。
+///
+/// `[..].concat()` は連結後の長さを先に合計してから 1 回だけ確保する
+/// （`format!` と違い再確保しない）。戻り値を `Box<str>` にしているのは、
+/// 以後変更しない文字列だから。`String` は容量フィールドのぶん 24 バイトだが
+/// `Box<str>` は 16 バイトで、これが `TallyError` の大きさに効く。
+fn snippet(line: &str) -> Box<str> {
     match line.char_indices().nth(SNIPPET_CHARS) {
-        Some((boundary, _)) => {
-            let mut out = String::with_capacity(boundary + '…'.len_utf8());
-            out.push_str(&line[..boundary]);
-            out.push('…');
-            out
-        }
+        Some((boundary, _)) => [&line[..boundary], "…"].concat().into_boxed_str(),
         // 切り詰めが不要なら省略記号も付けない。
-        None => line.to_owned(),
+        None => line.into(),
     }
 }
 
 /// 「どこからキーを取り、どう正規化し、欠損をどう扱うか」。
 ///
 /// [`Key`][] を包むだけの薄い型だが、抽出（どこから）と正規化（どう揃えるか）と
-/// 厳格さ（欠損を許すか）を分けておくと、後続のフラグ（`--filter`）を足すときに
+/// 厳格さ（欠損を許すか）を分けておくと、フラグを足すときに
 /// 各所のシグネチャを壊さずに済む。段階 2 の `--strict` 追加では、
 /// 実際に `select` の呼び出し側を 1 箇所も変えずに済んだ。
+///
+/// **ただし何でもここに足してよいわけではない。** 境界は
+/// 「**どの行が集計に参加するか**」と「**参加する行がどうキーを産むか**」。
+/// 前者はパイプライン側（`tally_reader` のイテレータ合成）に置く。
+/// 段階 4 の `--filter` は前者なので、ここには来ない
+/// （`Regex` は `PartialEq` を実装しないため、derive も壊れる）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selector {
     pub key: Key,
@@ -155,13 +152,17 @@ impl Selector {
         let Some(value) = self.key.extract(line, line_no)? else {
             // `--strict` は「取り出せたか否か」で一貫させる。
             // キーの不在も値が null の場合も、区別せず失敗にする。
-            return match (self.strict, self.key.field_name()) {
-                (true, Some(field)) => Err(TallyError::MissingField {
+            //
+            // `_` を使わず全バリアントを書いているのは、`Key` に変種が増えたときに
+            // **黙って strict が無視される** のを防ぐため。コンパイルエラーになる。
+            // `WholeLine` は `extract` が `None` を返さないので、ここには到達しない。
+            return match &self.key {
+                Key::JsonField(field) if self.strict => Err(TallyError::MissingField {
                     line_no,
-                    field: field.to_owned(),
+                    field: field.as_str().into(),
                     snippet: snippet(line),
                 }),
-                _ => Ok(None),
+                Key::JsonField(_) | Key::WholeLine => Ok(None),
             };
         };
         Ok(Some(if self.ignore_case {
@@ -278,20 +279,21 @@ mod tests {
     }
 
     /// 大小無視ありの `Selector`。
+    ///
+    /// 構造体更新構文で `sel` に乗せているので、**フィールドが増えても
+    /// 直すのは `sel` だけで済む。** `--strict` 追加時は 3 つ全部を直す羽目になった。
     fn sel_ci(key: Key) -> Selector {
         Selector {
-            key,
             ignore_case: true,
-            strict: false,
+            ..sel(key)
         }
     }
 
     /// `--strict` ありの `Selector`。
     fn sel_strict(key: Key) -> Selector {
         Selector {
-            key,
-            ignore_case: false,
             strict: true,
+            ..sel(key)
         }
     }
 
@@ -461,20 +463,34 @@ mod tests {
 
     // --- 段階 2: --strict ---
 
-    /// `strict` で失敗させ、`MissingField` の中身を取り出す。
-    fn missing_field_err(input: &str, field: &str) -> (usize, String) {
-        let err = tally_reader(
+    /// `strict` で失敗させ、生のエラーを返す。
+    fn strict_err(input: &str, field: &str) -> TallyError {
+        tally_reader(
             input.as_bytes(),
             &sel_strict(Key::JsonField(field.to_owned())),
             None,
         )
-        .expect_err("strict なので失敗するはず");
-        match err {
+        .expect_err("strict なので失敗するはず")
+    }
+
+    /// `strict` で失敗させ、`MissingField` の中身を取り出す。
+    fn missing_field_err(input: &str, field: &str) -> (usize, String) {
+        match strict_err(input, field) {
             TallyError::MissingField {
                 line_no, snippet, ..
-            } => (line_no, snippet),
+            } => (line_no, snippet.into_string()),
             other => panic!("MissingField を期待したが {other:?}"),
         }
+    }
+
+    /// 抜粋が「先頭 `SNIPPET_CHARS` 文字 + 省略記号」になっていることを検査する。
+    ///
+    /// 長さだけ見ると「別の 40 文字」を取る実装（`skip(1).take(40)` 等）も
+    /// 通ってしまうため、文字列全体を突き合わせる。
+    fn assert_truncated_from_head(input: &str) {
+        let (_, snippet) = missing_field_err(input, "lvl");
+        let head: String = input.trim_end().chars().take(SNIPPET_CHARS).collect();
+        assert_eq!(snippet, format!("{head}…"), "抜粋が想定と違う");
     }
 
     #[test]
@@ -490,18 +506,6 @@ mod tests {
         let input = "{\"lvl\":null}\n";
         let (line_no, _) = missing_field_err(input, "lvl");
         assert_eq!(line_no, 1);
-    }
-
-    #[test]
-    fn strict_なしなら従来どおりスキップされる() {
-        let input = "{\"lvl\":\"info\"}\n{\"other\":1}\n";
-        let report = tally_reader(
-            input.as_bytes(),
-            &sel(Key::JsonField("lvl".to_owned())),
-            None,
-        )
-        .expect("strict でなければ成功するはず");
-        assert_eq!(report.skipped, 1);
     }
 
     #[test]
@@ -528,35 +532,14 @@ mod tests {
     #[test]
     fn 抜粋は先頭_40_文字に切り詰められる() {
         let long = "x".repeat(100);
-        let input = format!("{{\"a\":1,\"pad\":\"{long}\"}}\n");
-        let (_, snippet) = missing_field_err(&input, "lvl");
-        assert_eq!(
-            snippet.chars().count(),
-            SNIPPET_CHARS + 1,
-            "40 文字 + 省略記号のはず: {snippet:?}"
-        );
-        assert!(snippet.ends_with('…'), "省略記号が無い: {snippet:?}");
-        // 長さだけ見ると「別の 40 文字」を取る実装（skip(1).take(40) 等）も通ってしまう。
-        let expected: String = input.trim_end().chars().take(SNIPPET_CHARS).collect();
-        assert!(
-            snippet.starts_with(&expected),
-            "先頭から取れていない: {snippet:?}"
-        );
+        assert_truncated_from_head(&format!("{{\"a\":1,\"pad\":\"{long}\"}}\n"));
     }
 
     #[test]
     fn 抜粋がマルチバイト境界で切れても_panic_しない() {
         // `&line[..40]` で切ると UTF-8 の途中に当たって panic する入力。
         let ja = "あ".repeat(60);
-        let input = format!("{{\"a\":\"{ja}\"}}\n");
-        let (_, snippet) = missing_field_err(&input, "lvl");
-        assert_eq!(snippet.chars().count(), SNIPPET_CHARS + 1);
-        // 「どの 40 文字が残ったか」まで見る。境界処理を誤れば先頭からずれる。
-        let expected: String = input.trim_end().chars().take(SNIPPET_CHARS).collect();
-        assert!(
-            snippet.starts_with(&expected),
-            "先頭から取れていない: {snippet:?}"
-        );
+        assert_truncated_from_head(&format!("{{\"a\":\"{ja}\"}}\n"));
     }
 
     #[test]
@@ -576,13 +559,7 @@ mod tests {
         // 注意: JSON がエスケープを要求するのは C0 制御文字（U+0000..=U+001F）だけ。
         // U+202E（RTL override）や U+007F（DEL）は合法な JSON 文字列を素通りして
         // ここへ到達する。「JSON なら安全」は成り立たない。
-        let input = "{\"a\":\r1}\n";
-        let err = tally_reader(
-            input.as_bytes(),
-            &sel_strict(Key::JsonField("lvl".to_owned())),
-            None,
-        )
-        .expect_err("strict なので失敗するはず");
+        let err = strict_err("{\"a\":\r1}\n", "lvl");
         assert!(
             matches!(err, TallyError::MissingField { .. }),
             "MissingField を期待したが {err:?}"
