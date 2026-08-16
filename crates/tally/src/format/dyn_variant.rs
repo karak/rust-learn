@@ -4,7 +4,7 @@
 
 use std::io::{self, Write};
 
-use super::{Format, Report};
+use super::{Format, Report, quote_field};
 
 /// 1 つの出力形式。
 ///
@@ -36,6 +36,17 @@ impl Formatter for Json {
     }
 }
 
+struct Csv;
+
+impl Formatter for Csv {
+    fn write(&self, out: &mut dyn Write, report: &Report) -> io::Result<()> {
+        for entry in &report.entries {
+            writeln!(out, "{},{}", entry.count, quote_field(&entry.key))?;
+        }
+        Ok(())
+    }
+}
+
 /// 形式に対応する整形器を作る。
 ///
 /// `Text` も `Json` も ZST なので、**この `Box::new` はアロケーションしない**
@@ -45,6 +56,7 @@ pub fn formatter(format: Format) -> Box<dyn Formatter> {
     match format {
         Format::Text => Box::new(Text),
         Format::Json => Box::new(Json),
+        Format::Csv => Box::new(Csv),
     }
 }
 
@@ -55,7 +67,9 @@ pub fn write_report(out: &mut dyn Write, report: &Report, format: Format) -> io:
 
 #[cfg(test)]
 mod tests {
-    use super::super::test_support::{TEXT_EXPECTED, assert_json, rendered, sample};
+    use super::super::test_support::{
+        CSV_EXPECTED, TEXT_EXPECTED, assert_json, quoting_sample, rendered, sample,
+    };
     use super::{Format, write_report};
 
     #[test]
@@ -67,5 +81,11 @@ mod tests {
     #[test]
     fn json_形式は集計値を含み末尾に改行を付ける() {
         assert_json(&rendered(|buf| write_report(buf, &sample(), Format::Json)));
+    }
+
+    #[test]
+    fn csv_形式はヘッダ無しで必要なときだけ引用する() {
+        let out = rendered(|buf| write_report(buf, &quoting_sample(), Format::Csv));
+        assert_eq!(out, CSV_EXPECTED);
     }
 }

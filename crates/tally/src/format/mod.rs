@@ -25,6 +25,7 @@
 //!
 //! [ADR-0002]: ../../../../docs/adr/0002-output-format-abstraction.md
 
+use std::borrow::Cow;
 use std::io::{self, Write};
 
 use crate::core::Report;
@@ -44,6 +45,10 @@ pub enum Format {
     Text,
     /// JSON。機械可読な連携用。
     Json,
+    /// CSV。ヘッダ行なし・LF・必要なときだけ引用（[ADR-0003]）。
+    ///
+    /// [ADR-0003]: ../../../../docs/adr/0003-csv-output-contract.md
+    Csv,
 }
 
 /// 集計結果を指定形式で書き出す（**案 A**: enum + 自由関数 + `match`）。
@@ -63,8 +68,37 @@ pub fn write_report<W: Write>(out: &mut W, report: &Report, format: Format) -> i
             // 末尾に改行を足すのは、パイプで繋いだ次の出力と行が繋がらないようにするため。
             writeln!(out)?;
         }
+        Format::Csv => {
+            for entry in &report.entries {
+                writeln!(out, "{},{}", entry.count, quote_field(&entry.key))?;
+            }
+        }
     }
     Ok(())
+}
+
+/// CSV の 1 フィールドを、必要なときだけ二重引用符で囲む。
+///
+/// 規則は [ADR-0003] が正本。区切り `,`・引用符 `"`・CR・LF の
+/// いずれかを含むときだけ囲み、含まれる `"` は `""` に倍化する。
+///
+/// **戻り値が [`Cow`] なのは、大半の値が引用不要だから。** 囲む必要がなければ
+/// 入力をそのまま借用して返し、確保も複写も起きない。`String` を返す設計だと
+/// 「何もしない」場合にまで確保が生じる。
+///
+/// **3 案で共有する。** 引用規則は dispatch の形と無関係で、どの案でも同じものが
+/// 要る。ここを案ごとに複写すると、比較したいのは dispatch の差なのに、
+/// 定数分の差が 3 倍に見えてしまう。
+///
+/// [ADR-0003]: ../../../../docs/adr/0003-csv-output-contract.md
+fn quote_field(value: &str) -> Cow<'_, str> {
+    // 配列を渡すと「いずれかの文字を含むか」になる（`Pattern` の実装）。
+    // 4 回 contains を書くより速く、意図も直接読める。
+    if value.contains([',', '"', '\r', '\n']) {
+        Cow::Owned(format!("\"{}\"", value.replace('"', "\"\"")))
+    } else {
+        Cow::Borrowed(value)
+    }
 }
 
 /// 3 案に共通のテスト素材。
@@ -110,6 +144,37 @@ pub(crate) mod test_support {
         String::from_utf8(buf).expect("UTF-8 のはず")
     }
 
+    /// 引用が要るキーを含む標本。
+    ///
+    /// [`sample`] と分けてあるのは、text と JSON の期待値を単純に保ちたいから。
+    /// **CSV は引用規則を通ることまで確かめないと、案ごとに
+    /// `quote_field` を呼び忘れても気づけない。**
+    pub(crate) fn quoting_sample() -> Report {
+        Report {
+            entries: vec![
+                Entry {
+                    key: "plain".to_owned(),
+                    count: 2,
+                },
+                Entry {
+                    key: "a,b".to_owned(),
+                    count: 1,
+                },
+                Entry {
+                    key: "say \"hi\"".to_owned(),
+                    count: 1,
+                },
+            ],
+            skipped: 0,
+            total: 4,
+        }
+    }
+
+    /// [`quoting_sample`] を `--format csv` で出したときの期待出力。
+    ///
+    /// ヘッダ行が無いこと・改行が LF であることも、この文字列が保証している。
+    pub(crate) const CSV_EXPECTED: &str = "2,plain\n1,\"a,b\"\n1,\"say \"\"hi\"\"\"\n";
+
     /// JSON 出力が [`sample`] の集計値を表していることを確かめる。
     ///
     /// 文字列の部分一致ではなく、JSON として解釈して値を見る。
@@ -127,8 +192,10 @@ pub(crate) mod test_support {
 
 #[cfg(test)]
 mod tests {
-    use super::test_support::{TEXT_EXPECTED, assert_json, rendered, sample};
-    use super::{Format, write_report};
+    use super::test_support::{
+        CSV_EXPECTED, TEXT_EXPECTED, assert_json, quoting_sample, rendered, sample,
+    };
+    use super::{Cow, Format, quote_field, write_report};
 
     #[test]
     fn text_形式は件数とキーをタブ区切りで出す() {
@@ -139,5 +206,26 @@ mod tests {
     #[test]
     fn json_形式は集計値を含み末尾に改行を付ける() {
         assert_json(&rendered(|buf| write_report(buf, &sample(), Format::Json)));
+    }
+
+    #[test]
+    fn csv_形式はヘッダ無しで必要なときだけ引用する() {
+        let out = rendered(|buf| write_report(buf, &quoting_sample(), Format::Csv));
+        assert_eq!(out, CSV_EXPECTED);
+    }
+
+    #[test]
+    fn csv_の引用は必要なときだけ行う() {
+        assert_eq!(quote_field("plain"), "plain");
+        assert_eq!(quote_field("key,with,commas"), "\"key,with,commas\"");
+        assert_eq!(quote_field("say \"hi\""), "\"say \"\"hi\"\"\"");
+        assert_eq!(quote_field("two\nlines"), "\"two\nlines\"");
+        assert_eq!(quote_field("cr\rhere"), "\"cr\rhere\"");
+    }
+
+    #[test]
+    fn 引用が不要な値は借用のまま返る() {
+        // Cow を返す意味はここにある。確保が起きないことを型で確かめる。
+        assert!(matches!(quote_field("plain"), Cow::Borrowed(_)));
     }
 }

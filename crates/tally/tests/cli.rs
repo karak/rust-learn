@@ -58,6 +58,22 @@ fn json_出力は機械可読な形になる() {
         .stdout(predicate::str::contains("\"total\": 2"));
 }
 
+/// CSV にヘッダ行が無いことを、**stdout の完全一致**で検査する。
+///
+/// 部分一致では「余計な行が出ていない」ことを言えない。ヘッダの有無は
+/// [ADR-0003] が定めた利用者への契約なので、ここは完全一致で押さえる。
+///
+/// [ADR-0003]: ../../../docs/adr/0003-csv-output-contract.md
+#[test]
+fn csv_出力はヘッダ行を持たない() {
+    tally()
+        .args(["--format", "csv"])
+        .write_stdin("a\na\nb\n")
+        .assert()
+        .success()
+        .stdout("2,a\n1,b\n");
+}
+
 #[test]
 fn field_指定で_json_の値を集計する() {
     let input = "{\"lvl\":\"info\"}\n{\"lvl\":\"error\"}\n{\"lvl\":\"info\"}\n";
