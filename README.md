@@ -8,6 +8,7 @@ CLI ツール開発を題材にした Rust 学習環境。
 - **進め方の振り返り** → [`docs/journal/`](docs/journal/)
 - **リポジトリの方針・Claude への指示** → [`CLAUDE.md`](CLAUDE.md)
 - **題材の CLI** → [`crates/tally/`](crates/tally/)
+- **コードの配置ルール** → [`crates/tally/docs/layout.md`](crates/tally/docs/layout.md)
 
 ## セットアップ
 

@@ -12,7 +12,7 @@
 
 `crates/tally` は動く CLI として完成している。まずこれを読む。
 
-読む順序: `src/core.rs` → `src/error.rs` → `src/cli.rs` → `src/main.rs`。
+読む順序は `crates/tally/docs/layout.md` の「読む順序」に従う。
 **ロジックから読み、I/O を最後に読む。** この順で読めることが、この構成の目的でもある。
 
 問い:
@@ -161,7 +161,8 @@
 実装は `tally_reader` のループではなく、**イテレータアダプタの合成** で表現する。
 
 **設計上の制約**: `--filter` は `Selector` に入れない。理由は
-`docs/handoff.md` の「押さえておくべき設計判断」を参照（段階 2 の整理で確定した）。
+`crates/tally/docs/layout.md` の「押さえておくべき設計判断」を参照
+（段階 2 の整理で確定した）。
 
 **問い**: `for` ループ版とアダプタ版で、生成されるコードに差は出るか
 （`cargo asm` や `--release` でのベンチで確認する）。
