@@ -113,7 +113,7 @@ fn stats_は標準出力を汚さず標準エラーに出る() {
         .success()
         // stdout は集計結果だけ。パイプで繋いだ先が壊れないことの保証。
         .stdout("2\ta\n")
-        .stderr(predicate::str::contains("2 行を読み"));
+        .stderr(predicate::str::contains("2 行を集計し"));
 }
 
 #[test]
@@ -175,4 +175,62 @@ fn limit_で上位だけに絞る() {
         .assert()
         .success()
         .stdout("2\ta\n");
+}
+
+// --- 段階 4: --filter ---
+
+/// **上流で絞ってから渡した場合と、`--filter` で絞った場合の出力が一致する。**
+///
+/// `grep` を実際に起動して比べると、実装（BSD / GNU）と正規表現の方言に
+/// 依存したテストになる。ここで確かめたいのは `tally` 側の性質
+/// 「フィルタは集計の上流にある」なので、**入力を手で絞ったものと突き合わせる。**
+#[test]
+fn filter_の結果は事前に絞った入力と一致する() {
+    let full = "info: a\nwarn: b\ninfo: c\ndebug: d\ninfo: a\n";
+    let prefiltered = "info: a\ninfo: c\ninfo: a\n";
+
+    let with_filter = tally()
+        .args(["--filter", "^info", "--format", "json"])
+        .write_stdin(full)
+        .assert()
+        .success();
+    let without_filter = tally()
+        .args(["--format", "json"])
+        .write_stdin(prefiltered)
+        .assert()
+        .success();
+
+    assert_eq!(
+        with_filter.get_output().stdout,
+        without_filter.get_output().stdout,
+        "--filter は上流で絞るのと同じでなければならない（total と skipped も含めて）"
+    );
+}
+
+/// フィルタで行が落ちても、エラーは **入力ファイルの行番号** を指す。
+///
+/// ここがずれると、利用者はエラーを見ても該当行を開けない。
+#[test]
+fn filter_で落ちた行があってもエラーは入力の行番号を指す() {
+    // 3 行目が JSON として壊れている。2 行目はフィルタで落ちる。
+    let input = "{\"lvl\":\"info\"}\nDROP ME\nnot json\n";
+    tally()
+        .args(["--field", "lvl", "--filter", "^[^D]"])
+        .write_stdin(input)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("3 行目"));
+}
+
+/// 壊れた正規表現は **集計を始める前に** 引数の誤りとして拒否される。
+///
+/// 終了コード 2 は clap の規約。入力を読んでから失敗すると、
+/// パイプの上流が無駄に走る。
+#[test]
+fn 壊れた正規表現は終了コード_2_で拒否される() {
+    tally()
+        .args(["--filter", "["])
+        .write_stdin("a\n")
+        .assert()
+        .code(2);
 }

@@ -6,6 +6,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
+use regex::Regex;
 
 use crate::core::{Key, Selector};
 use crate::format::Format;
@@ -52,6 +53,18 @@ pub struct Cli {
     /// 実行時に黙って無視するより、引数解釈の時点で拒否するほうが親切。
     #[arg(long, requires = "field")]
     pub strict: bool,
+
+    /// この正規表現にマッチする行だけを集計する。
+    ///
+    /// **照合するのは生の行全体。** `--field` を指定していても、
+    /// 抽出後のキーではなく行そのものと突き合わせる。これにより
+    /// `tally --filter X` の出力が `grep X | tally` と一致する。
+    ///
+    /// **型を `Regex` にしているのは、解釈の時点で検証させるため。**
+    /// `String` で受けて後からコンパイルすると、入力を読み始めてから
+    /// 失敗する。引数の誤りは集計を始める前に終了コード 2 で返したい。
+    #[arg(long, value_name = "REGEX")]
+    pub filter: Option<Regex>,
 
     /// 集計対象の行数・スキップ行数を標準エラーに出す。
     #[arg(long)]
@@ -153,6 +166,29 @@ mod tests {
         // 黙って無反応になるより、引数解釈の時点で拒否するほうが親切。
         Cli::try_parse_from(["tally", "--strict"])
             .expect_err("--field を伴わない --strict は拒否されるはず");
+    }
+
+    #[test]
+    fn filter_は既定で無い() {
+        let cli = Cli::try_parse_from(["tally"]).expect("解釈できるはず");
+        assert!(cli.filter.is_none());
+    }
+
+    #[test]
+    fn filter_に正規表現を渡せる() {
+        let cli = Cli::try_parse_from(["tally", "--filter", "^err"]).expect("解釈できるはず");
+        let re = cli.filter.expect("--filter が保持されているはず");
+        assert!(re.is_match("error"), "先頭一致するはず");
+        assert!(!re.is_match("info"), "一致しないはず");
+        assert!(!re.is_match("an error"), "アンカーが効いているはず");
+    }
+
+    #[test]
+    fn 壊れた正規表現は引数解釈の時点で拒否される() {
+        // 実行時に初めて落ちると、入力を読み始めてから失敗する。
+        // 引数の誤りは終了コード 2 で、集計を始める前に返したい。
+        Cli::try_parse_from(["tally", "--filter", "["])
+            .expect_err("不正な正規表現は拒否されるはず");
     }
 
     #[test]

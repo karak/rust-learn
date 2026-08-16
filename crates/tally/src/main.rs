@@ -46,14 +46,18 @@ fn init_tracing() {
 
 fn run(cli: &Cli) -> anyhow::Result<()> {
     let selector = cli.selector();
+    // `--filter` 未指定なら全行を通す述語にする。core 側に `Option` を渡さないのは、
+    // 「フィルタが無い」を分岐として core に持ち込まないため。
+    let keep = |line: &str| cli.filter.as_ref().is_none_or(|re| re.is_match(line));
 
     let report = if let Some(path) = cli.input.as_deref() {
         tracing::debug!(path = %path.display(), "ファイルから読み込みます");
-        read_file(path, &selector, cli.limit)?
+        read_file(path, &selector, keep, cli.limit)?
     } else {
         tracing::debug!("標準入力から読み込みます");
         let stdin = io::stdin();
-        tally_reader(stdin.lock(), &selector, cli.limit).context("標準入力の集計に失敗しました")?
+        tally_reader(stdin.lock(), &selector, keep, cli.limit)
+            .context("標準入力の集計に失敗しました")?
     };
 
     // stdout は行バッファリングされるため、大量出力では明示的に BufWriter で包む。
@@ -64,20 +68,30 @@ fn run(cli: &Cli) -> anyhow::Result<()> {
     out.flush()?;
 
     if cli.stats {
+        // 「読み」ではなく「集計し」。`--filter` で除外した行は total に入らないので、
+        // 「読んだ行数」と言うと入力の行数と食い違う。
         eprintln!(
-            "{} 行を読み、{} 行をスキップしました",
+            "{} 行を集計し、{} 行をスキップしました",
             report.total, report.skipped
         );
     }
     Ok(())
 }
 
-fn read_file(path: &Path, selector: &Selector, limit: Option<usize>) -> anyhow::Result<Report> {
+fn read_file<F>(
+    path: &Path,
+    selector: &Selector,
+    keep: F,
+    limit: Option<usize>,
+) -> anyhow::Result<Report>
+where
+    F: Fn(&str) -> bool,
+{
     let file = File::open(path).map_err(|source| TallyError::OpenInput {
         path: path.to_path_buf(),
         source,
     })?;
-    tally_reader(BufReader::new(file), selector, limit)
+    tally_reader(BufReader::new(file), selector, keep, limit)
         .with_context(|| format!("{} の集計に失敗しました", path.display()))
 }
 

@@ -252,16 +252,53 @@ impl Counter {
 }
 
 /// `BufRead` を丸ごと集計する。I/O に触れるのはこの関数だけ。
-pub fn tally_reader<R: BufRead>(
+///
+/// `keep` が `false` を返した行は **集計にも総数にも入らない。**
+/// フィルタは集計の上流にあるという扱いで、`tally --filter X` の出力が
+/// `grep X | tally` と一致する。
+///
+/// **`Regex` ではなく述語を受け取る。** ここが `regex` に依存すると、
+/// 「行を数える」という core の関心事に正規表現の実装が混ざる。
+/// 述語なら呼び出し側が何で判定してもよく、テストも正規表現なしで書ける。
+///
+/// 境界が `FnMut` ではなく **`Fn`** なのは、判定に状態を持たせないため。
+/// 行の順序で結果が変わる述語（「最初の 10 行だけ」など）を渡せてしまうと、
+/// **フィルタが `--limit` と競合する別種の機能になる。**
+pub fn tally_reader<R, F>(
     reader: R,
     selector: &Selector,
+    keep: F,
     limit: Option<usize>,
-) -> Result<Report> {
-    let mut counter = Counter::new();
-    for (index, line) in reader.lines().enumerate() {
-        let line = line?;
-        counter.push_line(selector, &line, index + 1)?;
-    }
+) -> Result<Report>
+where
+    R: BufRead,
+    F: Fn(&str) -> bool,
+{
+    let counter = reader
+        .lines()
+        // **`filter` より前に置く。** ここを後ろにすると、落とした行のぶんだけ
+        // 行番号がずれ、エラーが指す行と入力の行が食い違う。
+        .enumerate()
+        // `Result` の中身にだけ触る。`Result<T, E>` は `map` を持つので、
+        // 成功のときだけ組を作り、失敗はそのまま素通しできる。
+        .map(|(index, line)| line.map(|line| (index + 1, line)))
+        .filter(|item| match item {
+            Ok((_, line)) => keep(line),
+            // **`Err` は必ず下流へ流す。** 述語で判定できないからと捨てると、
+            // I/O 失敗が「フィルタに合わなかった行」と区別できなくなり、
+            // 途中で読めなくなった入力が成功として集計される。
+            Err(_) => true,
+        })
+        // **`collect::<Result<Vec<_>, _>>()` を使わない。** 短絡はするが、
+        // 短絡するまでの成功分をすべて `Vec` に確保する。入力は標準入力の
+        // ストリームでありうるので、入力サイズぶんのメモリを要求する形にしない。
+        // `try_fold` なら 1 行ずつ畳み込み、最初のエラーで打ち切る。
+        .try_fold(Counter::new(), |mut counter, item| -> Result<Counter> {
+            let (line_no, line) = item?;
+            counter.push_line(selector, &line, line_no)?;
+            Ok(counter)
+        })?;
+
     Ok(counter.report(limit))
 }
 
@@ -298,7 +335,8 @@ mod tests {
     }
 
     fn tally_str(input: &str, key: &Key) -> Report {
-        tally_reader(input.as_bytes(), &sel(key.clone()), None).expect("集計に成功するはず")
+        tally_reader(input.as_bytes(), &sel(key.clone()), |_| true, None)
+            .expect("集計に成功するはず")
     }
 
     /// 1 行だけ通してキーを取り出す。`Cow` の借用/所有を検査するために使う。
@@ -371,6 +409,7 @@ mod tests {
         let err = tally_reader(
             input.as_bytes(),
             &sel(Key::JsonField("lvl".to_owned())),
+            |_| true,
             None,
         )
         .expect_err("2 行目で失敗するはず");
@@ -382,8 +421,13 @@ mod tests {
 
     #[test]
     fn limit_は件数の多い順に切り詰める() {
-        let report = tally_reader("a\na\nb\nc\n".as_bytes(), &sel(Key::WholeLine), Some(2))
-            .expect("集計に成功するはず");
+        let report = tally_reader(
+            "a\na\nb\nc\n".as_bytes(),
+            &sel(Key::WholeLine),
+            |_| true,
+            Some(2),
+        )
+        .expect("集計に成功するはず");
         assert_eq!(report.entries.len(), 2);
         assert_eq!(report.entries[0].key, "a");
     }
@@ -395,6 +439,7 @@ mod tests {
         let report = tally_reader(
             "Info\nINFO\ninfo\n".as_bytes(),
             &sel_ci(Key::WholeLine),
+            |_| true,
             None,
         )
         .expect("集計に成功するはず");
@@ -468,6 +513,7 @@ mod tests {
         tally_reader(
             input.as_bytes(),
             &sel_strict(Key::JsonField(field.to_owned())),
+            |_| true,
             None,
         )
         .expect_err("strict なので失敗するはず")
@@ -514,6 +560,7 @@ mod tests {
         let report = tally_reader(
             input.as_bytes(),
             &sel_strict(Key::JsonField("lvl".to_owned())),
+            |_| true,
             None,
         )
         .expect("全行取り出せるので成功するはず");
@@ -524,8 +571,13 @@ mod tests {
     #[test]
     fn 行全体がキーなら_strict_でも失敗しない() {
         // WholeLine は None を返さないため、strict は無効。
-        let report = tally_reader("a\nb\n".as_bytes(), &sel_strict(Key::WholeLine), None)
-            .expect("成功するはず");
+        let report = tally_reader(
+            "a\nb\n".as_bytes(),
+            &sel_strict(Key::WholeLine),
+            |_| true,
+            None,
+        )
+        .expect("成功するはず");
         assert_eq!(report.total, 2);
     }
 
@@ -582,6 +634,7 @@ mod tests {
         let report = tally_reader(
             input.as_bytes(),
             &sel_ci(Key::JsonField("lvl".to_owned())),
+            |_| true,
             None,
         )
         .expect("集計に成功するはず");
@@ -592,6 +645,51 @@ mod tests {
                 key: "info".to_owned(),
                 count: 1
             }]
+        );
+    }
+
+    // --- 段階 4: --filter ---
+
+    #[test]
+    fn filter_で落ちた行は集計にも総数にも入らない() {
+        // フィルタは集計の上流にある。落ちた行は「読まなかった」のと同じ扱いで、
+        // これにより `tally --filter X` の出力が `grep X | tally` と一致する。
+        let report = tally_reader(
+            "a\nb\na\n".as_bytes(),
+            &sel(Key::WholeLine),
+            |line| line != "b",
+            None,
+        )
+        .expect("集計に成功するはず");
+
+        assert_eq!(
+            report.entries,
+            vec![Entry {
+                key: "a".to_owned(),
+                count: 2
+            }]
+        );
+        assert_eq!(report.total, 2, "落ちた行を総数に入れてはいけない");
+        assert_eq!(report.skipped, 0, "落ちた行はスキップでもない");
+    }
+
+    #[test]
+    fn filter_で落ちた行も行番号に数える() {
+        // 3 行目が壊れている。2 行目を落としても「3 行目」と言えなければ、
+        // 利用者は入力ファイルの該当行を開けない。
+        // enumerate を filter より前に置くことでこれを保証する。
+        let input = "{\"lvl\":\"a\"}\nDROP ME\nnot json\n";
+        let err = tally_reader(
+            input.as_bytes(),
+            &sel(Key::JsonField("lvl".to_owned())),
+            |line| line != "DROP ME",
+            None,
+        )
+        .expect_err("3 行目で失敗するはず");
+
+        assert!(
+            matches!(err, TallyError::InvalidJson { line_no: 3, .. }),
+            "実際のエラー: {err:?}"
         );
     }
 }
