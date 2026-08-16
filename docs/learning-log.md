@@ -261,6 +261,36 @@ Scala の抽象型メンバと型パラメータの使い分けと同じ判断�
 **実装ごとに一意に決まるなら関連型**（`Iterator::Item`）、
 **呼び出し側が選ぶなら型パラメータ**（`From<T>`）。
 
+### 4-7. `dyn` のコストは思い込みで語れない（実測）
+
+trait object を避ける理由としてよく挙がる 2 つを測ったところ、**どちらも誤り**だった。
+
+**`Box::new(ZST)` はアロケーションしない。**
+グローバルアロケータを差し替えて数えると呼び出し回数は **0**。
+`size_of::<Zst>() == 0` なので確保すべきものが無く、`Box` は
+ダングリングでない適当なアドレスを持つだけ。
+**「状態を持たない型を `Box` に入れるのは無駄」という直感は成り立たない。**
+
+**enum から `Box<dyn Trait>` を作る対応表は、網羅性検査を失わない。**
+
+```rust
+fn formatter(f: Format) -> Box<dyn Formatter> {
+    match f {
+        Format::Text => Box::new(Text),
+        Format::Json => Box::new(Json),
+        // Csv を書き忘れると error[E0603] ではなく E0004
+    }
+}
+```
+
+`error[E0004]: non-exhaustive patterns` になる。
+**「trait にすると登録漏れが実行時バグになる」は、
+文字列キーのレジストリにした場合の話であって、`match` で書けば起きない。**
+
+残る `dyn` の実コストは **vtable の間接参照 1 回**と
+**オブジェクト安全性の制約**（ジェネリックメソッドを持てない）だけ。
+避けるかどうかは、この 2 つに見合うかで判断する。
+
 ---
 
 ## 5. serde（対象: `core.rs` / `main.rs`）
@@ -387,6 +417,36 @@ JSON のエスケープ（`\n` 等）がある行だけ新しい文字列が要�
 - **broken pipe を成功終了として扱う。** `tally big.log | head` は異常ではない
 - 色付けは `IsTerminal::is_terminal()` で条件づける
 - `BufWriter` は明示的に `flush` する。`Drop` は書き込みエラーを無視する
+
+### 7-1. clap は「閉じた集合」を要求しない（実測）
+
+`--format` のような選択肢つき引数に `derive(ValueEnum)` を使うと enum が要るため、
+**「clap が enum を要求する」と思い込みやすい。誤り。**
+
+`PossibleValuesParser` に **実行時に組み立てた候補列**を渡すだけで、
+`ValueEnum` も enum も使わずに次がすべて成立する。
+
+```rust
+Arg::new("format")
+    .long("format")
+    .value_parser(PossibleValuesParser::new(names))   // names は Vec<&'static str>
+```
+
+- ヘルプに `[possible values: text, json, csv]` が出る
+- 不正値は `ErrorKind::InvalidValue` で拒否される
+- シェル補完にも候補が出る
+
+したがって **「候補を閉じた集合にするか」は要件の話であって、clap の制約ではない。**
+第三者が形式を足せる設計にしたければ、レジストリから候補を組み立てればよい。
+
+**もう 1 つの制約:** `derive(ValueEnum)` は **unit variant しか受け付けない**
+（`only supports unit variants`）。`Csv { delimiter: char }` のような
+フィールド付きバリアントは書けないので、**選択肢ごとの設定値は
+CLI enum の外**（`match` の腕や別の型）で持つ必要がある。
+
+**一般則: 「ライブラリがこう要求する」と思ったら、
+それが本当に制約なのか、自分の要件なのかを切り分ける。**
+制約だと誤認すると、そこを支点にした設計判断がまるごと崩れる。
 
 ---
 
