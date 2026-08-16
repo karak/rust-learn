@@ -12,8 +12,15 @@
 
 `crates/tally` は動く CLI として完成している。まずこれを読む。
 
-読む順序は `crates/tally/docs/layout.md` の「読む順序」に従う。
-**ロジックから読み、I/O を最後に読む。** この順で読めることが、この構成の目的でもある。
+**読む順序**（ロジックから読み、I/O を最後に読む。この順で読めることが構成の目的でもある）:
+
+1. `src/core.rs` — 集計ロジック。I/O を持たない。テストの主戦場
+2. `src/error.rs` — ライブラリ境界のエラー型
+3. `src/cli.rs` — 引数定義
+4. `src/main.rs` — I/O と終了コードのみ
+5. `tests/cli.rs` — 統合テスト
+
+各ファイルに何を置いてよいかは `crates/tally/docs/layout.md` を参照。
 
 問い:
 - `Key::extract` の戻り値が `Result<Option<Cow<str>>>` である理由を、
