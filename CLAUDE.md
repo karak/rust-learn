@@ -58,6 +58,7 @@ clippy.toml                     lint 閾値
 deny.toml                       依存の脆弱性・ライセンス検査
 crates/tally/                   題材となる CLI。lib と bin を分離した実装の参照例
 crates/tally/docs/layout.md     そのクレートのコード配置ルール
+crates/tally/docs/output-format.md  出力の外部仕様（利用者への契約）
 docs/curriculum.md              学習ロードマップと各段階の実装の記録
 docs/learning-log.md            技術的な学び。他言語との差分
 docs/adr/                       アーキテクチャ意思決定記録（不変。新しい決定は新規 ADR）
@@ -79,6 +80,7 @@ docs/handoff.md                 現在地・再開手順・未決事項
 | CI の稼働状況 | GitHub Actions / `gh run list` — **文書に書かない** |
 | リポジトリの規約・方針 | この `CLAUDE.md` |
 | クレートのコード配置・設計判断 | `crates/tally/docs/layout.md` |
+| **利用者に対する外部仕様（出力形式・終了コード等）** | **`crates/tally/docs/output-format.md`** |
 | 段階の定義・課題・完了条件・実装の記録・読む順序 | `docs/curriculum.md` |
 | 技術的な学び、他言語との差分 | `docs/learning-log.md` |
 | **設計判断の過程・検討した代替案・却下理由** | **`docs/adr/`**（不変。変更は新規 ADR で supersede） |
@@ -93,12 +95,14 @@ docs/handoff.md                 現在地・再開手順・未決事項
 1. **git や cargo が答えられるか** → 書かない
 2. **時間とともに変わる状態か** → `docs/handoff.md`
 3. **リポジトリ全体の規約か** → `CLAUDE.md`
-4. **特定クレートの構造か** → そのクレートの `docs/`
-5. **代替案を検討したうえでの設計判断か** → `docs/adr/`
+4. **利用者が依存する外部の契約か** → `crates/tally/docs/output-format.md`
+   （**破ると利用者が壊れるもの**。実装の都合ではなく約束を書く）
+5. **特定クレートの内部構造か** → そのクレートの `docs/layout.md`
+6. **代替案を検討したうえでの設計判断か** → `docs/adr/`
    （結論だけなら `layout.md` の表。**過程に価値があるものだけ** ADR にする）
-6. **学習者への指示（何をどう学ぶか）か** → `docs/curriculum.md`
-7. **他言語との差分を含む知見か** → `docs/learning-log.md`
-8. **進め方の反省か** → `docs/journal/`
+7. **学習者への指示（何をどう学ぶか）か** → `docs/curriculum.md`
+8. **他言語との差分を含む知見か** → `docs/learning-log.md`
+9. **進め方の反省か** → `docs/journal/`
 
 ### 「記録」と「転記」は別物
 
