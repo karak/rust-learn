@@ -52,8 +52,8 @@ informed: —
 **すべての決定は済んだ。** 残るのは論点 7 の実測と、下記 Confirmation の実施。
 **これらを終えてから `accepted` にする**（[ADR-0002](0002-output-format-abstraction.md) と同じ手順）。
 
-**本 ADR の範囲外**: `Selector` の公開 API（`#[non_exhaustive]` + コンストラクタ）は
-別の判断であり、別 ADR で扱う。エラー型の形とは独立している。
+**本 ADR の範囲外**: `Selector` と `Key` の公開 API は
+[ADR-0005](0005-selector-public-api.md) が扱う。エラー型の形とは独立している。
 
 ---
 
@@ -119,13 +119,24 @@ pub enum TallyError {
 - **「行番号を持つが抜粋を持たない」状態が型として存在しなくなる**
 - `match` が 2 段になる（`TallyError::Line(e)` → `e.kind`）
 - `field` の型を `Box<str>` に統一する（`UnsupportedFieldType` が `String` だった）
-- **抜粋の生成箇所が増える。** これまで `snippet(line)` を呼んでいたのは
+- **抜粋を必要とする地点が増える。** これまで `snippet(line)` を呼んでいたのは
   `MissingField` を作る 1 箇所だけだったが、`InvalidJson` と
-  `UnsupportedFieldType` でも作ることになる。
+  `UnsupportedFieldType` も抜粋を持つことになる。
   **確保が増えるのは失敗時のみ**なので、成功パスのコストは変わらない
   （`docs/learning-log.md` 節 6-1 で測った「成功パスへの課税」とは別の話）
+
+  > **訂正（2026-08-17）**: 当初ここに「**生成箇所が 1 → 3 に増える**」と書いた。
+  > [ADR-0005](0005-selector-public-api.md) の論点 5 で
+  > **`LineError::new(line_no, line, kind)` に集約すると決めたので、
+  > 生成箇所は 1 箇所のまま**である。増えるのは「抜粋を持つエラーの種類」であって、
+  > 抜粋を作るコードの箇所ではない。
+
 - **`Key::extract` が行そのものを必要とする。** 抜粋を作るために引数の `line` を
   使うことになる。現状すでに受け取っているので、シグネチャは変わらない
+
+  > **訂正（2026-08-17）**: [ADR-0005](0005-selector-public-api.md) の論点 5 により、
+  > **`extract` は抜粋を作らない**（`LineErrorKind` を返し、`select` が文脈を付ける）。
+  > `line` は抽出そのものに必要なので引数には残るが、**`line_no` は消える。**
 - **`Display` と `source()` の合成規則を決める必要がある。** これは本 ADR では
   未決のまま実装に持ち越す。現状は 1 行の Display に外側の文脈（行番号・抜粋）と
   内側のデータ（フィールド名）が同居しており、**2 段に分けると
@@ -169,26 +180,25 @@ pub enum TallyError {
   **あの形が成立するのは `ErrorKind` が Copy でデータを持たないから**であり
   （matklad の分析）、`tally` の種類は `field` を伴うので前提が違う
 
-### `Selector` と方針が割れることについて
+### 型の役割によって結論が変わりうること
 
-**同じクレートの中で、`Selector` には `#[non_exhaustive]` を付ける方針、
-エラー型には付けない方針を採る。** 一見すると不整合なので理由を書く。
+**`Selector` について同じ判断をするとは限らない。** その判断は
+[ADR-0005](0005-selector-public-api.md) の論点 2 で扱う（**本 ADR の時点では未決**）。
+ここでは、結論が割れても不整合ではない理由だけを書く。
 
 **両者は使われ方が逆である。**
 
 | 型 | 外部での主な使われ方 | `#[non_exhaustive]` の効果 |
 | --- | --- | --- |
-| `Selector` | **構築される**（`Selector { .. }`） | リテラル構築を禁じ、**フィールド追加を非破壊にする** |
+| `Selector` | **構築される**（`Selector { .. }`） | リテラル構築を禁じ、フィールド追加を非破壊にする |
 | `TallyError` / `LineErrorKind` | **判別される**（`match err`） | 網羅性検査を取り上げ、**`_ =>` を強制する** |
-
-**構築される型では、閉じていることに利益が無い。** 外部が全フィールドを
-書けなければならない理由は無く、コンストラクタを通せば足りる。
 
 **判別される型では、閉じていることこそが利益である。**
 バリアントが増えたときに呼び出し側が止まることを、こちらは望んでいる。
+**だから本 ADR は付けない。**
 
-**つまり非対称なのは方針ではなく、型の役割のほう。**
-`Selector` の判断は別 ADR で扱うが、根拠はこの表と同じになる。
+構築される型では対価の形が違うので、**同じ根拠から逆の結論が出ることがある。**
+`Selector` をどうするかは ADR-0005 が決める。
 
 ---
 
@@ -204,11 +214,14 @@ pub enum TallyError {
 `tally_reader` だけが `TallyError` を返す。変換は `From<LineError> for TallyError` 1 つ。
 
 ```
-Key::extract       → Result<Option<Cow>, LineError>
+Key::extract       → Result<Option<Cow>, LineErrorKind>   // ADR-0005 論点 5
 Selector::select   → Result<Option<Cow>, LineError>
 Counter::push_line → Result<(), LineError>
-tally_reader       → Result<Report, TallyError>   // ? で自動変換
+tally_reader       → Result<Report, TallyError>            // ? で自動変換
 ```
+
+**`extract` だけ `LineErrorKind` なのは [ADR-0005](0005-selector-public-api.md)
+の論点 5 の決定による。** 行番号と抜粋は `select` が 1 回だけ付ける。
 
 **決め手は 2 つ。**
 
@@ -569,3 +582,4 @@ hint: --strict を外すと、この行はスキップされます
 | 4 | 2026-08-17 | 決定の完了 | 論点 6 を決定（hint を持つ / 範囲を絞る）。**全論点の決定が完了。** 残るは論点 7 の実測と Confirmation の実施 |
 | 5 | 2026-08-17 | 通読による整理 | 各論点で導入・決定・選択肢の順序を揃えた（決定の後に導入が残っていた）。論点 6 に欠けていた選択肢の見出しを補完。Confirmation の番号の重複を修正。**欠落していた 2 点を追記**: 抜粋の生成箇所が増える帰結（論点 1）と、`Selector` と方針が割れる理由（論点 2） |
 | 6 | 2026-08-17 | 敵対的レビューの反映 | **誤りの訂正**: 「`main.rs` はロジックを持たない」の出典は `layout.md` ではなく `lib.rs`。`layout.md` はむしろ終了コードを `main.rs` に許可しており、「方針違反」は誇張だった。**過大な主張の是正**: 5b の網羅性検査は `TallyError` 由来の分類にしか効かず（BrokenPipe は `main.rs` の stdout 書き込み由来）、終了コード `2` は clap 側に残る。論点 1 の「`match` 不要」は論点 3 を採った文脈でのみ成立。`#[non_exhaustive]` の対価を enum / バリアント / 構造体で分けた。**未検討だった `Display` と `source()` の合成規則**を、実装へ持ち越す唯一の項目として明記し Confirmation に追加 |
+| 7 | 2026-08-17 | 帰結の訂正と未決事項の是正 | **未決定を既定として書いていた箇所を 3 つ是正**: `Selector` に `#[non_exhaustive]` を付ける方針だと 2 箇所で断定していたが、それは ADR-0005 の論点 2 であり未決。論点 3 の図で `extract` の戻り値を `LineError` としていたが `LineErrorKind` が正しい。あわせて論点 1 の帰結 2 点を [ADR-0005](0005-selector-public-api.md) の論点 5 の決定に合わせて訂正。**「抜粋の生成箇所が 1 → 3 に増える」は偽**（`LineError::new` に集約するため 1 箇所のまま）。`extract` は抜粋を作らず、`line_no` 引数が消える |
