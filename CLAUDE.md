@@ -60,6 +60,7 @@ crates/tally/                   題材となる CLI。lib と bin を分離し�
 crates/tally/docs/layout.md     そのクレートのコード配置ルール
 docs/curriculum.md              学習ロードマップと各段階の実装の記録
 docs/learning-log.md            技術的な学び。他言語との差分
+docs/adr/                       アーキテクチャ意思決定記録（不変。新しい決定は新規 ADR）
 docs/journal/                   進め方の振り返り（KPT、日付ごと）
 docs/handoff.md                 現在地・再開手順・未決事項
 .claude/skills/                 このリポジトリ固有のスキル
@@ -80,6 +81,7 @@ docs/handoff.md                 現在地・再開手順・未決事項
 | クレートのコード配置・設計判断 | `crates/tally/docs/layout.md` |
 | 段階の定義・課題・完了条件・実装の記録・読む順序 | `docs/curriculum.md` |
 | 技術的な学び、他言語との差分 | `docs/learning-log.md` |
+| **設計判断の過程・検討した代替案・却下理由** | **`docs/adr/`**（不変。変更は新規 ADR で supersede） |
 | 進め方の振り返り | `docs/journal/` |
 | 現在地・再開手順・未決事項 | `docs/handoff.md` |
 | セットアップとコマンド | `README.md` |
@@ -92,9 +94,11 @@ docs/handoff.md                 現在地・再開手順・未決事項
 2. **時間とともに変わる状態か** → `docs/handoff.md`
 3. **リポジトリ全体の規約か** → `CLAUDE.md`
 4. **特定クレートの構造か** → そのクレートの `docs/`
-5. **学習者への指示（何をどう学ぶか）か** → `docs/curriculum.md`
-6. **他言語との差分を含む知見か** → `docs/learning-log.md`
-7. **進め方の反省か** → `docs/journal/`
+5. **代替案を検討したうえでの設計判断か** → `docs/adr/`
+   （結論だけなら `layout.md` の表。**過程に価値があるものだけ** ADR にする）
+6. **学習者への指示（何をどう学ぶか）か** → `docs/curriculum.md`
+7. **他言語との差分を含む知見か** → `docs/learning-log.md`
+8. **進め方の反省か** → `docs/journal/`
 
 ### 「記録」と「転記」は別物
 
