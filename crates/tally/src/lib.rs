@@ -15,5 +15,6 @@
 pub mod cli;
 pub mod core;
 pub mod error;
+pub mod format;
 
 pub use error::{Result, TallyError};

@@ -5,18 +5,10 @@
 
 use std::path::PathBuf;
 
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 
 use crate::core::{Key, Selector};
-
-/// 出力形式。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub enum Format {
-    /// `件数<TAB>キー` のタブ区切り。他の Unix ツールに繋ぐ前提。
-    Text,
-    /// JSON。機械可読な連携用。
-    Json,
-}
+use crate::format::Format;
 
 /// 行指向データの度数を集計する。
 #[derive(Debug, Parser)]

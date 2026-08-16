@@ -8,7 +8,7 @@ use std::process::ExitCode;
 use anyhow::Context as _;
 use clap::Parser as _;
 
-use tally::cli::{Cli, Format};
+use tally::cli::Cli;
 use tally::core::{Report, Selector, tally_reader};
 use tally::error::TallyError;
 
@@ -60,7 +60,7 @@ fn run(cli: &Cli) -> anyhow::Result<()> {
     // 包まないと 1 行ごとに write(2) が走り、数十倍遅くなることがある。
     let stdout = io::stdout();
     let mut out = io::BufWriter::new(stdout.lock());
-    write_report(&mut out, &report, cli.format)?;
+    tally::format::write_report(&mut out, &report, cli.format)?;
     out.flush()?;
 
     if cli.stats {
@@ -79,21 +79,6 @@ fn read_file(path: &Path, selector: &Selector, limit: Option<usize>) -> anyhow::
     })?;
     tally_reader(BufReader::new(file), selector, limit)
         .with_context(|| format!("{} の集計に失敗しました", path.display()))
-}
-
-fn write_report<W: Write>(out: &mut W, report: &Report, format: Format) -> anyhow::Result<()> {
-    match format {
-        Format::Text => {
-            for entry in &report.entries {
-                writeln!(out, "{}\t{}", entry.count, entry.key)?;
-            }
-        }
-        Format::Json => {
-            serde_json::to_writer_pretty(&mut *out, report)?;
-            writeln!(out)?;
-        }
-    }
-    Ok(())
 }
 
 /// エラーチェーンのどこかに `BrokenPipe` があるか。
