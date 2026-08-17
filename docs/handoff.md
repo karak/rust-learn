@@ -88,8 +88,10 @@
    移行するなら新しい ADR で supersede する（ADR-0002 は書き換えない）
 3. **`Selector` と `Key` の公開 API は
    [ADR-0005](adr/0005-selector-public-api.md) が正本。**
-   **5 論点のうち 4 つ決定済み**（1・2・3・5）。**残り 1 つが未着手**:
-   - 論点 4: derive をどこまで公開の約束にするか（`PartialEq` / `Eq`）
+   **全 5 論点の決定は完了。未決定は無い。**
+   残るのは実装後の作業だけ:
+   - **Confirmation の表（11 項目）を実施する。** 段階 5 の実装後
+   - 終えたら ADR-0005 を `accepted` にする
 
    **案と pros/cons は論点を扱うときに書く方針**（まとめて書くと粗くなり、
    却下案を不利に書く偏りが検出されないまま溜まるため。理由は ADR の冒頭）
@@ -110,7 +112,11 @@
    - **段 2: JSONPath** — 戻り値が 0..n で「1 行 = 1 カウント」が崩れる。
      `Report` の合計・`skipped` の意味・
      `crates/tally/docs/output-format.md` の外部契約に触れる。
-     **採るなら新規 ADR。** クレートは jsonpath-rust か serde_json_path
+     **採るなら新規 ADR。** クレートは jsonpath-rust か serde_json_path。
+     **その ADR を書くときに 2 点を再確認する**（論点 4 で判明）—
+     jsonpath-rust が RFC 9535 準拠かどうか（ADR-0005 論点 3 の表と食い違う情報がある）、
+     および `jsonpath_rust::parser::model::JpQuery` が `Eq` を実装しないこと
+     （採ると `Key` の `Eq` を手書きするか外すことになり、後者は破壊的変更）
 6. **`--strict` は最初の 1 件で止まる（fail fast）。** 入力検査用途では
    「全件報告してから失敗」のほうが有用な場面がある。段階 2 では意図的に見送った。
    必要になれば `--max-errors` を足す
