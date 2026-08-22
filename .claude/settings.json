@@ -19,7 +19,9 @@
       "Bash(cargo run -p tally:*)",
       "Bash(rustc --explain:*)",
       "Bash(rustup show:*)",
-      "Bash(rustup component list:*)"
+      "Bash(rustup component list:*)",
+      "Bash(./scripts/check-docs.sh:*)",
+      "Bash(scripts/check-docs.sh:*)"
     ],
     "ask": [
       "Bash(cargo add:*)",
@@ -32,6 +34,19 @@
   },
   "env": {
     "RUST_BACKTRACE": "1"
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/check-docs.sh"
+          }
+        ]
+      }
+    ]
   },
   "enabledPlugins": {
     "rust-analyzer-lsp@claude-plugins-official": true
