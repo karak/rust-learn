@@ -1,5 +1,5 @@
 ---
-status: "proposed"
+status: "accepted"
 date: 2026-08-17
 decision-makers: 学習者, Claude
 consulted: 外部文献（下記「参照した文献」）
@@ -8,9 +8,12 @@ informed: —
 
 # エラー型の形: 判別とフィールド取り出しの人間工学
 
-**まだ `accepted` ではない。** 論点の決定はすべて済んでいるが、
-**論点 7 の実測と Confirmation の実施が残っている。**
-それらを終えてから `accepted` にする（[ADR-0001](0001-record-architecture-decisions.md) の手順）。
+**`accepted`**（2026-08-19）。全論点の決定、論点 7 の実測、
+Confirmation の 6 項目をすべて終えた。実装は `crates/tally-core/src/error.rs`
+（ライブラリ側）と `crates/tally/src/error.rs`（CLI 側）にある。
+
+**この文書は以後変更しない。** 決定を覆すときは新しい ADR で supersede する
+（[ADR-0001](0001-record-architecture-decisions.md) の手順）。
 
 ## コンテキストと問題提起
 
@@ -76,9 +79,9 @@ informed: —
 | 4 | `serde_json::Error` を `#[source]` として公開するか | **決定済み** | **newtype で隠す** |
 | 5 | ライブラリのエラーと CLI 固有のエラーを分けるか | **決定済み** | 分ける（CLI 固有の型を持つ） |
 | 6 | 対処の示唆（hint）を型で持つか | **決定済み** | 持つ（範囲を絞る） |
-| 7 | エラー型の大きさの変化 | **未測定** | 測定義務。実装後に測る |
+| 7 | エラー型の大きさの変化 | **実測済み**（2026-08-19） | `TallyError` は 48 バイトのまま。最内段だけ 48 → 32 |
 
-**すべての決定は済んだ。** 残るのは論点 7 の実測と、下記 Confirmation の実施。
+**すべての決定・実測・Confirmation が済んだ**（2026-08-19）。
 **これらを終えてから `accepted` にする**（[ADR-0002](0002-output-format-abstraction.md) と同じ手順）。
 
 **本 ADR の範囲外**: `Selector` と `Key` の公開 API は
@@ -593,7 +596,7 @@ hint: --strict を外すと、この行はスキップされます
 
 ---
 
-## 論点 7: エラー型の大きさ（未測定）
+## 論点 7: エラー型の大きさ（実測済み）
 
 段階 2 で **`Result<T, E>` の大きさは最大バリアントで決まり、
 その `Result` は 1 行につき 3 段返る**ことを実測した
@@ -601,8 +604,45 @@ hint: --strict を外すと、この行はスキップされます
 
 論点 1 の変更は各バリアントの構成を変えるため、大きさが変わる。
 
-**憶測で書かない。** `size_of::<TallyError>()` と `size_of::<LineError>()` を
-実装後に測り、変更前の値と並べて記録する。**測る前にこの節へ数値を書かない。**
+### 実測（2026-08-19、aarch64 / rustc 1.97.1）
+
+変更前の値は `dc6641d` を一時ワークツリーに取り出して測った。
+**単位はバイト。**
+
+| 型 | 変更前 | 変更後 |
+| --- | --- | --- |
+| `TallyError` | 48 | **48**（変わらず） |
+| `LineError` | — | 48 |
+| `LineErrorKind` | — | 24 |
+| `JsonError` | — | 8 |
+
+**1 行ごとに返る 3 段**（`docs/learning-log.md` 節 6-1 で数えたもの）:
+
+| 段 | 変更前の戻り値型 | 大きさ | 変更後の戻り値型 | 大きさ |
+| --- | --- | --- | --- | --- |
+| `Key::extract` | `Result<Option<Cow>, TallyError>` | 48 | `Result<Option<Cow>, LineErrorKind>` | **32** |
+| `Selector::select` | `Result<Option<Cow>, TallyError>` | 48 | `Result<Option<Cow>, LineError>` | 48 |
+| `Counter::push_line` | `Result<(), TallyError>` | 48 | `Result<(), LineError>` | 48 |
+
+**読み取れたこと。**
+
+1. **`TallyError` は 48 バイトのまま変わらなかった。** 論点 1 で
+   `MissingField { line_no, field, snippet }`（8 + 16 + 16 = 40 + 判別）を
+   `Line(LineError)` に置き換えたが、`LineError` 自身が同じ 48 バイトになる
+   （`line_no` 8 + `snippet` 16 + `kind` 24）。**入れ子にしても平らにしても同じ。**
+   段階 2 で `String` → `Box<str>` に替えて 56 → 48 に落としたぶんが、
+   ここでも同じ理由（`field` が `Box<str>`）で効いている
+2. **最内段だけ 48 → 32 に縮んだ。** [ADR-0005](0005-selector-public-api.md)
+   論点 5 で `extract` の戻り値を `LineErrorKind` に絞った帰結である。
+   `LineErrorKind` は 24 バイトで、`Option<Cow<str>>`（24）と同じ幅に収まるため
+   `Result` が 32 で足りる。**論点 3 で「分ける」を採った理由は
+   表明としての明確さだったが、副産物として大きさも落ちた**
+3. **`JsonError` は 8 バイト。** `serde_json::Error` が内部で `Box` を持つので、
+   newtype で包んでも `LineErrorKind` を太らせない。
+   **論点 4 の「型が 1 つ増える」という代償に、大きさの代償は含まれない**
+
+**憶測で書かない**という当初の指示は守った — 表の数値はすべて
+`size_of` を実行して得たもので、変更前の値も実際に旧コードを動かして測った。
 
 ---
 
@@ -623,6 +663,37 @@ hint: --strict を外すと、この行はスキップされます
 6. 論点 7 の実測値を記録する
 
 段階 5 の完了条件は `docs/curriculum.md` が正本。ここには重複させない。
+
+### 実施結果（2026-08-19）
+
+**6 項目すべて通った。**
+
+| # | 結果 | 何をどう確かめたか |
+| --- | --- | --- |
+| 1 | ✅ | `tests/` に `pub fn p(e: LineError) -> (usize, String) { (e.line_no, e.snippet.into_string()) }` を一時的に置いてコンパイルが通ることを確認し、消した。**`match` を含まずに行番号と抜粋が取れる。** `TallyError` からは `Line(e)` を 1 回剥がす（想定どおり） |
+| 2 | ✅ | `Selector::select` は `Result<Option<Cow<'a, str>>, LineError>`（`crates/tally-core/src/select.rs`） |
+| 3 | ✅ | `CliError::exit_code` のユニットテスト 6 件が全バリアント + broken pipe（直接・包まれた両方）を覆う。統合テストから終了コードの網羅を外し、**`2`（clap 由来、プロセス起動しないと観測できない）だけを残した。** 統合テストは 17 件 → 15 件 |
+| 4 | ✅ | `hint_は_stderr_にのみ出る` が **stdout の完全一致（`""`）と stderr の部分一致の 2 方向**を見る。加えて `示唆の無い失敗では_hint_行が出ない` を追加した（範囲を絞る規則が実際に効いているかは、出ないことでしか確かめられない） |
+| 5 | ✅ | **決めた規則を `crates/tally-core/src/error.rs` のモジュールドキュメントに表で書いた。** `LineError` の `Display` が行番号・`kind` の文・抜粋を 1 行にまとめ、`source()` は **`kind` を飛ばして** その原因を指す。素朴に `#[source] kind` と書くと連結表示で `kind` の文が 2 度出るため、[`Error`] を手書きしている。`抜粋の制御文字は生のまま表示されない` と `単一のエラーの表示だけでエスケープが成立している` の 2 件が、**単一エラーの `to_string()`** でエスケープが成立していることを保っている |
+| 6 | ✅ | 上の「論点 7」節 |
+
+### Confirmation で判明したこと
+
+**表に無いことが 2 つ出た。どちらも実装時の判断として記録する。**
+
+1. **`anyhow` を残さず一本化した。** 論点 5 は「実装時の判断」として送っていた項目。
+   `anyhow::Error` は不透明なので、終了コードを **網羅性検査を受ける `match`** で
+   書けない。context のためだけに残すと **エラーの表現が 2 系統**になり、
+   どちらに文脈を足すかがそのつど揺れる。
+   `.context()` は文脈をバリアントとして型に持つ形で置き換え、
+   `{:#}` と `Error::chain()` は `tally::error::one_line`（`source()` を辿る 9 行）で置き換えた。
+   **`CLAUDE.md` の方針 3 を破る判断なので、`CLAUDE.md` 側にも理由を書いた。**
+2. **`CliErrorKind::Tally` を `#[error(transparent)]` にして、path の文脈を足さなかった。**
+   `anyhow` 時代は `.context("{path} の集計に失敗しました")` を被せていたが、
+   開けなかった場合は `TallyError::OpenInput` が既に path を持っており
+   **同じ path が 2 度出る。** 入力は最大 1 つなので、
+   読み取り途中の失敗で path が出ないことは受け入れた。
+   **複数入力を扱うようになったら見直す。**
 
 ## 参照した文献
 
@@ -659,3 +730,4 @@ hint: --strict を外すと、この行はスキップされます
 | 6 | 2026-08-17 | 敵対的レビューの反映 | **誤りの訂正**: 「`main.rs` はロジックを持たない」の出典は `layout.md` ではなく `lib.rs`。`layout.md` はむしろ終了コードを `main.rs` に許可しており、「方針違反」は誇張だった。**過大な主張の是正**: 5b の網羅性検査は `TallyError` 由来の分類にしか効かず（BrokenPipe は `main.rs` の stdout 書き込み由来）、終了コード `2` は clap 側に残る。論点 1 の「`match` 不要」は論点 3 を採った文脈でのみ成立。`#[non_exhaustive]` の対価を enum / バリアント / 構造体で分けた。**未検討だった `Display` と `source()` の合成規則**を、実装へ持ち越す唯一の項目として明記し Confirmation に追加 |
 | 8 | 2026-08-17 | **前提の書き換えと 2 決定の変更** | 射程を「自分専用の補助ツール」から **「AI コーディング用のハーネス（自前ルールの linter / 外部連携の入り口）を作るための設計判断」** へ広げた。判断の基準を「いまこの規模で必要か」から **「中規模の実務ツールで公開 API だったときの定石はどうか」** へ置き換えた（前者は案件規模が小さいため常に「不要」を返し、粗雑な方向にしか倒れないため）。**1.0 以前は破壊的変更を受け入れる**という但し書きを追加。**論点 2 を変更**: 一律に付けないのをやめ、型ごとに分けた（`TallyError` は閉じたまま、`LineErrorKind` に `#[non_exhaustive]`）。**論点 4 を変更**: 公開のままから **newtype で隠す**へ |
 | 7 | 2026-08-17 | 帰結の訂正と未決事項の是正 | **未決定を既定として書いていた箇所を 3 つ是正**: `Selector` に `#[non_exhaustive]` を付ける方針だと 2 箇所で断定していたが、それは ADR-0005 の論点 2 であり未決。論点 3 の図で `extract` の戻り値を `LineError` としていたが `LineErrorKind` が正しい。あわせて論点 1 の帰結 2 点を [ADR-0005](0005-selector-public-api.md) の論点 5 の決定に合わせて訂正。**「抜粋の生成箇所が 1 → 3 に増える」は偽**（`LineError::new` に集約するため 1 箇所のまま）。`extract` は抜粋を作らず、`line_no` 引数が消える |
+| 9 | 2026-08-19 | **実装・実測・Confirmation の完了。`accepted` へ** | 段階 5 で実装した。**論点 7 を実測**（変更前の値は旧コミットを一時ワークツリーに取り出して測った）: `TallyError` は 48 バイトのまま変わらず、**最内段の戻り値だけ 48 → 32 に縮んだ**（ADR-0005 論点 5 の副産物）。`JsonError` は 8 バイトで、newtype の代償に大きさは含まれないことを確認。**Confirmation 6 項目すべて通過。** 実装時に決めた 2 件を追記 — **`anyhow` を残さず一本化した**（不透明な型では終了コードの網羅性検査が書けず、併用すると表現が 2 系統になる）、**`CliErrorKind::Tally` を transparent にした**（path が 2 度出るのを避けた） |

@@ -1,5 +1,5 @@
 ---
-status: "proposed"
+status: "accepted"
 date: 2026-08-17
 decision-makers: 学習者, Claude
 consulted: —
@@ -10,7 +10,12 @@ informed: —
 
 **論点ごとに、扱うときに案と評価を書き足していく文書である。**
 **全 5 論点の決定が完了した**（2026-08-17）。
-`status` が `proposed` のままなのは、Confirmation を段階 5 の実装で実施するため。
+
+**`accepted`**（2026-08-19）。段階 5 で実装し、Confirmation の 11 項目をすべて終えた。
+実装は `crates/tally-core/src/select.rs`（`Key` / `Selector`）と
+`crates/tally-core/src/count.rs`（`Counter` と `strict`）にある。
+
+**この文書は以後変更しない。** 決定を覆すときは新しい ADR で supersede する。
 
 ## この文書の書き方（先に宣言する）
 
@@ -75,6 +80,8 @@ informed: —
 | 3 | `Key` の拡張余地をどう扱うか（2 軸に分割） | **決定済み** | — |
 | 4 | derive をどこまで公開の約束にするか（2 軸に分割） | **決定済み** | — |
 | 5 | `select` の戻り値の形 | **決定済み** | ~~論点 1~~（**依存は消えた**） |
+
+**すべての決定・Confirmation が済んだ**（2026-08-19）。
 
 **扱う順序**: 論点 1 → 5 → 2 → 3 → 4。
 論点 1 が設計インパクトが最大であるため
@@ -949,10 +956,46 @@ doc に書けば足りる。
 決定の帰結として実装時に決めると書いたものであり、**本 ADR は形を指定していない。**
 確認対象にしない。
 
+### 実施結果（2026-08-19）
+
+**11 項目すべて通った。**
+
+| # | 確認すること | 結果 | 何をどう確かめたか |
+| --- | --- | --- | --- |
+| 1 | `Selector` に `strict` フィールドが無い | ✅ | `select.rs` の構造体は `key` と `ignore_case` の 2 つだけ |
+| 1 | `select` から防御的な `match` が消え、`let ... else` 1 行になっている | ✅ | `select` の本体は `let Some(value) = ... else { return Ok(None) }` の 1 本。**`match` は `Counter::on_missing` へ移った**（`strict` と一緒に動いた。消滅したのではない） |
+| 2 | `Selector` のフィールドが全て非公開で、`new` / `ignore_case` / `key` がある | ✅ | 3 つとも実装した |
+| 2 | **`tally` バイナリ側から `Selector { .. }` を書くとコンパイルが通らない** | ✅ | `tests/` に一時ファイルを置いて確認し、消した。**E0451**（`fields key and ignore_case of struct Selector are private`）。フィールドを読むだけでも **E0616** |
+| 3 | `Key` に `#[non_exhaustive]` が付いている | ✅ | `select.rs` の enum 定義 |
+| 3 | **`extract` の `match` に `_ =>` が無いままコンパイルが通る**（定義元では属性が無効） | ✅ | `extract` の `self` に対する `match` は `Self::WholeLine` と `Self::JsonField` の 2 本だけで `_ =>` が無い。**同じ関数の中にある `_ =>` は `serde_json::Value` に対するもの**で、こちらは無関係（`Array` / `Object` を畳んでいる）。外から網羅 `match` すると **E0004** になることも一時ファイルで確認した |
+| 4 | `Key` と `Selector` の derive が `Debug, Clone, PartialEq, Eq` の 4 つ | ✅ | 両方 `#[derive(Debug, Clone, PartialEq, Eq)]` |
+| 4 | **両者の doc に「この 4 つは公開の約束」と書かれている** | ✅ | `Key` に「# 公開の約束」節を置き、孤児ルールによる非対称（トレイト実装は下流が自分では埋められない）まで書いた。`Selector` はそこを参照している |
+| 5 | **`snippet(` の呼び出しが 1 箇所だけ**（`LineError::new` の中） | ✅ | `grep -rn 'snippet(' crates/` の結果、本番コードの呼び出しは `error.rs` の `LineError::new` 内 1 箇所。他は関数定義とテストの assert |
+| 5 | `Key::extract` の引数から `line_no` が消えている | ✅ | `fn extract<'a>(&self, line: &'a str) -> Result<Option<Cow<'a, str>>, LineErrorKind>` |
+| 5 | `select` の doc に `None` の意味が書かれている | ✅ | 「# 戻り値」節で 3 つの場合を列挙し、**`Ok(None)` を失敗として扱うかは呼び出し側の方針**であることを明記した |
+
+### 実装時に決めたこと（本 ADR が形を指定していなかった項目）
+
+1. **`Counter::new` と `Default` の関係**: `Default` を derive し、
+   `new()` はその薄い包み。`strict` は `Selector::ignore_case` と同じ形の
+   ビルダー（`Counter::new().strict(true)`）にした。**2 つの型で構築の作法を揃える**
+   ほうが、覚えることが少ない
+2. **`Key` のフィールド名の取得手段**: **アクセサを足さなかった。**
+   `Counter::on_missing` が `selector.key()` を `match` して
+   `Key::JsonField(field)` から直接取る。`Key` に `field_name()` のような
+   メソッドを足すと、**`WholeLine` に対して `None` を返す**形になり、
+   「フィールド名を持たないバリアント」の存在が呼び出し側に漏れる
+3. **`tally_reader` が `Counter` を第 1 引数で受ける**（`Counter` を内部で作らない）。
+   `strict` が `Counter` に移った以上、**その方針を決めるのは呼び出し側**である。
+   `&mut Counter` を受けて `Report` を返さない形（`limit` も外れて 4 引数になる）も
+   考えたが、**本 ADR も ADR-0004 も `tally_reader` の形については何も決めていない**ので、
+   強制された変更の最小に留めた。複数入力を 1 つの集計に合流させたくなったら見直す
+
 ## 改訂履歴
 
 | 版 | 日付 | 種別 | 内容 |
 | --- | --- | --- | --- |
+| 8 | 2026-08-19 | **実装と Confirmation の完了。`accepted` へ** | 段階 5 で実装した。**Confirmation 11 項目すべて通過。** カプセル化は一時ファイルをコンパイルさせて確かめた（**E0451** / **E0616** / **E0004**）。**Confirmation の 1 項目に読み違いがあったので明記した** — 「`select` から防御的な `match` が消え」は消滅ではなく **`Counter::on_missing` への移動**である（`strict` と一緒に動いた）。「`extract` の `match` に `_ =>` が無い」は `Key` に対する `match` の話で、同じ関数の中の `serde_json::Value` に対する `_ =>` とは別物。**本 ADR が形を指定していなかった 3 項目**（`Counter::new` と `Default`、`Key` のフィールド名取得、`tally_reader` の引数）の実装時判断を追記 |
 | 7 | 2026-08-17 | 論点 4 の決定と Confirmation | 論点 4 も直交する 2 軸（どのトレイトを約束するか / 約束をどう固定するか）に分けた。軸 E は 4 つとも約束（4a）、軸 F は doc に明記（F2）。**コード変更はゼロ。決め手は孤児ルール** — 「必要になるまで surface を広げない」が効くのは下流が自分で埋められる場合だけで、トレイト実装は下流が絶対に書けない。C-COMMON-TRAITS の根拠はこの非対称にある。**論点 3 が「未確認」として送った宿題を確認し、そこに書いた見立てが外れていた**（`Regex` / `JpQuery` / `serde_json_path::JsonPath` の実装を調べたところ、壊れうるのは `Eq` だけで、しかも jsonpath-rust の側だけ）。**Cargo Book にトレイト実装の追加・削除を扱う節が無いことも確認**（全節を列挙）。**Confirmation を全 5 論点ぶん書いた** |
 | 6 | 2026-08-17 | 論点 3 の決定 | 論点 3 も直交する 2 軸（判別の可否 / ペイロードの型）に分けた。軸 C は `#[non_exhaustive] pub enum`（3b）、軸 D は `JsonField(String)` のまま（D1）。**決め手は調査で置き換えた** — 「JSON の情報量を上げる」には二段あり、段 1（JSON Pointer）は `serde_json` に既にあって依存ゼロだが**先頭 `/` を要求するので既存バリアントに畳めず新バリアントになる**。段 2（JSONPath）は戻り値が 0..n で集計モデルと `output-format.md` の契約に触れるため**別 ADR**。**対称性の検査で不整合 2 件を訂正**（`Deserialize` の扱いが案ごとに逆だった、D2 を推した当初の決め手が消えていた）。**改訂履歴の並びが崩れていたので降順に直した** |
 | 5 | 2026-08-17 | 論点 2 の決定と論点 1 の訂正 | **射程を広げた前提**（ADR-0004 の「前提」節）で論点 2 を決定: 非公開フィールド + ビルダー（B2）。`#[non_exhaustive]` は非公開フィールドがあれば冗長になるので付けない。**論点 1 の「判断が変わる条件」を訂正**: 「数えない利用者は方針を持てない」は誤りで、各消費者が自分の方針を持つのが正しい。消費者が増えるほど 1b は強まる |
