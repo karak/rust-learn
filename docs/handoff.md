@@ -9,70 +9,77 @@
 （この文書自身が、複製で矛盾を起こした当事者なので）。
 
 要点だけ: **この文書は「状態」だけを持つ。** 現在地、再開手順、未決事項。
-規約は `CLAUDE.md`、クレートの構造は `crates/tally/docs/layout.md`、
-学習の進め方は `docs/curriculum.md`、学びは `docs/learning-log.md`。
+規約は `CLAUDE.md`、クレートの構造は各クレートの `docs/layout.md`、
+学習の進め方（予）は `docs/curriculum.md`、
+**各段階の実績（実）は `docs/stage-log.md`**、学びは `docs/learning-log.md`。
+
+**「完了した実績」はここに書かない。** `stage-log.md` の領分である。
+ここに書くのは「いまどこにいるか」だけ。
 
 ## 現在地
 
-- **実装は段階 4 まで完了。段階 5（モジュール・クレート設計）はコード未着手。**
-  各段階の完了状況は `docs/curriculum.md` の見出しの（済）が正本
-- **段階 5 の着手前設計は完了した**（2026-08-17）。
-  [ADR-0004](adr/0004-error-type-shape.md)（論点 1〜6。論点 7 は決定ではなく実測）と
-  [ADR-0005](adr/0005-selector-public-api.md)（全 5 論点）の**決定は全て済んでいる。**
-  **どちらも `status` は `proposed`。** Confirmation を実装後に実施して `accepted` にする。
-  **次のセッションは、設計の議論ではなく実装から始めてよい**
-- **`crates/tally` の `.rs` は全て精読済み**（2026-08-15）
+- **実装は段階 5 まで完了**（2026-08-19）。**段階 6（並行・並列）はコード未着手。**
+  **各段階の実績は `docs/stage-log.md` が正本**（節がある段階が完了した段階）。
+  段階の定義・完了条件は `docs/curriculum.md`
+- **ワークスペースのメンバは 2 つになった。**
+  `crates/tally-core`（集計コア。`clap` も `anyhow` も持たない）と
+  `crates/tally`（薄い CLI）
+- **[ADR-0004](adr/0004-error-type-shape.md) と
+  [ADR-0005](adr/0005-selector-public-api.md) は `accepted` になった。**
+  実装・実測・Confirmation をすべて終えた。**この 2 つに残作業は無い**
+- **`tally` は `anyhow` を使わない。** `CLAUDE.md` の方針 3 を段階 5 で書き換えた
 - 公開済み: <https://github.com/karak/rust-learn>（public）
-- 題材は `crates/tally`（行指向データの度数集計 CLI）。ワークスペースのメンバはこれ 1 つ
 
-`docs/learning-log.md` は節ごとに対象ファイルを明記してある。
-全ファイルを精読済みなので、現時点で読む順序の制約はない。
+`docs/learning-log.md` は節ごとに対象ファイルを明記してある（「読み方」の表）。
+**その表が唯一の索引である。** 見出しにも同じことを書いていたが、
+段階 5 のファイル移動で片方だけ腐ったので見出しから落とした。
 
 ## 再開の手順
 
-1. **`cargo lint` と `cargo t` を実行して、現在の状態を自分で確認する。**
-   この文書の記述を信じない
+1. **`cargo lint` と `cargo t` と `cargo test --workspace --doc` を実行して、
+   現在の状態を自分で確認する。** この文書の記述を信じない
+   （nextest はドキュメントテストを実行しないので 3 つ目が要る）
 2. `docs/curriculum.md` 段階 0 の「読む順序」に従い、次に触る範囲を読む
 3. `docs/curriculum.md` の該当段階を読む
+4. **ブランチを切る。** `main` に直接コミットしない。
+   手順とブランチ名の規則は `CLAUDE.md`「ブランチ運用」が正本
+   （[ADR-0006](adr/0006-branching-strategy.md)）
 
 セットアップとコマンドは `README.md` を参照。
 
 ## クレートの構造
 
-**コードの配置と設計判断は `crates/tally/docs/layout.md` が正本。**
+**コードの配置と設計判断は、それぞれのクレートの `docs/layout.md` が正本。**
+
+- `crates/tally-core/docs/layout.md` — 集計コア
+- `crates/tally/docs/layout.md` — CLI
+
 この文書には書かない（クレートの性質であって、セッションの状態ではないため）。
 読む順序は学習者への指示なので `docs/curriculum.md` 段階 0 にある。
 
-新しいコードをどこに置くか迷ったら、まずそちらの「新しいコードをどこに置くか」を見る。
+新しいコードをどこに置くか迷ったら、まず **どちらのクレートの話かを決める。**
+`tally` 側の `layout.md` の「新しいコードをどこに置くか」がその問いから始まる。
 
-## 次の作業: 段階 5（モジュール・クレート設計）
+## 次の作業: 段階 6（並行・並列）
 
-課題の内容は `docs/curriculum.md` の段階 5 が正本。ここには着手手順だけを書く。
+課題の内容は `docs/curriculum.md` の段階 6 が正本。ここには着手手順だけを書く。
 
-**着手前にやること（2026-08-17 時点で 2 件が済）**:
+**着手前にやること**:
 
-1. ~~完了条件を先に `docs/curriculum.md` に書く~~ — **済。**
-   `curriculum.md` 段階 5 の「完了条件（着手前に定義）」にある
-2. ~~未決事項 3・4 を先に片付ける~~ — **済。**
-   ADR-0004・ADR-0005 とも全論点の決定が完了した
-3. **段階 3 で未消化の概念を回収できるか見る。** 孤児ルール、
-   `From`/`Into`/`AsRef`/`Deref`、関連型 vs 型パラメータは
-   `learning-log.md` 節 4 に説明だけあり、**コードでは使っていない**
-   （孤児ルールは 2026-08-17 に節 4-10 で ADR-0005 論点 4 の決め手として使ったが、
-   それも説明であって実装ではない）
-
-**実装の順序**（`docs/curriculum.md` の完了条件が正本。ここには並びだけ書く）:
-
-1. ワークスペースを分割し、`crates/tally-core` を作る
-2. ADR-0005 の決定を実装する（`Selector` のビルダー化、`strict` の `Counter` への移動、
-   `Key` の `#[non_exhaustive]`、derive の約束を doc に書く）
-3. ADR-0004 の決定を実装する（`LineError` / `LineErrorKind` / `LineError::new` への集約）
-4. 両 ADR の Confirmation を実施し、`accepted` にする
-5. 公開 API に doc コメントを書き、`cargo test --workspace --doc` を通す
-
-**2 と 3 は同じコードに触れるので、どちらを先にしても構わない。**
-ただし **ADR-0005 論点 5 が `Key::extract` の引数から `line_no` を外すと決めており、
-これは ADR-0004 の `LineErrorKind` を返す形とセット**なので、分けて着手すると往復する。
+1. **完了条件を先に `docs/curriculum.md` に書く。** 段階 4・5 と同じ手順。
+   **とくにベンチの合格条件を先に決める** — 「速くなること」ではなく
+   「どの条件で速くならないことを確認するか」を書く
+2. **公開 API が変わるので、ADR が要るか判断する。** 段階 6 は
+   「複数ファイルを引数に取る」ため、次の 2 つに触れる:
+   - **`CliErrorKind::Tally` が `#[error(transparent)]` で path を持たない件。**
+     ADR-0004 の Confirmation に「複数入力を扱うようになったら見直す」と書いた。
+     **入力が複数になった時点で、どのファイルの失敗かが言えなくなる**
+   - **`Counter` のマージ**（`Extend` か専用の `merge`）。
+     `Counter` は非公開フィールドなので、公開 API が 1 つ増える
+3. **`tally_reader` の形を見直す好機。** 段階 5 では
+   `tally_reader(counter, reader, selector, keep, limit)` に留めたが、
+   ADR-0005 の「実装時に決めたこと」に **複数入力を 1 つの集計に合流させたく
+   なったら見直す**と書いた。段階 6 がまさにそれ
 
 **進め方**: テストを先に書く。**コンパイルエラーは red ではない** —
 型の骨格だけ足して通し、アサーションが落ちることを確認してから実装する。
@@ -83,6 +90,14 @@
 - **`clippy.toml` の `allow-expect-in-tests` は `#[cfg(test)]` にしか効かない。**
   `tests/` 配下は通常のクレートなので、ファイル先頭で明示的に `allow` する
 - **nextest はドキュメントテストを実行しない。** `cargo test --workspace --doc` を別途回す
+- **`missing_docs` が有効。** `pub` を足したら doc コメントが要る
+- **文書にも検査がある。** `scripts/check-docs.sh`（CI で回る）。
+  `curriculum.md` に進捗を書く、テスト名を転記する、リンクを切る、で落ちる
+- **rustdoc の警告は `cargo lint` では出ない。**
+  `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps` が別に要る
+  （CI には入っている）。**公開項目から非公開項目へのリンク**はここでしか拾えない
+- **`cargo deny` は `path` だけの依存を wildcard と見なす。**
+  ワークスペース内のクレートを足すときは `version` も書く
 - **ツールチェーンのバージョンが 2 箇所にある**（`rust-toolchain.toml` と `.devcontainer/Dockerfile`）。
   片方を変えたらもう片方も変える
 - **コンテナの `target/` はホストと別物**（名前付きボリューム）。
@@ -92,9 +107,18 @@
   lib には案が全て入り、LTO 無しではリンク量が変わらないため。
   比べるなら**当該関数の機械語を読む**（段階 3 でこれに引っかかった）
 - **複数のワークツリーが同じ `main` を並行して進めることがある。**
-  `git worktree list` で確認できる。**push の前に `git fetch` する。**
-  reject されたら force push や reset をせず、
+  **これは [ADR-0006](adr/0006-branching-strategy.md) の「ブランチ必須」で
+  構造的に閉じた**（各ワークツリーが別 ref を進めるため衝突しない）。
+  手順は `CLAUDE.md`「ブランチ運用」が正本。
+  **残るのは `git merge --ff-only` の前の rebase で衝突する場合。**
+  そのときは force push や reset をせず、
   **まず双方が触ったファイルが重なっているかを突き合わせてから** rebase する
+
+  ```bash
+  comm -12 <(git show --name-only --format= <相手のコミット> | sort -u) \
+           <(git show --name-only --format= <自分のコミット> | sort -u)
+  ```
+
   （2026-08-17 に双方向で 2 回衝突した。詳細は `docs/journal/2026-08-17.md`）
 
 ## 未決事項
@@ -106,40 +130,40 @@
    概ね 20 行超」「操作が 2 つ以上」を閾値として定めた。
    **形式や操作を足すときに、この閾値を超えていないか見ること。**
    移行するなら新しい ADR で supersede する（ADR-0002 は書き換えない）
-3. **`Selector` と `Key` の公開 API は
-   [ADR-0005](adr/0005-selector-public-api.md) が正本。**
-   **全 5 論点の決定は完了。未決定は無い。**
-   残るのは実装後の作業だけ:
-   - **Confirmation の表（11 項目）を実施する。** 段階 5 の実装後
-   - 終えたら ADR-0005 を `accepted` にする
-
-   **案と pros/cons は論点を扱うときに書く方針**（まとめて書くと粗くなり、
-   却下案を不利に書く偏りが検出されないまま溜まるため。理由は ADR の冒頭）
-4. **エラー型の形は [ADR-0004](adr/0004-error-type-shape.md) が正本。**
-   **全論点の決定は完了**（論点 1〜6）。**未決定は無い。**
-   残るのは実装後の作業だけ:
-   - **論点 7 の実測**: `size_of` を測って ADR に記録する。
-     **測る前に数値を書かない**
-   - **Confirmation の 4 項目を実施**
-   - 両方を終えたら ADR-0004 を `accepted` にする
-5. **「JSON の情報量を上げる」は二段あり、段 2 は別 ADR が要る。**
+3. **「JSON の情報量を上げる」は二段あり、段 2 は別 ADR が要る。**
    [ADR-0005](adr/0005-selector-public-api.md) 論点 3 で調べた結果:
    - **段 1: JSON Pointer** — `serde_json` の `Value::pointer` に既にあり**依存ゼロ**。
      戻り値が 0..1 なので `extract` も `Counter` も無変更。
-     **`Key::JsonPointer` として足せる**（論点 3 の `#[non_exhaustive]` により非破壊）。
+     **`Key::JsonPointer` として足せる**（`#[non_exhaustive]` により非破壊）。
      足すときは「先頭が `/` でない」を黙って `None` にしないよう、
      **検証つき newtype を検討する**
    - **段 2: JSONPath** — 戻り値が 0..n で「1 行 = 1 カウント」が崩れる。
      `Report` の合計・`skipped` の意味・
      `crates/tally/docs/output-format.md` の外部契約に触れる。
      **採るなら新規 ADR。** クレートは jsonpath-rust か serde_json_path。
-     **その ADR を書くときに 2 点を再確認する**（論点 4 で判明）—
+     **その ADR を書くときに 2 点を再確認する** —
      jsonpath-rust が RFC 9535 準拠かどうか（ADR-0005 論点 3 の表と食い違う情報がある）、
      および `jsonpath_rust::parser::model::JpQuery` が `Eq` を実装しないこと
      （採ると `Key` の `Eq` を手書きするか外すことになり、後者は破壊的変更）
-6. **`--strict` は最初の 1 件で止まる（fail fast）。** 入力検査用途では
+4. **`--strict` は最初の 1 件で止まる（fail fast）。** 入力検査用途では
    「全件報告してから失敗」のほうが有用な場面がある。段階 2 では意図的に見送った。
    必要になれば `--max-errors` を足す
+5. **複数入力になったとき、どのファイルの失敗かを言えない。**
+   段階 5 で `CliErrorKind::Tally` を `#[error(transparent)]` にし、
+   path の文脈を被せないと決めた（`TallyError::OpenInput` と二重になるため）。
+   **入力が最大 1 つという前提に乗っている。** 段階 6 で崩れる
+6. **`cargo-semver-checks` を導入していない。** 段階 5 の
+   「検討する価値のあるもの」に挙げたまま。公開 API が固まった今が試し時だが、
+   **「検出されなかったこと」を安全の根拠にしない**（フィールドや引数の
+   **型**が変わった系は未カバーと明記されている）
+7. **[ADR-0006](adr/0006-branching-strategy.md) が `proposed` のまま。**
+   ブランチ運用の決定は済んでいるが、Confirmation の 2〜5
+   （トピックブランチで CI が回る / `--ff-only` が成功する /
+   マージコミットが 0 件のまま / CI が回った SHA が `main` に載る）は
+   **次に `main` へ載せるときに確かめる。** 終えたら `accepted` にする
+8. **`AsRef` / `Deref` と関連型を、実際のコードで一度も使っていない。**
+   段階 5 で回収を試みたが、**trait を自分で定義するまで出番が来ない**と分かった。
+   段階 6 でも来ない見込み。**必要になる課題を用意しないと消化されない**
 
 CI の稼働状況はここに書かない（腐るため）。
-GitHub Actions の実行履歴、または `gh run list` を見ること。
+GitHub Actions の実行履歴を見ること（**`gh` は devcontainer に入っていない**）。

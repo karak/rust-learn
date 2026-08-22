@@ -3,12 +3,16 @@
 CLI ツール開発を題材にした Rust 学習環境。
 
 - **いまどこまで進んだか・再開するには** → [`docs/handoff.md`](docs/handoff.md)
-- **学習の進め方（全 10 段階）** → [`docs/curriculum.md`](docs/curriculum.md)
+- **学習の進め方（全 10 段階・予）** → [`docs/curriculum.md`](docs/curriculum.md)
+- **各段階で実際に何が起きたか（実）** → [`docs/stage-log.md`](docs/stage-log.md)
 - **得られた学び** → [`docs/learning-log.md`](docs/learning-log.md)
 - **進め方の振り返り** → [`docs/journal/`](docs/journal/)
 - **リポジトリの方針・Claude への指示** → [`CLAUDE.md`](CLAUDE.md)
 - **題材の CLI** → [`crates/tally/`](crates/tally/)
-- **コードの配置ルール** → [`crates/tally/docs/layout.md`](crates/tally/docs/layout.md)
+- **集計コア（ライブラリ）** → [`crates/tally-core/`](crates/tally-core/)
+- **コードの配置ルール** → [`crates/tally-core/docs/layout.md`](crates/tally-core/docs/layout.md)
+  と [`crates/tally/docs/layout.md`](crates/tally/docs/layout.md)
+- **出力の外部仕様（利用者への契約）** → [`crates/tally/docs/output-format.md`](crates/tally/docs/output-format.md)
 
 ## セットアップ
 
@@ -45,9 +49,16 @@ cargo c      # 型チェック（速い）
 cargo t      # テスト（nextest）
 cargo lint   # clippy pedantic、警告をエラー扱い
 cargo fmt --all
+cargo test --workspace --doc   # nextest はドキュメントテストを実行しない
+./scripts/check-docs.sh        # 文書の書き分けの検査
 ```
 
 コミット前は `cargo fmt --all` → `cargo lint` → `cargo t`。CI も同じ内容を実行する。
+
+**`main` に直接コミットしない。** 作業は常にブランチで行い、`--ff-only` で `main` に載せる。
+手順は [`CLAUDE.md`](CLAUDE.md) の「ブランチ運用」、
+判断の過程は [ADR-0006](docs/adr/0006-branching-strategy.md)。
+**CI は全ブランチの push で回る**（PR は任意）。
 
 ## tally
 
@@ -61,6 +72,16 @@ $ printf 'a\nb\na\n' | cargo run -q -p tally
 $ cat app.log | cargo run -q -p tally -- --field level -n 5 --format json
 ```
 
-`lib` と `bin` を分離し、集計ロジック（`core.rs`）は I/O を持たない。
+**クレートが 2 つに分かれている。**
+
+| クレート | 持つもの | 持たないもの |
+| --- | --- | --- |
+| `tally-core` | キーの抽出、正規化、度数の集計 | **`clap`、`anyhow`、ファイルを開く操作** |
+| `tally` | 引数解釈、出力の整形、終了コード、I/O | 集計ロジック |
+
+依存の向きは `tally` → `tally-core` の一方向。
+`cargo tree -p tally-core` で確かめられる。
+
 **テストの大半がプロセス起動なしで走る**のが、この分割の目的。
+`tally-core` は `tests/` を持たない（プロセスを起動しないと観測できるものが無い）。
 （件数は変動するので記載しない。`cargo t` で確認すること。）

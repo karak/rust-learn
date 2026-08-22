@@ -56,15 +56,19 @@ Cargo.toml                      ワークスペース。依存とリントを一
 rust-toolchain.toml             ツールチェーン固定（1.97.1 / edition 2024）
 clippy.toml                     lint 閾値
 deny.toml                       依存の脆弱性・ライセンス検査
-crates/tally/                   題材となる CLI。lib と bin を分離した実装の参照例
+crates/tally-core/              集計コア。clap も anyhow も持たないライブラリ
+crates/tally-core/docs/layout.md    そのクレートのコード配置ルール
+crates/tally/                   題材となる CLI。tally-core に依存する薄い実行層
 crates/tally/docs/layout.md     そのクレートのコード配置ルール
 crates/tally/docs/output-format.md  出力の外部仕様（利用者への契約）
-docs/curriculum.md              学習ロードマップと各段階の実装の記録
+docs/curriculum.md              学習ロードマップ（予）。何をどう学ぶか、何ができたら完了か
+docs/stage-log.md               段階の実績記録（実）。作ったもの・実測値・予定との差
 docs/learning-log.md            技術的な学び。他言語との差分
 docs/adr/                       アーキテクチャ意思決定記録（不変。新しい決定は新規 ADR）
 docs/journal/                   進め方の振り返り（KPT、日付ごと）
 docs/handoff.md                 現在地・再開手順・未決事項
 .claude/skills/                 このリポジトリ固有のスキル
+scripts/check-docs.sh           文書の書き分けの機械的検査（CI で回る）
 ```
 
 ## 文書の書き分け
@@ -77,11 +81,12 @@ docs/handoff.md                 現在地・再開手順・未決事項
 | --- | --- |
 | コミット履歴・SHA | `git log` — **文書に書かない** |
 | テストが通るか・件数 | `cargo t` を実行する — **文書に書かない** |
-| CI の稼働状況 | GitHub Actions / `gh run list` — **文書に書かない** |
+| CI の稼働状況 | GitHub Actions の実行履歴 — **文書に書かない**（`gh` は devcontainer に入っていない） |
 | リポジトリの規約・方針 | この `CLAUDE.md` |
-| クレートのコード配置・設計判断 | `crates/tally/docs/layout.md` |
+| クレートのコード配置・設計判断 | **そのクレートの** `docs/layout.md`（`crates/tally-core/` と `crates/tally/` に 1 つずつ） |
 | **利用者に対する外部仕様（出力形式・終了コード等）** | **`crates/tally/docs/output-format.md`** |
-| 段階の定義・課題・完了条件・実装の記録・読む順序 | `docs/curriculum.md` |
+| 段階の定義・課題・完了条件・読む順序（**予**） | `docs/curriculum.md` |
+| **各段階の実績・実測値・予定との差（実）** | **`docs/stage-log.md`** |
 | 技術的な学び、他言語との差分 | `docs/learning-log.md` |
 | **設計判断の過程・検討した代替案・却下理由** | **`docs/adr/`**（不変。変更は新規 ADR で supersede） |
 | 進め方の振り返り | `docs/journal/` |
@@ -98,11 +103,28 @@ docs/handoff.md                 現在地・再開手順・未決事項
 4. **利用者が依存する外部の契約か** → `crates/tally/docs/output-format.md`
    （**破ると利用者が壊れるもの**。実装の都合ではなく約束を書く）
 5. **特定クレートの内部構造か** → そのクレートの `docs/layout.md`
+   （**どちらのクレートの話かを先に決める。** 集計なら `tally-core`、
+   引数・整形・終了コードなら `tally`）
 6. **代替案を検討したうえでの設計判断か** → `docs/adr/`
    （結論だけなら `layout.md` の表。**過程に価値があるものだけ** ADR にする）
 7. **学習者への指示（何をどう学ぶか）か** → `docs/curriculum.md`
-8. **他言語との差分を含む知見か** → `docs/learning-log.md`
-9. **進め方の反省か** → `docs/journal/`
+   （**予だけ。** 完了したかどうか、何を作ったかは書かない）
+8. **「実際にやったら何が起きたか」か** → `docs/stage-log.md`
+   （**実だけ。** 段階の定義は書かない。**現在地も書かない**）
+9. **他言語との差分を含む知見か** → `docs/learning-log.md`
+10. **進め方の反省か** → `docs/journal/`
+
+**9 と 10 の境界は「言語の性質」と「自分の動き方」。** 迷ったらこう問う —
+**その記述は Rust を書く別の人にも価値があるか**（→ 9）、
+**それともこのセッションの自分の判断についてか**（→ 10）。
+
+**journal がコードやエラーコードに触れるのは構わない**（何が起きたかの記録である）。
+**ただしその知識は `learning-log.md` にも要る。** 片方にしか無ければ、
+**「あの日の話」に埋もれて二度と引かれない。**
+
+**7 と 8 の境界は「予」と「実」。** 迷ったらこう問う —
+**その記述は、この段階をこれから始める人に必要か**（→ 7）、
+**それとも終えた人にしか書けないか**（→ 8）。
 
 ### 「記録」と「転記」は別物
 
@@ -128,9 +150,55 @@ docs/handoff.md                 現在地・再開手順・未決事項
    **しかも「読む順序」は、その直前に私が `curriculum.md` から動かしたものだった。**
 3. **節を移動したとき、それを指していた参照を直し忘れた。**
    `curriculum.md` 段階 4 が、既に存在しない節を指したまま残っていた。
+4. **`curriculum.md` が予実管理メモになった**（2026-08-19 に指摘されて分離）。
+   カリキュラム（予）に、見出しの（済）・チェックボックス・「実装の記録」節・
+   **テスト名の表**（実）が混ざっていた。
+   - **テスト名の表は実際に腐った。** 段階 5 のクレート分割でテスト名 2 件が
+     存在しなくなり、モジュール接頭辞は全件が誤りになった。
+     **1 の「テスト件数は書かない」に違反していた箇所であり、違反したとおりに腐った**
+   - **さらに悪いのは、古い結論が教材として残ったこと。** 段階 2 の「実装の記録」は
+     「`Selector` に畳んだ設計が効いた」と書いていたが、段階 5 の ADR-0005 は
+     それを「実装の都合だった」と再評価した。curriculum 側は更新されなかった。
+     **カリキュラムに実績を書くと、実績が教義として読まれる**
+   - `docs/stage-log.md` へ分離して解決。**同時に `scripts/check-docs.sh` を作った**
+     — 1 は「`progress.md` を廃止して解決」で終わらせたが、
+     **規約だけでは同じ失敗が別のファイル名で再発した。**
+     再発を防ぐには検査が要る
 
 **節を移動したら、その節名で全文検索して参照を直す。**
 `git ls-files '*.md' | xargs grep -n "節名"` で確認できる。
+
+### 規約ではなく検査にする
+
+**4 の教訓。** 「書かない」という規約は守り忘れられ、
+**破られたことに誰も気づかない**（テスト名の表は数日腐っていた）。
+
+`scripts/check-docs.sh` が次を機械的に検査し、**CI で回る**。
+
+| 検査 | 根拠 |
+| --- | --- |
+| `curriculum.md` の見出しに（済）が無い | 完了状況は `stage-log.md` |
+| `curriculum.md` にチェックボックスが無い | 状態を持たせると予実管理メモに戻る |
+| `curriculum.md` に実績の節が無い | 「実」は `stage-log.md` |
+| **どの文書にもテストのフルパス（`::tests::`）が無い** | `cargo nextest list` が答える |
+| `stage-log.md` に現在地・次の作業の節が無い | 状態は `handoff.md` の 1 箇所 |
+| **journal に出た rustc のエラーコードが `learning-log.md` にもある** | 言語の性質は学びの側。journal は参照するだけ |
+| md の相対リンクが切れていない | 上の 3 の再発防止 |
+
+検査は **3 層で走る。**
+
+| 層 | いつ | 設定場所 |
+| --- | --- | --- |
+| **Claude のフック** | 文書を書き換えた直後 | `.claude/settings.json` の `PostToolUse`（`Write` / `Edit`） |
+| 手で実行 | コミット前 | `scripts/check-docs.sh` |
+| CI | push のたび | `.github/workflows/ci.yml` の `docs` ジョブ |
+
+**`.claude/rules/` には置いていない。** そのパスは自動で読み込まれないため、
+規則を置いても効かない。**自動で読まれるのは `CLAUDE.md`**、
+自動で走るのは上のフックと CI である。
+
+**新しい「書かないもの」を決めたら、検査に足せるかを問う。**
+足せるなら足す。足せないなら、なぜ足せないかを書く。
 
 ## コマンド
 
@@ -141,14 +209,81 @@ docs/handoff.md                 現在地・再開手順・未決事項
 | 型チェックのみ（速い） | `cargo c` |
 | テスト | `cargo t`（= `cargo nextest run --workspace`） |
 | ドキュメントテスト | `cargo test --workspace --doc`（nextest は実行しない） |
+| ドキュメントの警告検査 | `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps` |
 | lint | `cargo lint`（警告をエラー扱い） |
 | 整形 | `cargo fmt --all` |
 | 依存検査 | `cargo deny check` |
+| 依存の向きの確認 | `cargo tree -p tally-core`（`clap` / `anyhow` が出ないこと） |
+| **文書の書き分けの検査** | `scripts/check-docs.sh` |
 | マクロ展開の確認 | `cargo expand -p tally --lib` |
 | CLI の手動実行 | `cargo run -p tally -- --help` |
 
 **コミット前に通すべきもの**: `cargo fmt --all` → `cargo lint` → `cargo t`。
+**文書に触ったら `scripts/check-docs.sh` も回す。**
+**公開 API に触ったらドキュメントテストと rustdoc の警告検査も回す。**
 CI（`.github/workflows/ci.yml`）は同じ内容を実行する。
+
+**rustdoc の警告は `cargo lint` では出ない。** 壊れた intra-doc link と、
+公開項目から非公開項目へのリンク（外部の読み手が辿れない）はそちらでしか拾えない。
+
+## ブランチ運用
+
+**`main` に直接コミットしない。作業は常にブランチで行う。**
+検討した代替案と却下理由は [ADR-0006](docs/adr/0006-branching-strategy.md) が正本。
+ここには **何をするか** だけを書く。
+
+### 3 つの決定
+
+| 決定 | 理由の要点 |
+| --- | --- |
+| **ブランチ必須** | 並行するワークツリーが同じ `main` を進めると push が衝突する（2026-08-17 に双方向で 2 回）。ブランチなら構造的に起こらない |
+| **`main` へは `--ff-only`。squash とマージコミットは使わない** | **履歴の細かさがこのリポジトリの資産。** squash すると「実装した」と「ADR を accepted にした」が 1 コミットに潰れる。`--ff-only` は `rebase` を機械的に強制するので、「push 前に fetch」が規約ではなく仕組みになる |
+| **CI は全ブランチの push で回る。PR は任意** | `main` に載る前に CI を通す唯一の機会がトピックブランチの push。`--ff-only` なので **CI が検査した SHA がそのまま `main` に載る** |
+
+**`main` のマージコミットは 0 件を保つ。** 増えていたら運用が崩れた合図。
+
+```bash
+git log --merges --oneline | wc -l   # 0 であること
+```
+
+### 手順
+
+```bash
+# 1. 始める
+git switch main && git pull --ff-only
+git switch -c stage-6/rayon
+
+# 2. 作業する。コミットの粒度は変えない（1 コミット = 1 つの意味）
+git commit ...
+git push -u origin stage-6/rayon     # ← ここで CI が回る
+
+# 3. main に載せる
+git fetch
+git rebase origin/main               # 衝突があればここで見える
+git push --force-with-lease          # rebase して SHA が変わったときだけ。--force は使わない
+#                                      （CI を rebase 後の SHA で回し直すため）
+git switch main && git pull --ff-only
+git merge --ff-only stage-6/rayon    # 失敗したら rebase を忘れている
+git push
+git branch -d stage-6/rayon && git push origin --delete stage-6/rayon
+```
+
+### ブランチの名前と大きさ
+
+**名前**: `<種別>/<短い説明>`。ASCII の kebab-case。
+
+| 種別 | 使う場面 | 例 |
+| --- | --- | --- |
+| `stage-N` | カリキュラムの段階の作業 | `stage-6/rayon` |
+| `adr-NNNN` | ADR の決定を書く | `adr-0005/issue-3` |
+| `docs` | 文書だけの変更 | `docs/branch-strategy` |
+| `chore` | ツール・環境・CI | `chore/lsp` |
+
+**大きさ**: 1 ブランチ = **1 つの「まとまって `main` に載せてよい変更」。**
+
+**「1 セッション」を単位にしない。** セッションは中断される
+（`docs/handoff.md` が存在する理由がそれ）。
+段階の実装、ADR 1 本の決定、ツールの導入 — それぞれが 1 単位。
 
 ## 実行環境
 
@@ -168,8 +303,19 @@ devcontainer（`.devcontainer/`）とホスト直実行の両方に対応する�
 1. **`unsafe` は禁止**（ワークスペースで `deny`）。必要になったら、まず安全な代替を探す。
 2. **ロジックと I/O を分離する。** `core` のような純粋モジュールを作り、`main.rs` は
    引数解釈・I/O・終了コードだけを担う。テストの大半がプロセス起動なしで回ることが目的。
-3. **ライブラリ層は `thiserror`、バイナリ層は `anyhow`。** 公開 API に `anyhow::Error` を
-   出さない。詳細は `.claude/skills/rust-error-handling/`。
+3. **公開 API に不透明なエラー型を出さない。** ライブラリ層は `thiserror` で
+   具体的な列挙型を返す。詳細は `.claude/skills/rust-error-handling/`。
+
+   **`tally` は `anyhow` を使わない**（2026-08-19、段階 5）。当初この方針は
+   「バイナリ層は `anyhow`」と書いていたが、
+   [ADR-0004](docs/adr/0004-error-type-shape.md) 論点 5 が
+   **「エラー → 終了コード」を網羅性検査つきの `match` で書く**と決めたため、
+   不透明な `anyhow::Error` では成立しない。context のためだけに残すと
+   **エラーの表現が 2 系統**になるので一本化した。理由は
+   `crates/tally/src/error.rs` のモジュールドキュメントにも書いてある。
+
+   **新しいツールで `anyhow` を選ぶことは禁じない。** 終了コードを型で決める
+   必要がなければ `anyhow` のほうが軽い。**選ばない理由がある場合に選ばない。**
 4. **`unwrap()` / `expect()` は非テストコードでは警告。** テストでは許可（`clippy.toml`）。
    ただし `tests/` 配下は `#[cfg(test)]` ではないため、ファイル先頭で明示的に `allow` する。
 5. **clippy は `pedantic` まで有効。** 個別に `allow` するのは構わないが、
