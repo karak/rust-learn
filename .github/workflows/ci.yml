@@ -1,8 +1,13 @@
 name: CI
 
 on:
+  # **全ブランチで回す。** ブランチ運用は ADR-0006 で「ブランチ必須・ff-only」と
+  # 決めたので、main に載る前に CI を通す唯一の機会がトピックブランチの push である。
+  # `branches: [main]` だけだと、壊れた状態が main に載ってから初めて発覚する。
   push:
-    branches: [main]
+    branches: ["**"]
+  # fork からの PR は push イベントが発火しないため、こちらも残す。
+  # 同一リポジトリの PR では二重に走るが、PR は任意運用なので稀。
   pull_request:
 
 env:
@@ -38,6 +43,24 @@ jobs:
       # nextest はドキュメントテストを実行しないため、別途回す。
       - name: doc tests
         run: cargo test --workspace --doc
+
+      # rustdoc の警告は clippy では出ない。壊れた intra-doc link や、
+      # 公開項目から非公開項目へのリンク（外部の読み手が辿れない）を拾う。
+      - name: rustdoc
+        run: cargo doc --workspace --no-deps
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+
+  # 文書の書き分けを機械的に検査する。Rust のビルドが要らないので独立させる。
+  # 「curriculum.md に進捗を書かない」類の規約は守り忘れられ、
+  # **破られたことに誰も気づかない**（テスト名の表が実際に数日腐った）。
+  docs:
+    name: docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: check-docs
+        run: ./scripts/check-docs.sh
 
   deny:
     name: cargo-deny
