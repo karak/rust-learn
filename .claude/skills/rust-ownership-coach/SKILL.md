@@ -54,7 +54,7 @@ items.retain(|item| !pred(item));
 // ✗ 2 回ハッシュを引く上、借用が重なりやすい
 if map.contains_key(k) { *map.get_mut(k).unwrap() += 1 } else { map.insert(k.into(), 1); }
 
-// ✓ entry API。crates/tally/src/core.rs がこれ
+// ✓ entry API。crates/tally-core/src/count.rs がこれ
 *map.entry(key).or_insert(0) += 1;
 ```
 
@@ -84,7 +84,7 @@ fn open(path: impl AsRef<Path>)
 
 ### `Cow` を使う判断
 
-`crates/tally/src/core.rs` の `Key::extract` が実例。
+`crates/tally-core/src/select.rs` の `Key::extract` が実例。
 **「大半のケースでは借用のまま返せるが、一部で所有が必要」なときだけ使う。**
 常に所有が必要なら `String`、常に借用で足りるなら `&str`。
 迷ったら `String` から始めて、プロファイルで問題が出てから `Cow` にする。

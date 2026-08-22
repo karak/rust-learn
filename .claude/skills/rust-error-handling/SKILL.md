@@ -19,12 +19,29 @@ description: Use when designing, reviewing, or debugging error types in Rust —
 出した瞬間、呼び出し側は「ファイルが無い」と「JSON が壊れている」を区別できなくなる。
 文字列マッチで分岐するコードが生まれたら、それは設計の失敗のサイン。
 
-逆に、**バイナリで `enum` を作り込むのは過剰。** `main` は結局全部を
-「エラーメッセージを出して終了コード 1」に潰すので、区別する意味がない。
+逆に、**バイナリで `enum` を作り込むのは過剰**……**とは限らない。**
+`main` が全部を「メッセージを出して終了コード 1」に潰すなら区別する意味は無い。
+
+**終了コードを 2 種類以上に分けるなら話が変わる。** 分けた瞬間に
+「どのエラーがどのコードか」という写像が生まれ、それを
+**網羅性検査を受ける `match`** で書けるかどうかが問題になる。
+`anyhow::Error` は不透明なので書けず、**書き忘れが検出されない。**
+
+判断の基準:
+
+| バイナリの状況 | 型 |
+| --- | --- |
+| 終了コードは 0 と 1 だけ | `anyhow` で十分 |
+| **終了コードを分ける / 利用者への hint を出す** | **CLI 固有の `enum`** |
+
+`crates/tally` は後者を採った（[ADR-0004] 論点 5）。
+判断の過程は `crates/tally/src/error.rs` のモジュールドキュメント。
+
+[ADR-0004]: ../../../docs/adr/0004-error-type-shape.md
 
 ## ライブラリ層: thiserror
 
-参照実装は `crates/tally/src/error.rs`。
+参照実装は `crates/tally-core/src/error.rs`（ライブラリ側）。
 
 ```rust
 #[derive(Debug, thiserror::Error)]
@@ -56,6 +73,9 @@ pub enum TallyError {
 
 ## バイナリ層: anyhow
 
+**終了コードが 0 と 1 だけなら、これが最短。**
+分けるなら上の表のとおり `enum` にする。
+
 ```rust
 use anyhow::Context as _;
 
@@ -72,7 +92,6 @@ let file = File::open(path)
 ## 型を跨いで見分ける
 
 `anyhow` に包んだ後でも、チェーンを辿れば具体型に戻せる。
-`crates/tally/src/main.rs` の broken pipe 判定がその実例：
 
 ```rust
 err.chain().any(|cause| {
@@ -80,6 +99,24 @@ err.chain().any(|cause| {
         .is_some_and(|e| e.kind() == io::ErrorKind::BrokenPipe)
 })
 ```
+
+**`chain()` は `anyhow` 固有ではない。** `std::error::Error::source()` を
+辿るだけの糖衣なので、`anyhow` を使っていなくても同じことが書ける。
+`downcast_ref` も `std::error::Error` が持っている。
+
+```rust
+let mut current = Some(err);
+while let Some(err) = current {
+    if err.downcast_ref::<io::Error>()
+        .is_some_and(|e| e.kind() == io::ErrorKind::BrokenPipe) { return true }
+    current = err.source();
+}
+```
+
+`crates/tally/src/error.rs` の `is_broken_pipe` が後者の実例。
+
+**`iter::successors(Some(err), |e| e.source())` と書きたくなるが通らない** —
+クロージャの引数が `&&dyn Error` になり、戻り値の寿命が借用に縛られる。
 
 `kind()` で分岐すること。**`io::Error` を文字列比較しない** — OS とロケールで変わる。
 

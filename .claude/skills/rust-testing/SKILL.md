@@ -5,7 +5,7 @@ description: Use when writing, reviewing, or debugging Rust tests — unit vs in
 
 # Rust のテスト
 
-参照実装: `crates/tally/src/core.rs`（ユニット）、`crates/tally/tests/cli.rs`（統合）。
+参照実装: `crates/tally-core/src/`（ユニット）、`crates/tally/tests/cli.rs`（統合）。
 
 ## どこに置くか
 

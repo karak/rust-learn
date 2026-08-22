@@ -5,9 +5,11 @@ description: Use when building or reviewing a Rust command-line tool — clap ar
 
 # Rust CLI の設計
 
-参照実装: `crates/tally/`。
+参照実装: `crates/tally/` と `crates/tally-core/`。
 
 ## 1. lib と bin を分ける（最重要）
+
+**最小の形**（クレート 1 つ）:
 
 ```
 src/lib.rs     公開モジュール宣言
@@ -18,6 +20,19 @@ src/main.rs    引数解釈・I/O・終了コードのみ。ロジックを持�
 ```
 
 **なぜ**: `main.rs` にロジックを置くと、検証手段がプロセス起動しかなくなる。
+
+**次の段**（クレート 2 つ）。ロジックを別クレートに出すと、
+**`clap` に依存していないことをコマンドで検証できる**ようになる:
+
+```
+crates/foo-core/src/   ロジック。clap も anyhow も持たない
+crates/foo/src/        引数解釈・整形・終了コード・I/O
+```
+
+`cargo tree -p foo-core --edges normal` に `clap` が出ないことを確認する。
+`--edges normal` は dev-dependencies を除くため。
+**モジュール分割ではこの検証ができない**（`use` の grep では推移的な混入を見逃す）。
+`crates/tally-core/` がこの形。
 `tally` ではユニットテストがプロセス起動なしで走り、`assert_cmd` を使う統合テストは
 少数にとどめてある。**ユニットが多数派**という比率を保つこと。
 
