@@ -22,7 +22,12 @@
 
   // ボリュームは root 所有で作られるため、vscode に渡し直す。
   // cargo fetch で依存を先に取り、初回ビルドをオフラインでも通るようにする。
-  "postCreateCommand": "sudo chown -R vscode:vscode /workspaces/rust-learn/target /usr/local/cargo/registry && cargo fetch --locked",
+  //
+  // setup-git-secrets.sh を必ず通す。git-secrets のパターンとフックは
+  // .git/config と .git/hooks にあり **git が追跡しない** ため、
+  // ここで入れ直さないとコンテナを作り直すたびに保護が消える。
+  // スクリプトは自己検査つきで、失敗すればコンテナ作成が止まる。
+  "postCreateCommand": "sudo chown -R vscode:vscode /workspaces/rust-learn/target /usr/local/cargo/registry && cargo fetch --locked && ./scripts/setup-git-secrets.sh",
 
   "customizations": {
     "vscode": {

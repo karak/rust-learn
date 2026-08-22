@@ -69,6 +69,7 @@ docs/journal/                   進め方の振り返り（KPT、日付ごと）
 docs/handoff.md                 現在地・再開手順・未決事項
 .claude/skills/                 このリポジトリ固有のスキル
 scripts/check-docs.sh           文書の書き分けの機械的検査（CI で回る）
+scripts/setup-git-secrets.sh    秘密情報スキャンのパターンとフック（追跡される唯一の正本）
 ```
 
 ## 文書の書き分け
@@ -215,6 +216,8 @@ scripts/check-docs.sh           文書の書き分けの機械的検査（CI で
 | 依存検査 | `cargo deny check` |
 | 依存の向きの確認 | `cargo tree -p tally-core`（`clap` / `anyhow` が出ないこと） |
 | **文書の書き分けの検査** | `scripts/check-docs.sh` |
+| 秘密情報スキャンの設定（冪等） | `scripts/setup-git-secrets.sh` |
+| 秘密情報のスキャン | `git secrets --scan` / `git secrets --scan-history` |
 | マクロ展開の確認 | `cargo expand -p tally --lib` |
 | CLI の手動実行 | `cargo run -p tally -- --help` |
 
@@ -295,6 +298,21 @@ devcontainer（`.devcontainer/`）とホスト直実行の両方に対応する�
 
 `target/` はコンテナでは名前付きボリュームにあり、**ホスト側の `target/` とは別物**。
 「ホストでは通るがコンテナで落ちる」を調べるときは、この分離を前提に切り分ける。
+
+### 秘密情報スキャン（git-secrets）
+
+**バイナリは Dockerfile、パターンとフックは `scripts/setup-git-secrets.sh`。**
+devcontainer では `postCreateCommand` が自動で走る。ホスト直実行なら手で 1 回叩く。
+
+**分かれているのは、後者が git の追跡外にあるため。**
+`.git/hooks/` と `.git/config` は clone に付いてこない。
+**しかもフックだけは残ることがあり、「入っているのに何も検査しない」状態になりうる**
+（2026-08-19 に実際にその状態を発見した。パターンが 0 件だった）。
+
+**カバーしていない経路が 1 つある。** `git commit --no-verify` はフックを飛ばす。
+CI では走らせていない — pin（コミット SHA と sha256）が Dockerfile と CI の
+2 箇所になるためで、**ツールチェーンの版が 2 箇所にある問題を増やしたくない。**
+必要になったら、pin を 1 箇所に寄せる方法とセットで検討する。
 
 ## このリポジトリでのコーディング方針
 

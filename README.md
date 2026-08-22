@@ -42,6 +42,17 @@ macOS の bind mount は I/O が遅く、`target/` を共有するとビルド�
 cargo install cargo-nextest cargo-expand cargo-deny --locked
 ```
 
+さらに **秘密情報スキャンの設定**を 1 回だけ実行する
+（devcontainer では `postCreateCommand` が自動で走るので不要）。
+
+```bash
+# git-secrets 本体を入れたうえで（https://github.com/awslabs/git-secrets）
+./scripts/setup-git-secrets.sh
+```
+
+**パターンとフックは git が追跡しない場所にある**ため、clone しただけでは
+保護がかからない。このスクリプトが追跡される唯一の正本。
+
 ## 日常のコマンド
 
 ```bash

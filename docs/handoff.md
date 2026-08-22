@@ -96,6 +96,10 @@
 - **rustdoc の警告は `cargo lint` では出ない。**
   `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps` が別に要る
   （CI には入っている）。**公開項目から非公開項目へのリンク**はここでしか拾えない
+- **git-secrets のパターンとフックは git の追跡外**（`.git/config` と `.git/hooks`）。
+  clone やコンテナ再作成で消える。`scripts/setup-git-secrets.sh` を回す
+  （devcontainer は自動）。**パターンに literal な空白を書かない** —
+  git-secrets は連結時に空白で単語分割する
 - **`cargo deny` は `path` だけの依存を wildcard と見なす。**
   ワークスペース内のクレートを足すときは `version` も書く
 - **ツールチェーンのバージョンが 2 箇所にある**（`rust-toolchain.toml` と `.devcontainer/Dockerfile`）。

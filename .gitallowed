@@ -1,0 +1,12 @@
+# git-secrets が検出したもののうち、意図的に許可するもの。
+#
+# **1 行 1 正規表現。** 照合対象は `ファイル:行番号:行の内容` の形をした出力行なので、
+# ファイル名で範囲を絞れる。**絞ること** — 広い正規表現は本物の秘密を通す。
+#
+# **literal な空白を書かないこと。** git-secrets は .gitallowed の各行も
+# 空白で単語分割する（`for pattern in $patterns`）。空白は `[[:space:]]` で書く。
+# 同じ制約が secrets.patterns にもある（scripts/setup-git-secrets.sh を参照）。
+
+# セットアップスクリプト自身の自己検査。偽の秘密鍵を書いて
+# 「検出できること」を毎回確かめている。ファイルと形を固定して許可する。
+^scripts/setup-git-secrets\.sh:[0-9]+:.*BEGIN[[:space:]]RSA[[:space:]]PRIVATE[[:space:]]KEY

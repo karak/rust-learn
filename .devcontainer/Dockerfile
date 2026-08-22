@@ -52,4 +52,25 @@ RUN rustup component add rustfmt clippy rust-src rust-analyzer \
     && cargo binstall -y cargo-nextest cargo-deny cargo-expand \
     && chmod -R a+w "$CARGO_HOME"
 
+# git-secrets（コミット前の秘密情報スキャン）。
+#
+# **apt には無い**ので単一の bash スクリプトを直接置く。13KB なのでレイヤは無視できる。
+#
+# バージョンは **コミット SHA で固定する。** 最新リリースの 1.3.0 は 2019 年で、
+# 秘密検出のパターンが古い（Bedrock のキー形式などが入っていない）。
+# raw の URL は SHA でコンテンツアドレスされるが、**sha256 も検証する** —
+# 「固定した」を配信側の善意に依存させない。
+#
+# パターンとフックはイメージには入らない（リポジトリごとの設定なので）。
+# `scripts/setup-git-secrets.sh` が入れる。devcontainer.json の
+# postCreateCommand から呼んでいる。
+ARG GIT_SECRETS_SHA=7d6b970cbd3c216353cb22b383b70c150140662e
+ARG GIT_SECRETS_SHA256=775e3f0d2f2f8e4b5922115f1235f7369805de76f4efc69cb674bcba5590d0fa
+RUN curl -fsSL --proto '=https' --tlsv1.2 \
+        "https://raw.githubusercontent.com/awslabs/git-secrets/${GIT_SECRETS_SHA}/git-secrets" \
+        -o /tmp/git-secrets \
+    && echo "${GIT_SECRETS_SHA256}  /tmp/git-secrets" | sha256sum -c - \
+    && install -m 0755 /tmp/git-secrets /usr/local/bin/git-secrets \
+    && rm -f /tmp/git-secrets
+
 USER $USERNAME
