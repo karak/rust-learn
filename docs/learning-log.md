@@ -7,22 +7,31 @@
 
 節ごとに **対象ファイル** を明記してある。該当箇所を読み返すときの索引として使う。
 
+**段階 5 でクレートを 2 つに分けた。** 節 1〜10 が書かれた時点では
+集計ロジックは `crates/tally/src/core.rs` にあり、それが
+`crates/tally-core/src/{select,count}.rs` へ、`error.rs` が
+`crates/tally-core/src/error.rs`（ライブラリ側）と
+`crates/tally/src/error.rs`（CLI 側）へ分かれた。
+**下の表は現在の場所を指す。**
+
 | 節 | 対象ファイル |
 | --- | --- |
-| 1. 段階 1 の設計判断 | `core.rs` |
+| 1. 段階 1 の設計判断 | `tally-core/src/select.rs` |
 | 2. 借用と参照 | ファイル非依存 |
 | 3. move と in-place 構築 | ファイル非依存 |
 | 4. ジェネリクスと trait | ファイル非依存 |
-| 5. serde | `core.rs` / `main.rs` |
-| 6. エラー設計 | `error.rs` / `main.rs` |
-| 7. CLI の構造 | `cli.rs` / `main.rs` |
-| 8. テスト設計 | `tests/cli.rs` |
+| 5. serde | `tally-core/src/select.rs` / `tally/src/format.rs` |
+| 6. エラー設計 | `tally-core/src/error.rs` / `tally/src/error.rs` |
+| 7. CLI の構造 | `tally/src/cli.rs` / `tally/src/main.rs` |
+| 8. テスト設計 | `tally/tests/cli.rs` |
 | 9. 環境とツールチェーン | ファイル非依存 |
-| 10. イテレータとクロージャ | `core.rs` / `main.rs` |
+| 10. イテレータとクロージャ | `tally-core/src/count.rs` |
+| 11. モジュールとクレートの分割 | `tally-core/src/lib.rs` ほか |
+| 12. 未解決の論点 | ファイル非依存 |
 
 ---
 
-## 1. 段階 1 の設計判断（対象: `core.rs`）
+## 1. 段階 1 の設計判断
 
 課題は `--ignore-case` を **`Cow` の借用を維持したまま** 実装すること。
 
@@ -77,7 +86,7 @@ value.chars().any(|c| {
 
 ---
 
-## 2. 借用と参照（ファイル非依存）
+## 2. 借用と参照
 
 C++ の参照・ポインタとの対比で整理した。
 
@@ -150,7 +159,7 @@ fn trim<'a>(s: &'a str) -> &'a str             // 同じ契約。コンパイラ
 
 ---
 
-## 3. move と in-place 構築（ファイル非依存）
+## 3. move と in-place 構築
 
 ### 3-1. C++ の move とは別物
 
@@ -216,7 +225,7 @@ A は「別クレートのファクトリを LTO なしで呼ぶ」「関数が�
 
 ---
 
-## 4. ジェネリクスと trait（ファイル非依存）
+## 4. ジェネリクスと trait
 
 C#/Java のジェネリクス、Scala の trait との差分で整理する。
 
@@ -346,6 +355,30 @@ enum + `match` 側は腕 1 本で済む。したがって
 **一般則を使うときは「どの規模から効くか」を添える。**
 規模を確かめずに適用すると、定型のコストが見えない。
 
+#### コンパイラは片方向しか列挙しない
+
+**行数より重要なのはこれだった**（段階 3 で観測、2026-08-16）。
+
+| 足すもの | enum + `match` | trait |
+| --- | --- | --- |
+| **変種**（形式を 1 つ） | **E0004** が既存の `match` に出る | **何も出ない**（新しい `impl` を書くだけ） |
+| **操作**（メソッドを 1 つ） | **何も出ない**（新しい自由関数を書くだけ） | **E0046** が実装ごとに出て、**未実装の型を列挙する** |
+
+**「やり残しを列挙してくれる」のは、その軸で強い側だけ。**
+弱い側では**コンパイラが黙る**ので、書き忘れが実行時まで残る。
+expression problem の「どちらが楽か」は、
+**実は「どちらの書き忘れが検出されるか」の言い換えである。**
+
+**C# / Java との差分は enum 側にある。** インターフェースへのメソッド追加は
+あちらでも全実装が壊れる（E0046 と同じ）。違うのは変種の追加で —
+C# の `switch` は既定で網羅性エラーにならず、Java も enum の `switch` は
+`default` 無しで**警告**にとどまる（Java 21 の sealed + pattern switch でようやくエラー）。
+**Rust は既定でコンパイルエラー**であり、`#[non_exhaustive]` を付けたときだけ緩む。
+
+**Scala の `sealed trait` は網羅性を検査する**が、既定では警告であり、
+`-Xfatal-warnings` を付けて初めて止まる。
+**「検査があるか」ではなく「止まるか」で見ると差が出る。**
+
 ### 4-10. 孤児ルールは自由であると同時に、上流への義務でもある（2026-08-17）
 
 4-3 は孤児ルールを**自由**の側から見た。
@@ -391,7 +424,41 @@ newtype で包めば書けるが、その瞬間に元の型の固有メソッド
 
 ---
 
-## 5. serde（対象: `core.rs` / `main.rs`）
+### 4-11. 単相化は「合流させられない」という制約として現れる（段階 5）
+
+4-1 で単相化とコード膨張を書いたが、**書いていて実際に効いたのは別の面**だった。
+
+`tally_reader<R: BufRead>` にファイルと標準入力の両方を渡す。
+
+```rust
+if let Some(path) = cli.input.as_deref() {
+    let file = File::open(path).map_err(...)?;
+    tally_reader(counter, BufReader::new(file), &selector, keep, cli.limit)
+} else {
+    let stdin = io::stdin();
+    tally_reader(counter, stdin.lock(), &selector, keep, cli.limit)
+}
+```
+
+**この 2 枝は 1 本にまとめられない。** `BufReader<File>` と `StdinLock` は
+別の型で、`R` はそれぞれに単相化される。**呼び出しの式そのものを共有できない。**
+
+**C# / Java との差分。** あちらは `Reader` / `InputStream` の**参照**で受けるので、
+`var r = cond ? new FileReader(..) : System.in;` と書いて 1 本になる。
+**参照が既に間接であり、間接であることの代金を常に払っている**ため、
+「まとめる」に追加コストが無い。
+
+**Scala も同じ**（`Source` を返す `if` 式で 1 本になる）。
+
+Rust で 1 本にするには `Box<dyn BufRead>` にする。すると
+**`read_line` が行ごとに間接呼び出しになる。** 1 行ごとに I/O とハッシュ挿入をする
+このプログラムでは埋もれる程度だが、**「まとめる」に値段が付いているのが差分**である。
+
+**したがって単相化の代金は、コード膨張よりも先に「書き方の制約」として来る。**
+`clippy::single_match_else` が `match` を `if let ... else` に直せと言ってきたのも、
+2 枝が構造的に別物であることの現れだった。
+
+## 5. serde
 
 ### 5-1. 位置づけ
 
@@ -507,11 +574,16 @@ JSONPath は `$.shop.orders[?(@.active)].id` に対して `[1,4]` を返す。
 
 ---
 
-## 6. エラー設計（対象: `error.rs` / `main.rs`）
+## 6. エラー設計
 
-- **ライブラリ層は `thiserror` で具体的な enum、バイナリ層は `anyhow`。**
+- **ライブラリ層は `thiserror` で具体的な enum。**
   公開 API に `anyhow::Error` を出すと、呼び出し側が「ファイルが無い」と
   「JSON が壊れている」を区別できなくなる
+
+  > **訂正（2026-08-19、段階 5）**: 当初ここに「**バイナリ層は `anyhow`**」と
+  > 書いていたが、`tally` は `anyhow` を使わなくなった。理由は 6-8。
+  > 下の `anyhow` に関する 2 項目も、`tally` のコードには
+  > **もう対応物が無い**（知識としては正しいので残す）。
 - エラーメッセージには **修正に必要な情報**（行番号・パス・フィールド名）を含める
 - `#[error(...)]` に原因を埋め込まない。`#[source]` に任せる。二重表示になるため
 - **`fn main() -> Result<...>` を使わない。** エラーが `Debug` 表示になり、
@@ -642,7 +714,221 @@ std は **エラー集合も匿名直和も一切採っていない。** 使う�
 
 ---
 
-## 7. CLI の構造（対象: `cli.rs` / `main.rs`）
+### 6-7. 1 つの `?` が、2 つの `From` を経由して同じ型に合流する（段階 5）
+
+`tally_reader` の畳み込みには `?` が 2 つ並んでいる。**型が違う。**
+
+```rust
+.try_fold(counter, |mut counter, item| -> Result<Counter> {
+    let (line_no, line) = item?;                    // io::Error → TallyError
+    counter.push_line(selector, &line, line_no)?;   // LineError → TallyError
+    Ok(counter)
+})
+```
+
+`?` は失敗時に `From::from` を通す。ここでは
+`From<io::Error> for TallyError`（`#[from]` が生成）と
+`From<LineError> for TallyError`（同じく `#[from]`）の **2 つの実装**が使われている。
+
+**C# / Java の `throws` との差分。** 例外なら「投げれば継承階層の上位で受かる」で、
+変換は起きない。Rust は変換を **型で明示させる** ので、
+`TallyError` に新しい枝を足すときに「どこから来るのか」が `From` の実装として残る。
+
+**Scala の `Either` との差分。** Scala なら `.left.map(...)` を書く場所であり、
+**呼び出しごとに変換関数を書く。** Rust は型ごとに 1 回書けば `?` が拾う。
+その代わり **同じ型の組に 2 つの変換を持てない**（孤児ルールと同じコヒーレンスの制約）。
+「文脈によって変換を変えたい」ときは `?` を捨てて `map_err` を書くことになり、
+実際に `main.rs` の hint 付与がそれである（6-9）。
+
+### 6-8. `anyhow` を落とすと何が起き、何で代替できるか（段階 5 で実測）
+
+段階 5 で `tally` から `anyhow` を外した。**判断の理由は
+[ADR-0004](adr/0004-error-type-shape.md) 論点 5 が正本**なので、ここには
+「何を失い、何で埋めたか」だけを書く。
+
+| `anyhow` の機能 | 実装 | 代替 |
+| --- | --- | --- |
+| `.context("...")` | 任意の文字列を後付けで積める | **文脈をバリアントとして型に持つ。** 積めるのは設計時に決めた種類だけ |
+| `{:#}` | チェーンを `": "` で連結 | `source()` を辿る **9 行のループ** |
+| `err.chain()` | `source()` を辿るイテレータ | 同上 |
+| `downcast_ref::<T>()` | 型を戻す | **`std::error::Error` が持っている。** `anyhow` 固有ではない |
+
+**`chain()` と `{:#}` は糖衣だった。** `std::error::Error::source()` を
+辿るだけなので、型が決まっていれば依存なしに書ける。実際に書いた版:
+
+```rust
+pub fn one_line(err: &(dyn Error + 'static)) -> String {
+    let mut shown = Vec::new();
+    let mut current = Some(err);
+    while let Some(err) = current {
+        shown.push(err.to_string());
+        current = err.source();
+    }
+    shown.join(": ")
+}
+```
+
+**`iter::successors(Some(err), |e| e.source())` と書きたくなるが通らない。**
+クロージャの引数が `&&dyn Error` になり、
+**戻り値の寿命が「借用そのものの寿命」に縛られる。**
+`source()` が返す参照は `**e` から来るので外側の借用より長生きするのに、
+クロージャの型推論はそれを表現できない
+（高階の寿命が要る）。素朴なループのほうが短い。
+
+**失ったものは `.context()` だけ**であり、それは
+「文脈を型で持つ」という設計上の要求そのものだった。
+
+### 6-9. `?` が便利すぎると、設計上の問いかけが消える（段階 5）
+
+ADR-0004 論点 6 は CLI のエラーに hint（利用者への示唆）を載せると決めた。
+**hint に既定値を与えない**という縛りも付いていた。
+
+素直に `impl From<TallyError> for CliError` を書けば `?` 1 文字で変換できる。
+**しかしそれをすると hint が必ず既定値になる。** `From` は
+「何が起きたか」しか受け取らないので、「利用者は何ができるか」を渡す場所が無い。
+
+結果、`From` を実装せず `map_err` を書くことになった。
+
+```rust
+let report = aggregate(cli).map_err(|source| {
+    let hint = error::hint_for(&source);
+    CliError::new(CliErrorKind::Tally(source), hint)
+})?;
+```
+
+**`?` の糖衣が届く範囲は「変換に追加の入力が要らない場合」だけ**である。
+Scala の implicit conversion や C# の暗黙の型変換と同じ制約で、
+**引数が 1 つしか無い変換しか自動化できない。**
+
+**ただしこの縛りは弱い。** ADR 自身が「`None` と打鍵すれば済むので
+弱い類推であることを認めておく」と書いており、実装してみてもそのとおりだった。
+強制力があるのは **`hint_for` の中の `match` が `TallyError` に対して網羅的**である
+ことのほうで、こちらはバリアントを足すとコンパイルが止まる。
+**「型で強制した」と「打鍵で思い出させる」は別物**である。
+
+### 6-10. 2 段のエラー型で `Display` と `source()` は素朴には両立しない（段階 5）
+
+[ADR-0004](adr/0004-error-type-shape.md) は「行に紐づく失敗」を
+外側の構造体（行番号・抜粋）と内側の `kind` に分けた。
+**この形にすると、`thiserror` の derive では表示が壊れる。**
+
+```rust
+#[derive(Debug, thiserror::Error)]
+#[error("{line_no} 行目: {kind}: {snippet:?}")]
+pub struct LineError {
+    line_no: usize,
+    snippet: Box<str>,
+    #[source] kind: LineErrorKind,   // ← これが問題
+}
+```
+
+`#[source]` は **`Display` に埋め込んだものと同じ値**を `source()` からも返す。
+チェーンを連結して表示すると `kind` の文が 2 度出る。
+
+```
+2 行目: JSON として解釈できません: "not json": JSON として解釈できません: expected ident
+                ^^^^^^^^^^^^^^^^^^^^^^^^                ^^^^^^^^^^^^^^^^^^^^^^^^
+```
+
+**解けるのは 2 通りだけで、どちらを採るかは設計判断である。**
+
+| | 外側の `Display` | `source()` | 単一エラーの `to_string()` |
+| --- | --- | --- | --- |
+| A. `#[source] kind` | 文脈だけ（行番号・抜粋） | `kind` | **何が起きたか言えない** |
+| B. 手書き（採用） | 文脈 + `kind` の文 | **`kind` を飛ばして `kind.source()`** | 自己完結する |
+
+B を採ったので `Display` と `Error` を手で書いた。**derive では書けない**
+（`thiserror` は `source()` だけを差し替える手段を持たない）。
+
+**C# / Java との差分がここにある。** あちらは `Message` と `InnerException` /
+`getCause()` が **最初から別のプロパティ**で、連結表示は
+`ToString()` やロギングフレームワークが決める。
+**つまり「合成規則」を設計者が決める場面が来ない。**
+Rust は `Display` を自分で書くので、**2 段にした時点で合成規則が設計項目になる。**
+
+**採用理由は防御が絡んでいた。** 抜粋のエスケープ（制御文字を生で stderr に流さない）は
+**単一エラーの `to_string()`** で成り立っていなければならない。
+消費者がチェーンを辿らずに 1 件だけログへ落とす経路は必ずあり、
+A ではそこで抜粋が消える。**表示の設計がセキュリティ上の性質を左右した。**
+
+### 6-11. エラー型を入れ子にしても大きさは変わらなかった（段階 5 で実測）
+
+6-1 で「エラー型を太らせると成功パスに課税される」を測った。
+段階 5 でバリアントを入れ子（`TallyError::Line(LineError)`）に組み替えたので、
+**太ったかを測り直した。**
+
+**実測（2026-08-19、aarch64 / rustc 1.97.1、バイト）**
+
+| 型 | 大きさ |
+| --- | --- |
+| `TallyError` | **48**（段階 2 と同じ） |
+| `LineError` | 48 |
+| `LineErrorKind` | 24 |
+| **`(usize, Box<str>, LineErrorKind)`**（入れ子をやめた平らな組） | **48** |
+| `serde_json::Error` | **8** |
+
+**入れ子にしても平らにしても 48 で同じだった。** 理由は 2 つ測って確かめた。
+
+1. **ニッチが余っている。** `Option<T>` が `T` と同じ大きさなら、
+   判別子を入れる余地が型の中に残っている。
+   `Option<LineErrorKind>` = 24、`Option<LineError>` = 48、`Option<TallyError>` = 48。
+   **3 段とも余っていた** ので、包んでも判別子のためのバイトが増えない
+2. **`serde_json::Error` が 8 バイト。** 内部で `Box` に入れているので、
+   newtype で包んでも `LineErrorKind` を太らせない。
+   **[ADR-0004](adr/0004-error-type-shape.md) 論点 4 の「型が 1 つ増える」という
+   代償に、大きさの代償は含まれない**
+
+**C++ との差分がここに出る。** `std::variant` は判別子を別に持つので
+`sizeof` が素直に足し算になりがちで、入れ子にすると段ごとに増える。
+Rust の enum は **未使用のビットパターンを判別子に流用する**。
+`Box` / `&T` / `NonZero` を含むバリアントがあれば、
+そのヌルにならない性質が判別子の置き場になる。
+**「包むと太る」という C++ の直感が当たらない。**
+
+**そして最内段だけ縮んだ。**
+
+| 段 | 変更前 | 変更後 |
+| --- | --- | --- |
+| `Key::extract` | `Result<Option<Cow>, TallyError>` = 48 | `Result<Option<Cow>, LineErrorKind>` = **32** |
+| `Selector::select` | 48 | `Result<Option<Cow>, LineError>` = 48 |
+| `Counter::push_line` | 48 | `Result<(), LineError>` = 48 |
+
+`LineErrorKind`（24）が `Option<Cow<str>>`（24）と同じ幅なので `Result` が 32 で足りる。
+**戻り値の型を「その関数が本当に返せる失敗」に絞ると、大きさも落ちる。**
+[ADR-0004](adr/0004-error-type-shape.md) 論点 3 を採った理由は
+「シグネチャが I/O で失敗しないことを表明する」ことだったので、**これは副産物**である。
+
+### 6-12. `thiserror` 2 は `Path` / `PathBuf` を特別扱いする（段階 5 で確認）
+
+これは書ける。
+
+```rust
+#[error("入力を読めません: {path}")]
+OpenInput { path: PathBuf, #[source] source: io::Error },
+```
+
+**`PathBuf` は `Display` を実装していない。**
+
+```
+error[E0277]: `PathBuf` doesn't implement `std::fmt::Display`
+```
+
+`cargo expand` で確かめると、`thiserror` は `Display` を直接使っていない。
+
+```rust
+use ::thiserror::__private20::AsDisplay as _;
+match (path.as_display(),) { ... }
+```
+
+**`AsDisplay` という内部トレイトを経由し、`Path` / `PathBuf` に特殊な実装を置いている。**
+1.x では `#[error("{}", path.display())]` と書く必要があった。
+
+**「動いたから `Display` があるのだろう」と推測しないこと。**
+`Path` に `Display` が無いのは意図的な設計（パスは UTF-8 とは限らない）であり、
+`thiserror` はそれを壊さずに迂回している。
+`{path}` が書けることは、**`PathBuf: Display` の証拠にならない。**
+
+## 7. CLI の構造
 
 - **`main.rs` にロジックを置かない。** 置くと検証手段がプロセス起動しかなくなる
 - **引数定義を `main.rs` から分離する。** `Cli::try_parse_from([...])` で
@@ -723,7 +1009,7 @@ Rust の `regex` は有限オートマトンに基づき、**入力長と正規�
 
 ---
 
-## 8. テスト設計（対象: `tests/cli.rs`）
+## 8. テスト設計
 
 - **ロジックはユニットテストに寄せる。** 統合テストはプロセス起動を伴い数百倍遅い。
   統合テストに置くのは、そこでしか検証できないもの（終了コード、stdout と stderr の分離、引数の実配線）だけ
@@ -758,7 +1044,7 @@ C++ でテストのためだけに可視性を緩めた経験があるなら、�
 
 ---
 
-## 9. 環境とツールチェーン（ファイル非依存）
+## 9. 環境とツールチェーン
 
 ### 9-1. devcontainer
 
@@ -785,7 +1071,7 @@ C++ でテストのためだけに可視性を緩めた経験があるなら、�
 
 ---
 
-## 10. イテレータとクロージャ（対象: `core.rs` / `main.rs`）
+## 10. イテレータとクロージャ
 
 ### 10-1. `for` ループとアダプタ合成は、同じ機械語にはならなかった（実測）
 
@@ -878,7 +1164,211 @@ Scala も同様に区別しない。
 
 ---
 
-## 11. 未解決の論点
+## 11. モジュールとクレートの分割
+
+### 11-1. `pub` の到達可能性は「宣言」ではなく「経路」で決まる
+
+`pub mod` をやめて **非公開モジュール + ルートでの `pub use`** にした。
+
+```rust
+mod count;   // 非公開
+mod error;
+mod select;
+
+pub use count::{Counter, Entry, Report, tally_reader};
+```
+
+`select` は非公開なのに `Selector` は公開されている。
+**Rust の可視性は「その項目に至る経路が 1 つでも外から辿れるか」で決まる**ので、
+再エクスポートがあれば十分である。
+
+**C# / Java との差分。** `internal` / package-private は
+**型の宣言そのものに付く修飾**で、「外に出す経路」という概念が無い。
+Java 9 のモジュール（`exports`）が近いが、
+**パッケージ単位でしか出せず、型を選べない。**
+
+**C++ との差分。** ヘッダに書けば見える、という粒度しか無い
+（C++20 のモジュールで `export` が入ったが、普及は限定的）。
+
+この形の実利は 3 つ。
+
+1. **同じ型に至る経路が 1 つになる。** `tally_core::Key` だけが正しく、
+   `tally_core::select::Key` は存在しない。doc と semver の対象が曖昧にならない
+2. **公開面が `lib.rs` の 3 行に集約される。** 何を約束したかを 1 画面で読める
+3. **`unreachable_pub` が再エクスポート漏れを拾う。**
+   `pub` と書いたのに外から辿れない項目は警告になる
+
+### 11-2. `missing_docs` は「書いたか」しか見ない — が、それでも効く
+
+段階 5 の完了条件に「公開 API 全てにドキュメントコメントがある」があった。
+**目視で確かめる代わりに `missing_docs = "warn"` を有効にした。**
+
+**この lint は内容を見ない。** `/// x` でも通る。それでも効いたのは、
+**`pub` を足した瞬間に「これは約束か」と問われる**ためである。
+書けない項目は、たいてい公開すべきでない項目だった。
+
+**`missing_docs` だけでは足りない。** 書いたかは見るが、
+**書いたリンクが辿れるかは見ない。** 段階 5 で実際にこれが起きた。
+
+```
+error: public documentation for `Key` links to private item `Key::extract`
+```
+
+公開項目の doc から非公開項目へ intra-doc link を張ると、
+**外部の読み手はクリックしても何も無い。** これを拾うのは rustdoc であり、
+`cargo clippy` でも `cargo test --doc` でもない。
+
+```
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
+```
+
+**3 つは別の検査である。**
+
+| 検査 | 見るもの |
+| --- | --- |
+| `missing_docs`（rustc lint） | doc を**書いたか** |
+| `cargo test --doc` | サンプルが**動くか** |
+| `rustdoc` の警告 | リンクが**辿れるか** |
+
+**`#[non_exhaustive]` な enum のバリアントのフィールドにも doc が要る**点で、
+「公開面はどこまでか」が機械的に分かるのも収穫だった。
+**enum のバリアントのフィールドは常に公開である** — 非公開にする構文が無い。
+C#/Java の sealed クラス階層や Scala の case class なら
+サブクラス側でフィールドを private にできるが、Rust にはその手段が無い。
+**だからペイロードを制御する唯一の手段は、ペイロードの型自体を不透明にすること**で、
+`JsonError` newtype はその帰結である（11-3）。
+
+### 11-3. 「公開依存」はトレイト実装のシグネチャからも漏れる
+
+`serde_json::Error` を `JsonError` newtype で隠した。
+**素直に書くと隠しきれない。**
+
+```rust
+// これを公開すると、隠したはずの serde_json が公開 API に戻る。
+impl From<serde_json::Error> for JsonError { ... }
+```
+
+トレイト実装は **impl のシグネチャに現れる型を公開面に持ち込む。**
+`pub(crate) fn new(source: serde_json::Error)` にして初めて閉じる。
+
+**「型を隠す」は、型名を出さないことではなく、
+その型に触れる経路をすべて塞ぐことである。** 塞ぐべき経路は 3 つあった。
+
+| 経路 | 塞ぎ方 |
+| --- | --- |
+| フィールドの型 | タプル構造体の 0 番目を非公開に（既定で非公開） |
+| コンストラクタ | `From` ではなく `pub(crate) fn new` |
+| **`source()` の戻り値** | `None` を返す。返すと `downcast_ref::<serde_json::Error>()` で取れてしまう |
+
+3 つ目が見落としやすい。`Error::source()` は `&dyn Error` を返すので、
+**型名が現れないのに具体型が取り出せる。**
+C#/Java の `InnerException` に相当するが、あちらは元から `Exception` 一枚岩なので
+「隠した」という前提が最初から無い。
+
+### 11-4. 依存の向きは宣言ではなく計測で確かめる
+
+「`tally-core` は `clap` に依存しない」は Cargo.toml を読めば分かる — **と思うのは早い。**
+推移的依存で入ってくる可能性があるので、実際に測る。
+
+```
+cargo tree -p tally-core --edges normal
+```
+
+`--edges normal` を付けるのは、**dev-dependencies と build-dependencies を除く**ため。
+テストだけで使うクレートは公開 API の依存ではない。
+
+**この確認をコマンド 1 本でできることが、ワークスペース分割の実利の一つ。**
+同じことをモジュール分割でやろうとすると、
+「`use` を grep する」以上の手段が無く、推移的な混入を見逃す。
+
+### 11-5. `cargo deny` は path 依存を「版の指定が無い」と見なす
+
+`wildcards = "deny"` を設定してあると、次が落ちる。
+
+```toml
+tally-core = { path = "crates/tally-core" }   # ← wildcard 扱い
+```
+
+`path` だけでは版の制約が無いに等しいためで、`version` を併記すると通る。
+
+```toml
+tally-core = { path = "crates/tally-core", version = "0.1.0" }
+```
+
+**`publish = false` でも書いておく。** 書かないと、公開する日に
+「path 依存に version が無い」で初めて止まる。
+
+### 11-6. カプセル化は「破ろうとしたときのエラーコード」で確かめる（段階 5）
+
+公開 API を閉じたつもりでも、**閉じたことは目視では確かめられない。**
+`tests/` に一時ファイルを置いてコンパイルさせ、消した。
+
+| 書いたもの | エラー | 守られているもの |
+| --- | --- | --- |
+| `Selector { key, ignore_case }` | **E0451** | 非公開フィールドがあるとリテラル構築できない |
+| `selector.ignore_case` を読む | **E0616** | 読み取りも塞がれている |
+| `Key` を外から網羅 `match` | **E0004** | `#[non_exhaustive]` |
+| `JsonError::new(..)` | **E0624** | `pub(crate)` の関連関数 |
+
+**逆向きも確かめないと意味が無い。** `TallyError` の網羅 `match` と
+`LineError.line_no` の直読みは **E0004 が出ないこと**が答えである。
+これを見ないと「全部落ちるだけの検査」になる。
+
+**`#[non_exhaustive]` の非対称がここで見える。**
+**定義元クレートの中では無効**なので、`Key::extract` の `match` は
+`_ =>` 無しで通り続ける。つまり
+**「外からは網羅させない、内では網羅を強制する」** という向きを持つ。
+
+**C# / Java との差分。** `internal` / package-private は
+「同一アセンブリ / 同一パッケージなら緩む」という**場所の条件**で、
+`pub(crate)` と対応する。**しかし `#[non_exhaustive]` に相当するものが無い。**
+Java の sealed interface は `permits` で実装を列挙する仕組みで、向きが逆
+（**閉じることを宣言する**）。
+
+**Scala の `sealed trait` との差分がより大きい。** `sealed` は
+「同一ファイル内でのみ継承可」＋「網羅性検査は常に有効」で、
+**内も外も同じ扱い**である。Rust の `#[non_exhaustive]` は
+**内と外で検査の強さが違う。** 「上流は間違えないが、下流は将来の追加で壊れない」
+という非対称を、属性 1 つで表している。
+
+### 11-7. Rust にはフィールド単位の不変宣言が無い（段階 5）
+
+`Selector` を「構築後に変わらない」型にしたかった。
+**`readonly` / `final` / `val` に相当する修飾がフィールドには付けられない。**
+
+```rust
+pub struct Selector {
+    key: Key,             // ここに immutable と書く構文が無い
+    ignore_case: bool,
+}
+```
+
+Rust の可変性は **フィールドの属性ではなく、アクセス経路の性質**である。
+`&Selector` からは書けず、`&mut Selector` からは全フィールドが書ける。
+**「一部だけ不変」を型で表す手段が無い。**
+
+| 言語 | フィールド単位の不変 |
+| --- | --- |
+| C# | `readonly` |
+| Java | `final` |
+| Scala | `val` |
+| **Rust** | **無い。** 経路に `mut` が付くかで決まる |
+
+**したがって「構築後に変わらない」を表明する手段は 1 つだけ** —
+**フィールドを非公開にし、書き換えるメソッドを置かないこと。**
+`Selector::new` + `ignore_case(self) -> Self` というビルダーの形は、
+その帰結として選ばれている（[ADR-0005](adr/0005-selector-public-api.md) 論点 2）。
+
+**ここは「他言語なら宣言で言うことを、Rust では公開面の設計で言う」形**である。
+借用チェッカが「他言語なら自分で気をつける部分を型システムに移した」のと
+方向が逆で、**宣言で言えないぶんを API の形に押し出している。**
+
+**副産物**: `ignore_case(mut self, yes: bool) -> Self` は所有権を取って返すので、
+**元の値は消費される。** 「組み立て途中の半端な値が残らない」ことが
+借用規則から自動的に従う。C# のビルダーで `return this;` と書くと
+**同じインスタンスへの参照が 2 つ残る**が、Rust ではそれが起こらない。
+
+## 12. 未解決の論点
 
 - `Pin` と async の関係（3-1 で触れた自己参照の制約の帰結）
 - `Send` / `Sync` の詳細と、`Arc<Mutex<T>>` が必要になる境界
@@ -887,5 +1377,21 @@ Scala も同様に区別しない。
   1 行ごとに I/O とハッシュ挿入をする本 CLI では埋もれる可能性が高いが、確かめていない
 - **debug ビルドでのループとアダプタの差。** 10-1 は release のみ
 - **GAT が HKT の不在（4-5）をどこまで埋めるか。** 説明は読んだが書いていない
-- **孤児ルール・`From`/`Into`/`AsRef`/`Deref`・関連型（4-3・4-6）を
-  実際のコードで使っていない。** 説明だけがあり、手が動いていない
+- **`AsRef`/`Deref`・関連型（4-6）を実際のコードで使っていない。**
+  段階 5 で `From`/`Into` は使った（6-7）が、残り 2 つは
+  **trait を自分で定義するまで出番が来ない。**
+  段階 6（並行・並列）でも来ない見込みで、
+  **必要になる課題を用意しないと消化されない**（`docs/stage-log.md` 段階 5 にも書いた）
+- **`Key::JsonPointer` を足していない。** ADR-0005 論点 3 で
+  「`#[non_exhaustive]` により非破壊で足せる」と結論したが、実際に足していないので
+  **その非破壊性を実地では確かめていない。** `cargo-semver-checks` を回すなら好機
+- **`cargo-semver-checks` を導入していない。** 段階 5 の「検討する価値のあるもの」に
+  挙げたまま。公開 API が固まった今が試し時
+- **ニッチ最適化の適用条件を把握していない**（6-11）。
+  `Option<T>` が膨らまないことで「判別子の置き場が余っている」ことは測ったが、
+  **`Box` や `NonZero` を含まない型ではどう変わるか**を確かめていない。
+  「包んでも太らない」を一般則として使うと、いずれ外す
+- **`Box<dyn BufRead>` にした場合のコストを測っていない**（4-11）。
+  「行ごとに間接呼び出しになる」と書いたが **実測していない。**
+  段階 7（性能とメモリ）で測る候補。10-1 と同じ轍を踏まないよう、
+  **当該関数の機械語か実時間で見る**
