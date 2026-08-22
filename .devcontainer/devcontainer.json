@@ -12,7 +12,16 @@
   // ビルドが数倍遅くなる。ホスト側の target/ とも分離される。
   "mounts": [
     "source=rust-learn-target,target=/workspaces/rust-learn/target,type=volume",
-    "source=rust-learn-cargo-registry,target=/usr/local/cargo/registry,type=volume"
+    "source=rust-learn-cargo-registry,target=/usr/local/cargo/registry,type=volume",
+
+    // GitHub への push 用。**読み取り専用で、~/.ssh ではなく別パスに置く。**
+    // macOS からのマウントは ssh が要求する 600 を満たさないことが多く、
+    // 読み取り専用では chmod もできない。setup-git-auth.sh が
+    // 正しいパーミッションで ~/.ssh へ複製する。
+    //
+    // ホスト側に ~/.ssh が無いと、ランタイムが root 所有の空ディレクトリを
+    // 作ることがある。先に鍵を用意しておくこと。
+    "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh-host,type=bind,readonly"
   ],
 
   "containerEnv": {
@@ -27,7 +36,7 @@
   // .git/config と .git/hooks にあり **git が追跡しない** ため、
   // ここで入れ直さないとコンテナを作り直すたびに保護が消える。
   // スクリプトは自己検査つきで、失敗すればコンテナ作成が止まる。
-  "postCreateCommand": "sudo chown -R vscode:vscode /workspaces/rust-learn/target /usr/local/cargo/registry && cargo fetch --locked && ./scripts/setup-git-secrets.sh",
+  "postCreateCommand": "sudo chown -R vscode:vscode /workspaces/rust-learn/target /usr/local/cargo/registry && cargo fetch --locked && ./scripts/setup-git-secrets.sh && ./scripts/setup-git-auth.sh",
 
   "customizations": {
     "vscode": {

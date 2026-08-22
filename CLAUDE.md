@@ -70,6 +70,7 @@ docs/handoff.md                 現在地・再開手順・未決事項
 .claude/skills/                 このリポジトリ固有のスキル
 scripts/check-docs.sh           文書の書き分けの機械的検査（CI で回る）
 scripts/setup-git-secrets.sh    秘密情報スキャンのパターンとフック（追跡される唯一の正本）
+scripts/setup-git-auth.sh       コンテナから push するための SSH 設定
 ```
 
 ## 文書の書き分け
@@ -217,6 +218,7 @@ scripts/setup-git-secrets.sh    秘密情報スキャンのパターンとフッ
 | 依存の向きの確認 | `cargo tree -p tally-core`（`clap` / `anyhow` が出ないこと） |
 | **文書の書き分けの検査** | `scripts/check-docs.sh` |
 | 秘密情報スキャンの設定（冪等） | `scripts/setup-git-secrets.sh` |
+| コンテナの push 設定（冪等） | `scripts/setup-git-auth.sh` |
 | 秘密情報のスキャン | `git secrets --scan` / `git secrets --scan-history` |
 | マクロ展開の確認 | `cargo expand -p tally --lib` |
 | CLI の手動実行 | `cargo run -p tally -- --help` |
@@ -298,6 +300,28 @@ devcontainer（`.devcontainer/`）とホスト直実行の両方に対応する�
 
 `target/` はコンテナでは名前付きボリュームにあり、**ホスト側の `target/` とは別物**。
 「ホストでは通るがコンテナで落ちる」を調べるときは、この分離を前提に切り分ける。
+
+### コンテナから GitHub へ push する
+
+**`/home/vscode` は再ビルドで消え、`.git` はホストと共有されている。**
+この 2 つが設計を決めている。
+
+| やること | どこで |
+| --- | --- |
+| ホストの `~/.ssh` を **読み取り専用**で `~/.ssh-host` にマウント | `devcontainer.json` |
+| 正しいパーミッション（700 / 600）で `~/.ssh` へ複製 | `scripts/setup-git-auth.sh` |
+| HTTPS の remote を SSH で扱う（`url.insteadOf`） | 同上。**コンテナ内の `~/.gitconfig` にだけ書く** |
+
+**remote URL は書き換えない。** `.git/config` はホストと共有されているので、
+変えるとホスト側の push にも影響する。`insteadOf` なら影響しない。
+
+**鍵をそのまま `~/.ssh` にマウントしない。** macOS からのマウントは
+ssh が要求する 600 を満たさないことが多く、読み取り専用では chmod もできない。
+
+**マウントが無くてもコンテナ作成は失敗させない。** 資格情報が無くても
+読み取りと開発は成立する。**気づかないまま進む心配も無い** —
+push すれば git がその場で明確に失敗する。
+（git-secrets とはここが違う。あちらは「静かに無防備」になりうるので落とす。）
 
 ### 秘密情報スキャン（git-secrets）
 

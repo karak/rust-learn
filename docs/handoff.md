@@ -96,6 +96,10 @@
 - **rustdoc の警告は `cargo lint` では出ない。**
   `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps` が別に要る
   （CI には入っている）。**公開項目から非公開項目へのリンク**はここでしか拾えない
+- **コンテナからの push にはホストの SSH 鍵のマウントが要る。**
+  `devcontainer.json` の mounts と `scripts/setup-git-auth.sh`。
+  **`.git` はホストと共有されているので remote URL は書き換えない**
+  （`url.insteadOf` をコンテナ内の `~/.gitconfig` にだけ置く）
 - **git-secrets のパターンとフックは git の追跡外**（`.git/config` と `.git/hooks`）。
   clone やコンテナ再作成で消える。`scripts/setup-git-secrets.sh` を回す
   （devcontainer は自動）。**パターンに literal な空白を書かない** —

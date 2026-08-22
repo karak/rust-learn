@@ -25,6 +25,11 @@ CLI ツール開発を題材にした Rust 学習環境。
 - **VS Code**: リポジトリを開き「Reopen in Container」。
 - **CLI**: `devcontainer up --workspace-folder .`
 
+**push にはホストの `~/.ssh` が要る。** 読み取り専用でマウントし、
+`postCreateCommand` が正しいパーミッションで複製する。
+GitHub に SSH 鍵を登録していない場合は先に用意すること
+（鍵が無くても fetch とビルドは通る）。
+
 `.devcontainer/Dockerfile` はツールチェーンを **`rust-toolchain.toml` と同じ 1.97.1** で
 焼き込んでいる。**片方を上げたら必ずもう片方も上げること。** ずれていると
 コンテナ起動後に rustup が別バージョンを追加取得し、固定した意味が消える。
