@@ -7,6 +7,10 @@
 # 空白で単語分割する（`for pattern in $patterns`）。空白は `[[:space:]]` で書く。
 # 同じ制約が secrets.patterns にもある（scripts/setup-git-secrets.sh を参照）。
 
+# **`--scan-history` は出力にコミット SHA を前置する**（`<sha>:path:line:内容`）。
+# `^path` でアンカーすると作業ツリーの `--scan` にしか効かない。
+# SHA の有無を任意にすること。
+
 # セットアップスクリプト自身の自己検査。偽の秘密鍵を書いて
 # 「検出できること」を毎回確かめている。ファイルと形を固定して許可する。
-^scripts/setup-git-secrets\.sh:[0-9]+:.*BEGIN[[:space:]]RSA[[:space:]]PRIVATE[[:space:]]KEY
+^([0-9a-f]{40}:)?scripts/setup-git-secrets\.sh:[0-9]+:.*BEGIN[[:space:]]RSA[[:space:]]PRIVATE[[:space:]]KEY
