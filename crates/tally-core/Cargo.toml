@@ -1,0 +1,19 @@
+[package]
+name = "tally-core"
+version = "0.1.0"
+description = "行指向データの度数集計コア。I/O と CLI から独立している"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+# **`clap` と `anyhow` はここに書かない。** 依存の向きは tally → tally-core の
+# 一方向で、引数解釈とエラーの束ね方はこのクレートの関心事ではない。
+# 逆流していないことは `cargo tree -p tally-core` で確かめられる。
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true

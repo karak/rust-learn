@@ -22,7 +22,7 @@
 use std::borrow::Cow;
 use std::io::{self, Write};
 
-use crate::core::Report;
+use tally_core::Report;
 
 /// 出力形式。
 ///
@@ -47,9 +47,9 @@ pub enum Format {
 /// **`_` を使わず全バリアントを列挙する。** 形式を足したときにここが
 /// `E0004` になることが、この形を選んだ理由の一つ（[ADR-0002]）。
 ///
-/// 戻り値が `io::Result` であって [`crate::Result`][] でないのは、
+/// 戻り値が `io::Result` であって [`crate::error::CliError`][] でないのは、
 /// ここで起きうる失敗が **書き込み先の I/O 失敗だけ** だから。
-/// `TallyError` は入力の解釈に関する失敗を表す型なので、混ぜない。
+/// 終了コードの決定と hint は呼び出し側（`main.rs`）の関心事なので、混ぜない。
 pub fn write_report<W: Write>(out: &mut W, report: &Report, format: Format) -> io::Result<()> {
     match format {
         Format::Text => {
@@ -98,7 +98,7 @@ fn quote_field(value: &str) -> Cow<'_, str> {
 #[cfg(test)]
 mod tests {
     use super::{Cow, Format, Report, io, quote_field, write_report};
-    use crate::core::Entry;
+    use tally_core::Entry;
 
     /// `--format text` の期待出力。件数の降順で並ぶ。
     const TEXT_EXPECTED: &str = "2\ta\n1\tb\n";

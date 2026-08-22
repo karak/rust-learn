@@ -10,11 +10,16 @@ publish.workspace = true
 [lints]
 workspace = true
 
+# **`anyhow` を入れていない。** 終了コードを網羅性検査つきの `match` で
+# 決めるため、CLI 固有のエラー型に一本化した（ADR-0004 論点 5、理由は `src/error.rs`）。
+#
+# `serde` も直接は使わない。`Report` の `Serialize` は tally-core 側にある。
 [dependencies]
-anyhow.workspace = true
+tally-core.workspace = true
+
 thiserror.workspace = true
 clap.workspace = true
-serde.workspace = true
+# 出力の JSON 整形にのみ使う。入力の解釈は tally-core の仕事。
 serde_json.workspace = true
 regex.workspace = true
 tracing.workspace = true

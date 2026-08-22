@@ -8,7 +8,8 @@ use std::path::PathBuf;
 use clap::Parser;
 use regex::Regex;
 
-use crate::core::{Key, Selector};
+use tally_core::{Counter, Key, Selector};
+
 use crate::format::Format;
 
 /// 行指向データの度数を集計する。
@@ -82,13 +83,19 @@ impl Cli {
     }
 
     /// 引数から「どこから取り、どう正規化するか」を決める。
+    ///
+    /// **`--strict` はここに入らない。** 「取り出せなかったときどうするか」は
+    /// 抽出器の性質ではなく消費者の方針なので、[`Cli::counter`] のほうに乗る
+    /// （ADR-0005 論点 1）。
     #[must_use]
     pub fn selector(&self) -> Selector {
-        Selector {
-            key: self.key(),
-            ignore_case: self.ignore_case,
-            strict: self.strict,
-        }
+        Selector::new(self.key()).ignore_case(self.ignore_case)
+    }
+
+    /// 引数から「キーを取り出せなかったときどうするか」を決める。
+    #[must_use]
+    pub fn counter(&self) -> Counter {
+        Counter::new().strict(self.strict)
     }
 }
 
@@ -116,18 +123,32 @@ mod tests {
         assert_eq!(cli.key(), Key::JsonField("lvl".to_owned()));
     }
 
+    /// `Selector` は非公開フィールドなので、外から観測できるのは
+    /// **振る舞いだけ**（ADR-0005 論点 2）。大小無視が効いているかは
+    /// 実際に 1 行通して見る。
+    ///
+    /// **検査のために `pub` を足さない。** 公開 API は semver の対象であり、
+    /// アクセサを増やすと約束が増える。
+    fn folded(cli: &Cli, line: &str) -> String {
+        cli.selector()
+            .select(line, 1)
+            .expect("抽出に成功するはず")
+            .expect("値が存在するはず")
+            .into_owned()
+    }
+
     #[test]
     fn ignore_case_は既定で無効() {
         let cli = Cli::try_parse_from(["tally"]).expect("解釈できるはず");
         assert!(!cli.ignore_case);
-        assert!(!cli.selector().ignore_case);
+        assert_eq!(folded(&cli, "Info"), "Info");
     }
 
     #[test]
     fn ignore_case_は短縮形でも指定できる() {
         for args in [["tally", "-i"], ["tally", "--ignore-case"]] {
             let cli = Cli::try_parse_from(args).expect("解釈できるはず");
-            assert!(cli.selector().ignore_case, "失敗した引数: {args:?}");
+            assert_eq!(folded(&cli, "Info"), "info", "失敗した引数: {args:?}");
         }
     }
 
@@ -136,28 +157,39 @@ mod tests {
         let cli = Cli::try_parse_from(["tally", "--field", "lvl", "-i"]).expect("解釈できるはず");
         assert_eq!(
             cli.selector(),
-            Selector {
-                key: Key::JsonField("lvl".to_owned()),
-                ignore_case: true,
-                strict: false,
-            }
+            Selector::new(Key::JsonField("lvl".to_owned())).ignore_case(true)
         );
+    }
+
+    #[test]
+    fn strict_は_selector_には乗らない() {
+        // 同じ引数から作った Selector は、--strict の有無で変わらない。
+        // これが ADR-0005 論点 1 の帰結（strict は Counter の方針）。
+        let lenient = Cli::try_parse_from(["tally", "--field", "lvl"]).expect("解釈できるはず");
+        let strict =
+            Cli::try_parse_from(["tally", "--field", "lvl", "--strict"]).expect("解釈できるはず");
+        assert_eq!(lenient.selector(), strict.selector());
     }
 
     #[test]
     fn strict_は既定で無効() {
         let cli = Cli::try_parse_from(["tally"]).expect("解釈できるはず");
-        assert!(!cli.selector().strict);
+        assert!(!cli.strict);
+        // Counter も非公開フィールドなので、振る舞いで見る。
+        cli.counter()
+            .push_line(&Selector::new(Key::JsonField("lvl".to_owned())), "{}", 1)
+            .expect("既定ではスキップされるはず");
     }
 
     #[test]
-    fn strict_指定が_selector_に反映される() {
+    fn strict_指定が_counter_に反映される() {
         let cli =
             Cli::try_parse_from(["tally", "--field", "lvl", "--strict"]).expect("解釈できるはず");
-        assert!(
-            cli.selector().strict,
-            "--strict が selector に伝わっていない"
-        );
+        let err = cli
+            .counter()
+            .push_line(&cli.selector(), "{\"other\":1}", 1)
+            .expect_err("--strict が counter に伝わっていない");
+        assert_eq!(err.line_no, 1);
     }
 
     #[test]

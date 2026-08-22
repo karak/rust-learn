@@ -11,6 +11,11 @@ publish = false
 # 依存はワークspace 側で一元管理する。
 # 各クレートは `foo.workspace = true` で参照し、バージョンの分岐を防ぐ。
 [workspace.dependencies]
+# ワークスペース内のクレート。tally → tally-core の一方向。
+# **`version` を省かない。** 省くと `cargo deny` の `wildcards = "deny"` に
+# 「版の指定が無い依存」として落とされる（path だけでは制約が無いに等しい）。
+tally-core = { path = "crates/tally-core", version = "0.1.0" }
+
 anyhow = "1"
 thiserror = "2"
 clap = { version = "4", features = ["derive", "env", "wrap_help"] }
@@ -34,6 +39,9 @@ tempfile = "3"
 # 学習環境なので pedantic まで入れて「なぜ怒られるか」を読む機会を増やす。
 [workspace.lints.rust]
 unsafe_code = "deny"
+# 公開 API の doc 漏れを機械的に拾う。段階 5 の完了条件
+# 「公開 API 全てにドキュメントコメントがある」を人手の確認に頼らないため。
+missing_docs = "warn"
 missing_debug_implementations = "warn"
 unreachable_pub = "warn"
 

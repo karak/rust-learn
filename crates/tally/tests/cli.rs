@@ -1,12 +1,20 @@
 //! CLI の統合テスト。
 //!
-//! ここでしか検証できないこと（終了コード・stdout と stderr の分離・引数の実配線）
-//! だけを置く。プロセス起動は遅いため。
+//! **ここに置いてよいのは、プロセスを起動しないと観測できないものだけ。**
 //!
-//! **ロジックのテストは `src/**` の `#[cfg(test)] mod tests` に置く**
-//! （`src/core.rs` と `src/cli.rs`）。このファイルからは非公開項目が見えないので、
-//! そもそも書けない。理由は `docs/layout.md` の
-//! 「テストが 2 箇所に分かれるのは、選択ではなく制約」を参照。
+//! - 終了コードのうち **clap が返すもの**（引数の誤り = `2`）
+//! - stdout と stderr が混ざっていないこと
+//! - 引数が実際に配線されていること
+//!
+//! **終了コードの決定規則そのものはここでは網羅しない。**
+//! `src/error.rs` の `CliError::exit_code` がユニットテストで網羅している
+//! （ADR-0004 論点 5）。プロセス起動の数に比例させると遅く、しかも
+//! **「テストを書き忘れた」ことが検出されない。**
+//!
+//! **ロジックのテストは各クレートの `#[cfg(test)] mod tests` に置く**
+//! （`tally-core` の `select` / `count` / `error`、`tally` の `cli` / `format`）。
+//! このファイルからは非公開項目が見えないので、そもそも書けない。理由は
+//! `docs/layout.md` の「テストが 2 箇所に分かれるのは、選択ではなく制約」を参照。
 //!
 //! `clippy.toml` の `allow-expect-in-tests` は `#[cfg(test)]` モジュールにしか効かない。
 //! `tests/` 配下は通常のクレートとしてコンパイルされるため、ここで明示的に許可する。
@@ -28,6 +36,8 @@ fn fixture(contents: &str) -> tempfile::NamedTempFile {
     file
 }
 
+// --- 入力の配線 ---
+
 #[test]
 fn 標準入力を集計してタブ区切りで出す() {
     tally()
@@ -45,6 +55,41 @@ fn ファイル引数を集計する() {
         .assert()
         .success()
         .stdout("3\tx\n1\ty\n");
+}
+
+// --- 引数の配線 ---
+//
+// 各フラグの**振る舞い**は tally-core と cli.rs のユニットテストが持っている。
+// ここで見るのは「clap の値が実際に届いているか」だけなので、1 フラグ 1 件に絞る。
+
+#[test]
+fn field_指定で_json_の値を集計する() {
+    tally()
+        .args(["--field", "lvl"])
+        .write_stdin("{\"lvl\":\"info\"}\n{\"lvl\":\"error\"}\n{\"lvl\":\"info\"}\n")
+        .assert()
+        .success()
+        .stdout("2\tinfo\n1\terror\n");
+}
+
+#[test]
+fn ignore_case_が配線されている() {
+    tally()
+        .arg("--ignore-case")
+        .write_stdin("Info\nINFO\nwarn\ninfo\n")
+        .assert()
+        .success()
+        .stdout("3\tinfo\n1\twarn\n");
+}
+
+#[test]
+fn limit_で上位だけに絞る() {
+    tally()
+        .args(["-n", "1"])
+        .write_stdin("a\na\nb\n")
+        .assert()
+        .success()
+        .stdout("2\ta\n");
 }
 
 #[test]
@@ -74,116 +119,14 @@ fn csv_出力はヘッダ行を持たない() {
         .stdout("2,a\n1,b\n");
 }
 
-#[test]
-fn field_指定で_json_の値を集計する() {
-    let input = "{\"lvl\":\"info\"}\n{\"lvl\":\"error\"}\n{\"lvl\":\"info\"}\n";
-    tally()
-        .args(["--field", "lvl"])
-        .write_stdin(input)
-        .assert()
-        .success()
-        .stdout("2\tinfo\n1\terror\n");
-}
-
-#[test]
-fn 存在しないファイルは失敗して原因を示す() {
-    tally()
-        .arg("/definitely/not/here.log")
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("入力を読めません"));
-}
-
-#[test]
-fn 壊れた_json_は行番号を示して失敗する() {
-    tally()
-        .args(["--field", "lvl"])
-        .write_stdin("{\"lvl\":\"info\"}\nnot json\n")
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("2 行目"));
-}
-
-#[test]
-fn stats_は標準出力を汚さず標準エラーに出る() {
-    tally()
-        .arg("--stats")
-        .write_stdin("a\na\n")
-        .assert()
-        .success()
-        // stdout は集計結果だけ。パイプで繋いだ先が壊れないことの保証。
-        .stdout("2\ta\n")
-        .stderr(predicate::str::contains("2 行を集計し"));
-}
-
-#[test]
-fn ignore_case_で大文字小文字をまとめて集計する() {
-    tally()
-        .arg("--ignore-case")
-        .write_stdin("Info\nINFO\nwarn\ninfo\n")
-        .assert()
-        .success()
-        .stdout("3\tinfo\n1\twarn\n");
-}
-
-#[test]
-fn ignore_case_なしでは大文字小文字が分かれる() {
-    tally()
-        .write_stdin("Info\ninfo\n")
-        .assert()
-        .success()
-        .stdout("1\tInfo\n1\tinfo\n");
-}
-
-#[test]
-fn ignore_case_は_json_の値にも効く() {
-    tally()
-        .args(["--field", "lvl", "-i"])
-        .write_stdin("{\"lvl\":\"INFO\"}\n{\"lvl\":\"info\"}\n")
-        .assert()
-        .success()
-        .stdout("2\tinfo\n");
-}
-
-#[test]
-fn strict_はフィールド欠損で失敗し行番号と抜粋を示す() {
-    tally()
-        .args(["--field", "lvl", "--strict"])
-        .write_stdin("{\"lvl\":\"info\"}\n{\"other\":1}\n")
-        .assert()
-        // 完了条件は「終了コードが 1」。failure() は非ゼロしか見ないので code(1) を使う。
-        .code(1)
-        .stderr(predicate::str::contains("2 行目"))
-        .stderr(predicate::str::contains("other"));
-}
-
-#[test]
-fn strict_なしでは欠損行をスキップして成功する() {
-    tally()
-        .args(["--field", "lvl"])
-        .write_stdin("{\"lvl\":\"info\"}\n{\"other\":1}\n")
-        .assert()
-        .success()
-        .stdout("1\tinfo\n");
-}
-
-#[test]
-fn limit_で上位だけに絞る() {
-    tally()
-        .args(["-n", "1"])
-        .write_stdin("a\na\nb\n")
-        .assert()
-        .success()
-        .stdout("2\ta\n");
-}
-
-// --- 段階 4: --filter ---
-
 /// **上流で絞ってから渡した場合と、`--filter` で絞った場合の出力が一致する。**
 ///
 /// `grep` を実際に起動して比べると、実装（BSD / GNU）と正規表現の方言に
 /// 依存したテストになる。ここで確かめたいのは `tally` 側の性質
 /// 「フィルタは集計の上流にある」なので、**入力を手で絞ったものと突き合わせる。**
+///
+/// **バイト単位の一致を見るのでここでしか書けない。** `total` と `skipped` を
+/// 含む出力全体が一致することが `output-format.md` の契約である。
 #[test]
 fn filter_の結果は事前に絞った入力と一致する() {
     let full = "info: a\nwarn: b\ninfo: c\ndebug: d\ninfo: a\n";
@@ -207,25 +150,91 @@ fn filter_の結果は事前に絞った入力と一致する() {
     );
 }
 
-/// フィルタで行が落ちても、エラーは **入力ファイルの行番号** を指す。
-///
-/// ここがずれると、利用者はエラーを見ても該当行を開けない。
+// --- stdout と stderr の分離 ---
+
 #[test]
-fn filter_で落ちた行があってもエラーは入力の行番号を指す() {
-    // 3 行目が JSON として壊れている。2 行目はフィルタで落ちる。
-    let input = "{\"lvl\":\"info\"}\nDROP ME\nnot json\n";
+fn stats_は標準出力を汚さず標準エラーに出る() {
     tally()
-        .args(["--field", "lvl", "--filter", "^[^D]"])
-        .write_stdin(input)
+        .arg("--stats")
+        .write_stdin("a\na\n")
         .assert()
-        .failure()
-        .stderr(predicate::str::contains("3 行目"));
+        .success()
+        // stdout は集計結果だけ。パイプで繋いだ先が壊れないことの保証。
+        .stdout("2\ta\n")
+        .stderr(predicate::str::contains("2 行を集計し"));
 }
+
+/// 診断は stderr にのみ出る。**stdout は 1 バイトも出ない。**
+///
+/// 集計が失敗した時点で書き出しに進まないので、部分的な結果も残らない。
+#[test]
+fn 失敗時の診断は_stdout_に混ざらない() {
+    tally()
+        .args(["--field", "lvl"])
+        .write_stdin("{\"lvl\":\"info\"}\nnot json\n")
+        .assert()
+        .code(1)
+        .stdout("")
+        .stderr(predicate::str::contains("2 行目"));
+}
+
+/// hint は **stderr にのみ** 出る。
+///
+/// **2 方向とも見る**（ADR-0004 の Confirmation）。
+///
+/// - stdout の**完全一致**で「混ざっていない」ことを言う
+/// - stderr の**部分一致**で「実際に出ている」ことを言う
+///
+/// 片方だけでは足りない。stdout だけ見れば「hint を実装し忘れた」でも通り、
+/// stderr だけ見れば「stdout にも出した」でも通る。
+#[test]
+fn hint_は_stderr_にのみ出る() {
+    tally()
+        .args(["--field", "lvl", "--strict"])
+        .write_stdin("{\"lvl\":\"info\"}\n{\"other\":1}\n")
+        .assert()
+        .code(1)
+        .stdout("")
+        .stderr(predicate::str::contains("hint: "))
+        .stderr(predicate::str::contains("--strict を外す"));
+}
+
+/// **示唆の無い失敗では `hint:` 行を出さない。**
+///
+/// 既定を `None` にした意味がここにある。「JSON を直せ」のような
+/// 情報量ゼロの助言で診断を埋めない（ADR-0004 論点 6 の「範囲を絞る」）。
+#[test]
+fn 示唆の無い失敗では_hint_行が出ない() {
+    tally()
+        .args(["--field", "lvl"])
+        .write_stdin("not json\n")
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("hint:").not());
+}
+
+/// 入力を開けない場合は、**どのパスを開けなかったか**を出す。
+///
+/// `anyhow` の `.context()` を落としたので、path はエラー型
+/// （`TallyError::OpenInput`）が持っている。ここはその配線の確認。
+#[test]
+fn 存在しないファイルは失敗して原因とパスを示す() {
+    tally()
+        .arg("/definitely/not/here.log")
+        .assert()
+        .code(1)
+        .stdout("")
+        .stderr(predicate::str::contains("入力を読めません"))
+        .stderr(predicate::str::contains("/definitely/not/here.log"));
+}
+
+// --- clap が返す終了コード ---
 
 /// 壊れた正規表現は **集計を始める前に** 引数の誤りとして拒否される。
 ///
-/// 終了コード 2 は clap の規約。入力を読んでから失敗すると、
-/// パイプの上流が無駄に走る。
+/// **終了コード `2` は `CliError::exit_code` を通らない。** `Cli::parse()` が
+/// `run` より前に返すので、clap 側に残る。**プロセスを起動しないと観測できない
+/// 唯一の終了コードであり、ここに置く理由がある。**
 #[test]
 fn 壊れた正規表現は終了コード_2_で拒否される() {
     tally()
@@ -233,4 +242,10 @@ fn 壊れた正規表現は終了コード_2_で拒否される() {
         .write_stdin("a\n")
         .assert()
         .code(2);
+}
+
+/// `--strict` は `--field` を伴わないと clap が拒否する。これも終了コード `2`。
+#[test]
+fn field_なしの_strict_は終了コード_2_で拒否される() {
+    tally().args(["--strict"]).assert().code(2);
 }
