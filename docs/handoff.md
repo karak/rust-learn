@@ -285,11 +285,10 @@ git push origin --delete stage-5/module-design chore/git-secrets chore/container
    これは失敗事例 1（`progress.md` の SHA 4 件が全部無効になった）と同じ形。
    **検査に足すなら、`docs/adr/` の日付つき観測**
    （「変更前の値は `<sha>` を取り出して測った」）を誤検知しない形にする必要がある
-8. **[ADR-0006](adr/0006-branching-strategy.md) が `proposed` のまま。**
-   ブランチ運用の決定は済んでいるが、Confirmation の 2〜5
-   （トピックブランチで CI が回る / `--ff-only` が成功する /
-   マージコミットが 0 件のまま / CI が回った SHA が `main` に載る）は
-   **次に `main` へ載せるときに確かめる。** 終えたら `accepted` にする
+8. **`--ff-only` の「rebase を機械的に強制する」経路を通っていない。**
+   [ADR-0006](adr/0006-branching-strategy.md) は 2026-08-23 に `accepted` になったが、
+   **そのとき `main` が動いていなかったので rebase も `--force-with-lease` も要らなかった。**
+   決め手として挙げた強制が発動する場面は、**次に `main` が先行したときが初回**になる
 9. **`AsRef` / `Deref` と関連型を、実際のコードで一度も使っていない。**
    段階 5 で回収を試みたが、**trait を自分で定義するまで出番が来ない**と分かった。
    段階 6 でも来ない見込み。**必要になる課題を用意しないと消化されない**
