@@ -18,11 +18,6 @@
 
 ## 現在地
 
-> **⚠ 最優先の作業がある。** 未 push のコミットが積まれており、
-> **`main` はまだ 1 つも進んでいない。** 下の
-> 「最優先: 未 push のコミットを `main` に載せる」を先に読むこと。
-> 段階 6 はそのあと。
-
 - **実装は段階 5 まで完了**（2026-08-19）。**段階 6（並行・並列）はコード未着手。**
   **各段階の実績は `docs/stage-log.md` が正本**（節がある段階が完了した段階）。
   段階の定義・完了条件は `docs/curriculum.md`
@@ -32,6 +27,10 @@
 - **[ADR-0004](adr/0004-error-type-shape.md) と
   [ADR-0005](adr/0005-selector-public-api.md) は `accepted` になった。**
   実装・実測・Confirmation をすべて終えた。**この 2 つに残作業は無い**
+- **[ADR-0006](adr/0006-branching-strategy.md) も `accepted` になった**（2026-08-23）。
+  **ただし決定の全経路を通したわけではない** — 未決事項 8
+- **未 push のブランチは無い**（2026-08-23 時点）。
+  **ただし push できるのはホストからだけ** — コンテナからの push は動いていない（未決事項 10）
 - **`tally` は `anyhow` を使わない。** `CLAUDE.md` の方針 3 を段階 5 で書き換えた
 - 公開済み: <https://github.com/karak/rust-learn>（public）
 
@@ -51,128 +50,6 @@
    （[ADR-0006](adr/0006-branching-strategy.md)）
 
 セットアップとコマンドは `README.md` を参照。
-
-## クレートの構造
-
-**コードの配置と設計判断は、それぞれのクレートの `docs/layout.md` が正本。**
-
-- `crates/tally-core/docs/layout.md` — 集計コア
-- `crates/tally/docs/layout.md` — CLI
-
-この文書には書かない（クレートの性質であって、セッションの状態ではないため）。
-読む順序は学習者への指示なので `docs/curriculum.md` 段階 0 にある。
-
-新しいコードをどこに置くか迷ったら、まず **どちらのクレートの話かを決める。**
-`tally` 側の `layout.md` の「新しいコードをどこに置くか」がその問いから始まる。
-
-## 最優先: 未 push のコミットを `main` に載せる
-
-**2026-08-19 のセッションはここで終わっている。** コミットは全て済んでいるが、
-**コンテナに GitHub の資格情報が無く push できなかった。**
-
-### いまの状態
-
-**ブランチが 3 本、下から順に積まれている。**
-
-```
-chore/container-ssh          ← 作業ツリーはこれをチェックアウト中
-  └ chore/git-secrets
-      └ stage-5/module-design
-          └ main             = origin/main（2026-08-19 時点で動いていない）
-```
-
-- **リモートには 1 本も push されていない**（`origin` にあるのは `main` だけ）
-- 未コミット無し、マージコミット 0 件
-
-**SHA と件数はここに書かない**（`CLAUDE.md` の「コミット履歴・SHA は `git log` が答える」）。
-実際の位置はこれで見る。
-
-```bash
-git log --oneline --graph --decorate main..chore/container-ssh
-git branch -a
-git status --short
-```
-
-### なぜ止まったか
-
-**コンテナに credential helper / トークン / SSH 鍵 / agent のいずれも無い。**
-`git fetch` が通るのは public リポジトリで読み取りが匿名でできるため。
-
-対策は実装済みだが **コンテナを再ビルドしないと効かない** —
-`devcontainer.json` がホストの `~/.ssh` を読み取り専用で `~/.ssh-host` にマウントし、
-`scripts/setup-git-auth.sh` が正しいパーミッションで複製する。
-設計の理由は `CLAUDE.md`「コンテナから GitHub へ push する」。
-
-### 手順
-
-**どこで実行するかが分かれる。** `/workspaces/rust-learn` は
-macOS からの virtiofs バインドで、**作業ツリーと `.git` はホストと共有**。
-どちらから触っても同じものを見ている。
-
-| # | やること | どこで |
-| --- | --- | --- |
-| 1 | コンテナを再ビルド（`Rebuild Container`、または `devcontainer up --remove-existing-container`） | ホスト |
-| 2 | `postCreateCommand` の出力に `git 認証: Hi karak — push できます` が出ることを確認 | ホスト（ログ） |
-| 3 | 全検査を通す（下記） | コンテナ |
-| 4 | 3 本を push し、CI が緑になるのを見る | どちらでも |
-| 5 | `main` に `--ff-only` で載せる | どちらでも |
-| 6 | ADR-0006 の Confirmation を実施して `accepted` にする | コンテナ |
-
-**手順 1 が済むまで push はできない。**
-ホスト側に資格情報があるなら、**ホストから push するだけでも 4・5 は進む**
-（`.git` が共有なのでコミットはもう見えている）。その場合も
-**手順 1 は別途やること** — Dockerfile の git-secrets 導入がまだ実地検証されていない。
-
-#### 手順 3: 通すもの
-
-```bash
-scripts/check-docs.sh
-cargo fmt --all --check && cargo lint && cargo t
-cargo test --workspace --doc
-RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
-cargo deny check
-git secrets --scan && git secrets --scan-history
-```
-
-**2026-08-19 時点では全て通っていた。** それでも自分で回すこと。
-
-#### 手順 4・5: 積んだ 3 本を下から載せる
-
-**`main` が動いていなければ rebase は不要。** 動いていたら
-`CLAUDE.md`「ブランチ運用」の手順に従う（下から順に rebase する）。
-
-```bash
-git fetch
-git push -u origin stage-5/module-design    # ← CI が回る
-git push -u origin chore/git-secrets
-git push -u origin chore/container-ssh
-# 3 本とも CI が緑になってから
-git switch main && git pull --ff-only
-git merge --ff-only stage-5/module-design && git push
-git merge --ff-only chore/git-secrets       && git push
-git merge --ff-only chore/container-ssh     && git push
-git branch -d stage-5/module-design chore/git-secrets chore/container-ssh
-git push origin --delete stage-5/module-design chore/git-secrets chore/container-ssh
-```
-
-#### 手順 6: ADR-0006 を `accepted` にする
-
-[ADR-0006](adr/0006-branching-strategy.md) の Confirmation 2〜5 が
-**この作業でしか確かめられない。** 実施して結果を書き、`status` を `accepted` にする。
-未決事項 7 も消す。**これ自体が 1 ブランチ 1 単位**（`adr-0006/confirmation` など）。
-
-### 注意
-
-- **CI が緑になる前に `main` へ載せない。** ADR-0006 の決定はそこが要点
-- **`--force` を使わない。** rebase して push し直すなら `--force-with-lease`
-- **`main` のマージコミットは 0 件を保つ。** `git log --merges --oneline | wc -l`
-- **`.git/hooks` と `.git/config` はホストと共有されている。**
-  `secrets.patterns` 11 件はホスト側の commit にも効く。
-  **ホストで commit するなら、ホストにも `git-secrets` が必要**
-  （無いと `git: 'secrets' is not a git command` で止まる）
-- **`gh` はコンテナに無い。** CI の確認は GitHub Actions のページで行う
-
----
 
 ## 次の作業: 段階 6（並行・並列）
 
@@ -199,6 +76,19 @@ git push origin --delete stage-5/module-design chore/git-secrets chore/container
 型の骨格だけ足して通し、アサーションが落ちることを確認してから実装する。
 振る舞いが複数あるならサイクルを分ける（段階 2 は 3 サイクルに分けた）。
 
+## クレートの構造
+
+**コードの配置と設計判断は、それぞれのクレートの `docs/layout.md` が正本。**
+
+- `crates/tally-core/docs/layout.md` — 集計コア
+- `crates/tally/docs/layout.md` — CLI
+
+この文書には書かない（クレートの性質であって、セッションの状態ではないため）。
+読む順序は学習者への指示なので `docs/curriculum.md` 段階 0 にある。
+
+新しいコードをどこに置くか迷ったら、まず **どちらのクレートの話かを決める。**
+`tally` 側の `layout.md` の「新しいコードをどこに置くか」がその問いから始まる。
+
 ## 既知の落とし穴
 
 - **`clippy.toml` の `allow-expect-in-tests` は `#[cfg(test)]` にしか効かない。**
@@ -210,9 +100,12 @@ git push origin --delete stage-5/module-design chore/git-secrets chore/container
 - **rustdoc の警告は `cargo lint` では出ない。**
   `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps` が別に要る
   （CI には入っている）。**公開項目から非公開項目へのリンク**はここでしか拾えない
-- **コンテナからの push にはホストの SSH 鍵のマウントが要る。**
-  `devcontainer.json` の mounts と `scripts/setup-git-auth.sh`。
-  **`.git` はホストと共有されているので remote URL は書き換えない**
+- **コンテナからの push は動かない**（2026-08-23 に確認）。
+  `devcontainer.json` の mounts と `scripts/setup-git-auth.sh` は
+  ホストの SSH 鍵を複製する設計だが、**鍵を持っていることと使えることは別**だった。
+  詳細と代替案は未決事項 10。
+  **当面はコンテナで commit し、ホストから push する**（`.git` は共有なので成立する）。
+  **remote URL は書き換えない** — `.git/config` がホストと共有されているため
   （`url.insteadOf` をコンテナ内の `~/.gitconfig` にだけ置く）
 - **git-secrets のパターンとフックは git の追跡外**（`.git/config` と `.git/hooks`）。
   clone やコンテナ再作成で消える。`scripts/setup-git-secrets.sh` を回す
@@ -292,6 +185,22 @@ git push origin --delete stage-5/module-design chore/git-secrets chore/container
 9. **`AsRef` / `Deref` と関連型を、実際のコードで一度も使っていない。**
    段階 5 で回収を試みたが、**trait を自分で定義するまで出番が来ない**と分かった。
    段階 6 でも来ない見込み。**必要になる課題を用意しないと消化されない**
+10. **コンテナから push する方法が決まっていない。**
+    2026-08-23 にホストで確認した事実: `~/.ssh/config` が `github.com` に指定している
+    鍵は**パスフレーズ付き**で、**ssh-agent には identity が 0 件**。
+    ホストで `ssh -T git@github.com` 自体が通らない。
+    **鍵ファイルを複製する現行設計は、複製先でも解錠できない。**
+    検討した候補は 3 つ。**(a) ssh-agent をフォワードする**
+    — 鍵の実体がコンテナに入らないので最も安全。ホストで一度
+    `ssh-add --apple-use-keychain` する必要があり、`devcontainer up` CLI では
+    socket の bind mount が別途要る（VS Code の拡張は自動でやる）。
+    **(b) パスフレーズ無しの ed25519 を deploy key として登録する**
+    — 非対話で通るが平文の秘密鍵が残る。被害はこのリポジトリに閉じる。
+    **(c) token を渡す** — 最も速いが、classic PAT の `repo` は全リポジトリに及ぶ。
+    採るなら fine-grained + 期限つきに絞ること。
+    **決めるまでは push をホストから行う**（落とし穴の項も参照）
 
 CI の稼働状況はここに書かない（腐るため）。
-GitHub Actions の実行履歴を見ること（**`gh` は devcontainer に入っていない**）。
+GitHub Actions の実行履歴を見ること。
+**`gh` は devcontainer には入っていないが、ホストには入っている** —
+`gh run list` / `gh run watch` が使える（2026-08-23 に確認）。
