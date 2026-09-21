@@ -21,7 +21,14 @@
       "Bash(rustup show:*)",
       "Bash(rustup component list:*)",
       "Bash(./scripts/check-docs.sh:*)",
-      "Bash(scripts/check-docs.sh:*)"
+      "Bash(scripts/check-docs.sh:*)",
+      "Bash(git secrets --scan:*)",
+      "Bash(git secrets --list)",
+      "Bash(git config --get-all:*)",
+      "Bash(git config --local --get-all:*)",
+      "Bash(gh run watch:*)",
+      "Bash(gh api user/keys:*)",
+      "Bash(afplay /System/Library/Sounds/:*)"
     ],
     "ask": [
       "Bash(cargo add:*)",
