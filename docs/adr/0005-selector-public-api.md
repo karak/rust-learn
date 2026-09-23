@@ -1,5 +1,6 @@
 ---
 status: "accepted"
+partially-superseded-by: "ADR-0007（論点 2）"
 date: 2026-08-17
 decision-makers: 学習者, Claude
 consulted: —
@@ -16,6 +17,11 @@ informed: —
 `crates/tally-core/src/count.rs`（`Counter` と `strict`）にある。
 
 **この文書は以後変更しない。** 決定を覆すときは新しい ADR で supersede する。
+
+> **一部が supersede された**（2026-09-23、[ADR-0007](0007-multi-input-aggregation.md) 論点 2）。
+> 「実装時に決めたこと」3（`tally_reader` が `Counter` を第 1 引数で受ける形）が、
+> **`&mut Counter` を受けて `Result<()>` を返す形**に変わった。
+> **論点 1〜5 の決定は有効。** 下の記述は当時の決定としてそのまま残す。
 
 ## この文書の書き方（先に宣言する）
 
@@ -990,6 +996,10 @@ doc に書けば足りる。
    `&mut Counter` を受けて `Report` を返さない形（`limit` も外れて 4 引数になる）も
    考えたが、**本 ADR も ADR-0004 も `tally_reader` の形については何も決めていない**ので、
    強制された変更の最小に留めた。複数入力を 1 つの集計に合流させたくなったら見直す
+   → **見直した**（2026-09-23、[ADR-0007](0007-multi-input-aggregation.md) 論点 2）。
+   **ここで候補として挙げた `&mut Counter` の形を採った。**
+   `Report` がマージできないため、先送りの条件（複数入力の合流）が満たされた。
+   **この項目は ADR-0007 論点 2 が supersede する。**
 
 ## 改訂履歴
 
