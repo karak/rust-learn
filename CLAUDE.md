@@ -183,6 +183,7 @@ scripts/setup-git-auth.sh       コンテナから push するための SSH 設�
 | `curriculum.md` にチェックボックスが無い | 状態を持たせると予実管理メモに戻る |
 | `curriculum.md` に実績の節が無い | 「実」は `stage-log.md` |
 | **どの文書にもテストのフルパス（`::tests::`）が無い** | `cargo nextest list` が答える |
+| **`aggregate` が `clap` / `regex` / ファイル操作に触れない** | 並列化ポリシーを切り出せる状態に保つ（ADR-0007 論点 5） |
 | `stage-log.md` に現在地・次の作業の節が無い | 状態は `handoff.md` の 1 箇所 |
 | **journal に出た rustc のエラーコードが `learning-log.md` にもある** | 言語の性質は学びの側。journal は参照するだけ |
 | md の相対リンクが切れていない | 上の 3 の再発防止 |
@@ -217,6 +218,7 @@ scripts/setup-git-auth.sh       コンテナから push するための SSH 設�
 | 依存検査 | `cargo deny check` |
 | 依存の向きの確認 | `cargo tree -p tally-core`（`clap` / `anyhow` が出ないこと） |
 | **文書の書き分けの検査** | `scripts/check-docs.sh` |
+| **モジュール間の依存規則の検査** | `scripts/check-module-deps.sh` |
 | 秘密情報スキャンの設定（冪等） | `scripts/setup-git-secrets.sh` |
 | コンテナの push 設定（冪等） | `scripts/setup-git-auth.sh` |
 | 秘密情報のスキャン | `git secrets --scan` / `git secrets --scan-history` |
@@ -225,6 +227,8 @@ scripts/setup-git-auth.sh       コンテナから push するための SSH 設�
 
 **コミット前に通すべきもの**: `cargo fmt --all` → `cargo lint` → `cargo t`。
 **文書に触ったら `scripts/check-docs.sh` も回す。**
+**Rust のコードに触ったら `scripts/check-module-deps.sh` も回す**
+（層の規則は `crates/tally/docs/layout.md`、根拠は [ADR-0007](docs/adr/0007-multi-input-aggregation.md) 論点 5）。
 **公開 API に触ったらドキュメントテストと rustdoc の警告検査も回す。**
 CI（`.github/workflows/ci.yml`）は同じ内容を実行する。
 

@@ -62,6 +62,17 @@ jobs:
       - name: check-docs
         run: ./scripts/check-docs.sh
 
+  # モジュール間の依存規則（ADR-0007 論点 5 の層の表）を検査する。
+  # **Rust のビルドが要らない**ので docs と同じく独立させる。
+  # 「切り出せるように書く」は守り忘れられるので、検査にしてある。
+  module-deps:
+    name: module deps
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: check-module-deps
+        run: ./scripts/check-module-deps.sh
+
   deny:
     name: cargo-deny
     runs-on: ubuntu-latest

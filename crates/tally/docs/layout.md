@@ -40,6 +40,32 @@
 | `tests/cli.rs` | 統合テスト | 終了コード（clap 由来）、stdout と stderr の分離、引数の実配線 | 純粋関数の入出力検査 |
 | `docs/` | このクレートの構造と外部契約 | 配置・設計判断・その理由、出力仕様 | 進捗、日付つきの記録 |
 
+| `src/aggregate.rs` | 並列化ポリシー | ジョブの列の走らせ方、合流、失敗の選び方 | **ファイルを開く操作、`clap`、`regex`、整形** |
+
+---
+
+## 層（モジュール間で許される依存）
+
+**下の層は上の層を知らない。** 根拠は
+[ADR-0007](../../../docs/adr/0007-multi-input-aggregation.md) 論点 5。
+
+| 層 | モジュール | 依存してよいもの | 依存してはいけないもの |
+| --- | --- | --- | --- |
+| 0 | （別クレート）`tally-core` | `std`、`thiserror`、`serde` | `clap`、`anyhow`、`rayon`、ファイルを開く操作 |
+| 1 | `src/error.rs` | `std`、`thiserror`、`tally_core` | `clap`、`regex`、`rayon`、他の `tally` モジュール |
+| 2 | **`src/aggregate.rs`** | `std`、`rayon`、`tally_core`、`crate::error` | **`clap`、`regex`、ファイルを開く操作、`crate::cli`、`crate::format`** |
+| 3 | `src/cli.rs`、`src/format.rs` | `clap` / `regex` / `serde_json`、`tally_core`、`crate::error` | ファイルを開く操作、`rayon`、`crate::aggregate` |
+| 4 | `src/main.rs` | すべて | — |
+
+**層 2 の目的は「切り出せる状態を保つ」こと。** 並列化ポリシーは
+入力の種類にも集計の中身にも依存しないので、
+**`tally` 以外の消費者が現れたら別クレートへ移せる**（移行条件は ADR-0007 論点 5）。
+
+**`scripts/check-module-deps.sh` がこの表を機械的に検査し、CI で回る。**
+**限界がある** — コメント行は見ないので、doc コメント内のコード例は拾えない。
+
+---
+
 **判断に迷ったら**: それは「プロセスを起動しないと確かめられないこと」か。
 そうでなければ純粋関数として lib 側に置き、ユニットテストで検査する。
 
