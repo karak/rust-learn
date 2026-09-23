@@ -283,6 +283,62 @@ mod tests {
         }
     }
 
+    proptest::proptest! {
+        /// **分割のしかたによらず、逐次と並列と一括が一致する**（段階 6 の完了条件）。
+        ///
+        /// 例を数個並べるだけでは、マージの結合則の破れを拾えない。
+        /// **ジョブが閉包なので、ファイルを作らずに性質テストが書ける**
+        /// （ADR-0007 論点 5 が 5d を採った実利）。
+        #[test]
+        fn 分割のしかたによらず結果は同じ(
+            groups in proptest::collection::vec(
+                proptest::collection::vec("[a-c]{1,2}", 0..5usize),
+                0..5usize,
+            )
+        ) {
+            let texts: Vec<String> = groups
+                .iter()
+                .map(|lines| lines.iter().map(|line| format!("{line}\n")).collect())
+                .collect();
+
+            let jobs: Vec<_> = texts
+                .iter()
+                .map(|text| {
+                    move || {
+                        let mut counter = Counter::new();
+                        tally_reader(
+                            &mut counter,
+                            text.as_bytes(),
+                            &Selector::new(Key::WholeLine),
+                            |_| true,
+                        )
+                        .expect("メモリ上の入力は読み取りに失敗しない");
+                        Ok(counter)
+                    }
+                })
+                .collect();
+
+            // 一括で集計した基準。
+            let joined: String = texts.concat();
+            let mut whole = Counter::new();
+            tally_reader(
+                &mut whole,
+                joined.as_bytes(),
+                &Selector::new(Key::WholeLine),
+                |_| true,
+            )
+            .expect("メモリ上の入力は読み取りに失敗しない");
+            let expected = whole.report(None);
+
+            for execution in BOTH {
+                let actual = aggregate_all(&jobs, Counter::new, execution)
+                    .expect("成功するはず")
+                    .report(None);
+                proptest::prop_assert_eq!(&actual, &expected, "{:?} で結果が変わった", execution);
+            }
+        }
+    }
+
     #[test]
     fn 単位元の方針が合流後に残る() {
         for execution in BOTH {
