@@ -33,3 +33,10 @@ predicates.workspace = true
 insta.workspace = true
 proptest.workspace = true
 tempfile.workspace = true
+divan.workspace = true
+
+# **divan は独自のハーネスを持つ。** 既定の libtest ハーネスを外さないと
+# 引数（--sample-count など）が解釈されない。
+[[bench]]
+name = "aggregate"
+harness = false

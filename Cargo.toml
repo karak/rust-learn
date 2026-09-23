@@ -34,6 +34,8 @@ predicates = "3"
 insta = { version = "1", features = ["json"] }
 proptest = "1"
 tempfile = "3"
+# ベンチ。criterion より軽く、起動が速い（rust-crate-selection の表）。
+divan = "0.1"
 
 # lint はワークスペースで定義し、各クレートが [lints] workspace = true で継承する。
 # 学習環境なので pedantic まで入れて「なぜ怒られるか」を読む機会を増やす。
