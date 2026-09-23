@@ -22,6 +22,8 @@ clap.workspace = true
 # 出力の JSON 整形にのみ使う。入力の解釈は tally-core の仕事。
 serde_json.workspace = true
 regex.workspace = true
+# ファイル単位のデータ並列。**tally-core には入れない**（ADR-0007 論点 5）。
+rayon.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 
