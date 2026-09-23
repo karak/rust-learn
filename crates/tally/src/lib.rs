@@ -5,6 +5,7 @@
 //!
 //! - [`aggregate`] — 並列化ポリシー（**入力の種類を知らない**。[ADR-0007] 論点 5）
 //! - [`cli`] — 引数定義（`clap`）と、引数から `tally_core` の型への変換
+//! - [`input`] — 入力を開いて 1 単位を集計する（**I/O の境界**）
 //! - [`mod@format`] — 集計結果の整形
 //! - [`error`] — CLI 固有の失敗、終了コード、hint
 //!
@@ -27,3 +28,4 @@ pub mod aggregate;
 pub mod cli;
 pub mod error;
 pub mod format;
+pub mod input;

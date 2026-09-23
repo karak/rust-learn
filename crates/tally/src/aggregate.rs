@@ -298,7 +298,13 @@ mod tests {
         ) {
             let texts: Vec<String> = groups
                 .iter()
-                .map(|lines| lines.iter().map(|line| format!("{line}\n")).collect())
+                .map(|lines| {
+                    let mut text = lines.join("\n");
+                    if !text.is_empty() {
+                        text.push('\n');
+                    }
+                    text
+                })
                 .collect();
 
             let jobs: Vec<_> = texts

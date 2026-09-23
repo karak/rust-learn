@@ -41,6 +41,7 @@
 | `docs/` | このクレートの構造と外部契約 | 配置・設計判断・その理由、出力仕様 | 進捗、日付つきの記録 |
 
 | `src/aggregate.rs` | 並列化ポリシー | ジョブの列の走らせ方、合流、失敗の選び方 | **ファイルを開く操作、`clap`、`regex`、整形** |
+| `src/input.rs` | I/O の境界 | ファイル・標準入力を開いて 1 単位を集計する、失敗への名前づけ | **`clap`、`rayon`、順位づけ、整形** |
 
 ---
 
@@ -54,6 +55,7 @@
 | 0 | （別クレート）`tally-core` | `std`、`thiserror`、`serde` | `clap`、`anyhow`、`rayon`、ファイルを開く操作 |
 | 1 | `src/error.rs` | `std`、`thiserror`、`tally_core` | `clap`、`regex`、`rayon`、他の `tally` モジュール |
 | 2 | **`src/aggregate.rs`** | `std`、`rayon`、`tally_core`、`crate::error` | **`clap`、`regex`、ファイルを開く操作、`crate::cli`、`crate::format`** |
+| 3 | `src/input.rs` | `std`（`fs` を含む）、`tally_core`、`crate::error` | `clap`、`rayon`、`crate::aggregate`、`crate::cli`、`crate::format` |
 | 3 | `src/cli.rs`、`src/format.rs` | `clap` / `regex` / `serde_json`、`tally_core`、`crate::error` | ファイルを開く操作、`rayon`、`crate::aggregate` |
 | 4 | `src/main.rs` | すべて | — |
 
@@ -138,6 +140,7 @@ error[E0603]: function `quote_field` is private
 | **引数から `Execution` への対応づけが `main.rs`** | `cli` は `aggregate` を知らず、`aggregate` は `clap` を知らない（層の表）。繋ぐのは最上層 |
 | **`ExecutionError` が中身を公開しない newtype** | `rayon` を公開依存にしないため（ADR-0004 論点 4 と同じ判断）。層 1 は `rayon` を知らない |
 | **標準入力は並列化しない** | 単位が 1 つしかなく、`StdinLock` を複数のジョブに分けられない |
+| **`input` が lib にあり `main.rs` ではない** | **ベンチとテストから呼べないため。** binary クレートの項目は `benches/` からも `tests/` からも見えない |
 | `Format` に `clap::ValueEnum` を derive | enum を 2 つ持って同期させるほうが害が大きい（同じ事実が 2 箇所になる） |
 | `Format` を trait にしていない | [ADR-0002](../../../docs/adr/0002-output-format-abstraction.md)。形式ごとの本体が「概ね 20 行超」かつ「操作が 2 つ以上」になったら再評価する |
 | `write_report` が `impl Write` を受ける | `Vec<u8>` に書いて内容を検証できる。`Stdout` 固定だと差し替えの仕掛けが要る |

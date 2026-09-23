@@ -1,7 +1,6 @@
 //! バイナリ本体。ロジックは持たず、境界の面倒だけを見る。
 
-use std::fs::File;
-use std::io::{self, BufReader, IsTerminal, Write};
+use std::io::{self, IsTerminal, Write};
 use std::num::NonZeroUsize;
 use std::process::ExitCode;
 
@@ -9,9 +8,9 @@ use clap::Parser as _;
 
 use tally::aggregate::{Execution, aggregate_all};
 use tally::cli::Cli;
-use tally::error::{CliError, CliErrorKind, EXIT_OK, InputName};
-use tally::{error, format};
-use tally_core::{Counter, Report, TallyError, tally_reader};
+use tally::error::{CliError, CliErrorKind, EXIT_OK};
+use tally::{error, format, input};
+use tally_core::{Counter, Report};
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
@@ -75,18 +74,6 @@ fn run(cli: &Cli) -> Result<(), CliError> {
     Ok(())
 }
 
-/// 集計の失敗に入力の名前を被せる。
-///
-/// **包む責任は呼び出し側にある**（ADR-0007 論点 3）。包み忘れても型検査は通るので、
-/// **`tally_reader` を呼ぶ経路をこの関数 1 つに集約する。**
-///
-/// **hint もここで打つ。** `From<TallyError> for CliError` を実装して `?` に任せると、
-/// 「この失敗に対して利用者は何ができるか」を問う瞬間が消える（ADR-0004 論点 6）。
-fn input_error(name: InputName, source: TallyError) -> CliError {
-    let hint = error::hint_for(&source);
-    CliError::new(CliErrorKind::Input { name, source }, hint)
-}
-
 /// 引数から実行戦略を決める。
 ///
 /// **この対応づけは `cli` にも `aggregate` にも置けない。** `cli` は層 3 で
@@ -112,11 +99,7 @@ fn aggregate(cli: &Cli) -> Result<Report, CliError> {
         tracing::debug!("標準入力から読み込みます");
         // **標準入力は並列化しない。** 単位が 1 つしかなく、`StdinLock` は
         // 複数のジョブへ分けられない。
-        let mut counter = cli.counter();
-        let stdin = io::stdin();
-        tally_reader(&mut counter, stdin.lock(), &selector, keep)
-            .map_err(|source| input_error(InputName::Stdin, source))?;
-        counter
+        input::tally_stdin(cli.counter(), &selector, keep)?
     } else {
         // **ジョブは「1 ファイルを開いて集計する」閉包。**
         // 並列化ポリシー（`aggregate` モジュール）はファイルを知らないので、
@@ -129,23 +112,7 @@ fn aggregate(cli: &Cli) -> Result<Report, CliError> {
                 let keep = &keep;
                 move || -> Result<Counter, CliError> {
                     tracing::debug!(path = %path.display(), "ファイルから読み込みます");
-                    // **開くのはここ。** `tally_core` はファイルを開かないので、
-                    // 開けなかった失敗も CLI の型になる（ADR-0007 論点 3）。
-                    let file = File::open(path).map_err(|source| {
-                        // 開けない理由（パス・権限）に対して、`tally` の使い方を変えて
-                        // できることは無い。だから hint は `None`。
-                        CliError::new(
-                            CliErrorKind::Open {
-                                path: path.clone(),
-                                source,
-                            },
-                            None,
-                        )
-                    })?;
-                    let mut counter = cli.counter();
-                    tally_reader(&mut counter, BufReader::new(file), selector, keep)
-                        .map_err(|source| input_error(InputName::Path(path.clone()), source))?;
-                    Ok(counter)
+                    input::tally_path(path, cli.counter(), selector, keep)
                 }
             })
             .collect();

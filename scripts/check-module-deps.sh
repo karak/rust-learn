@@ -71,6 +71,19 @@ deny "$ERR" '\brayon\b' 'rayon' \
 deny "$ERR" 'crate::(cli|format|aggregate)|super::(cli|format|aggregate)' '上位の層' \
     '層 1 は最下層。上を知ると依存が循環する'
 
+# --- 層 3: input は I/O の境界。引数と並列化は知らない -------------------
+#
+# **ファイルを開いてよい唯一の lib モジュール。** 逆に、引数の形（clap）と
+# 実行戦略（rayon）からは独立している。ベンチとテストから呼ぶために lib にある。
+
+IN=crates/tally/src/input.rs
+deny "$IN" '\bclap\b' 'clap' \
+    '引数の形が変わっても、入力を開いて数える手順は変わらない'
+deny "$IN" '\brayon\b|crate::aggregate' '並列化' \
+    '1 単位の集計は、何単位を同時に走らせるかを知らない'
+deny "$IN" 'crate::cli|crate::format' '上位の層' \
+    '層 3 は層 3 を横断しない。Cli 型ではなく素の引数を受ける'
+
 # --- 層 3: cli / format はファイルを開かず、並列化も知らない --------------
 
 for f in crates/tally/src/cli.rs crates/tally/src/format.rs; do
