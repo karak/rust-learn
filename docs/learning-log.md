@@ -796,6 +796,10 @@ let report = aggregate(cli).map_err(|source| {
 })?;
 ```
 
+（段階 6 で `CliErrorKind::Tally` は `Input { name, source }` になり、
+変換の引数が hint と入力の名前の 2 つに増えた。**`From` で書けない度合いが強まった**
+だけで、この節の結論は変わらない。[ADR-0007](adr/0007-multi-input-aggregation.md) 論点 3。）
+
 **`?` の糖衣が届く範囲は「変換に追加の入力が要らない場合」だけ**である。
 Scala の implicit conversion や C# の暗黙の型変換と同じ制約で、
 **引数が 1 つしか無い変換しか自動化できない。**
@@ -904,7 +908,7 @@ Rust の enum は **未使用のビットパターンを判別子に流用する
 
 ```rust
 #[error("入力を読めません: {path}")]
-OpenInput { path: PathBuf, #[source] source: io::Error },
+OpenInput { path: PathBuf, #[source] source: io::Error },   // 現 CliErrorKind::Open
 ```
 
 **`PathBuf` は `Display` を実装していない。**

@@ -43,7 +43,6 @@
 
 use std::error::Error;
 use std::fmt;
-use std::path::PathBuf;
 
 /// このクレート共通の `Result`。
 ///
@@ -79,25 +78,12 @@ pub type Result<T, E = TallyError> = std::result::Result<T, E>;
 /// ```
 ///
 /// [ADR-0004]: ../../../docs/adr/0004-error-type-shape.md
+/// **「開けなかった」はここに無い。** このクレートはファイルを開かないので、
+/// 開く失敗は開いた側（CLI）の語彙である（[ADR-0007] 論点 3 で移した）。
+///
+/// [ADR-0007]: ../../../docs/adr/0007-multi-input-aggregation.md
 #[derive(Debug, thiserror::Error)]
 pub enum TallyError {
-    /// 入力を開けなかった。
-    ///
-    /// **このクレートは何も開かない。** 開くのは呼び出し側（CLI やサーバ）で、
-    /// このバリアントはその失敗を同じ分類に載せるための置き場所である。
-    ///
-    /// `path` の書式指定に `.display()` を書いていないのは、**thiserror 2 が
-    /// `Path` / `PathBuf` を特別扱いする**ため。1.x では `#[error("{}", path.display())]`
-    /// と書く必要があった。
-    #[error("入力を読めません: {path}")]
-    OpenInput {
-        /// 開こうとした対象。
-        path: PathBuf,
-        /// 元の I/O 失敗。
-        #[source]
-        source: std::io::Error,
-    },
-
     /// 読み取り中の I/O 失敗。
     ///
     /// 不正な UTF-8 もここに来る（[`std::io::BufRead::lines`] が

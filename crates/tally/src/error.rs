@@ -33,6 +33,7 @@
 use std::error::Error;
 use std::fmt;
 use std::io;
+use std::path::PathBuf;
 
 use tally_core::{LineErrorKind, TallyError};
 
@@ -40,6 +41,30 @@ use tally_core::{LineErrorKind, TallyError};
 pub const EXIT_OK: u8 = 0;
 /// 実行時エラー。
 pub const EXIT_FAILURE: u8 = 1;
+
+/// 入力の呼び名。**診断に出すためだけの型。**
+///
+/// 標準入力には path が無いので、`Option<PathBuf>` では
+/// 「持つが空」という状態が生まれる。**それを型で潰している**
+/// （[ADR-0004] 論点 1 が `LineError` で採ったのと同じ形）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InputName {
+    /// 標準入力。
+    Stdin,
+    /// ファイル。
+    Path(PathBuf),
+}
+
+impl fmt::Display for InputName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Stdin => f.write_str("標準入力"),
+            // `Path` は `Display` を実装しないので `.display()` を通す。
+            // thiserror の書式指定と違い、ここは素の `std::fmt` である。
+            Self::Path(path) => write!(f, "{}", path.display()),
+        }
+    }
+}
 
 /// CLI が返す失敗。
 ///
@@ -64,16 +89,48 @@ pub struct CliError {
 /// [`hint_for`] の `match` がコンパイルエラーになる。それが狙い。
 #[derive(Debug, thiserror::Error)]
 pub enum CliErrorKind {
-    /// 集計そのものの失敗。
+    /// 入力を開けなかった。
     ///
-    /// **`#[error(transparent)]` にして文脈を足していない。** `anyhow` 時代は
-    /// `.context("{path} の集計に失敗しました")` を被せていたが、
-    /// 開けなかった場合は [`TallyError::OpenInput`] が既に path を持っており、
-    /// **同じ path が 2 度出る**。入力は最大 1 つなので、
-    /// 読み取り途中の失敗で path が出ないことは受け入れる
-    /// （複数入力を扱うようになったら見直す）。
-    #[error(transparent)]
-    Tally(#[from] TallyError),
+    /// **[`TallyError`] ではなくここにある。** `tally_core` はファイルを開かないので、
+    /// 「開けなかった」は開いた側の語彙である（[ADR-0007] 論点 3）。
+    ///
+    /// **標準入力では起きない**ので、[`InputName`] ではなく [`PathBuf`] を直接持つ。
+    ///
+    /// `path` の書式指定に `.display()` を書いていないのは、**thiserror 2 が
+    /// `Path` / `PathBuf` を特別扱いする**ため。1.x では `#[error("{}", path.display())]`
+    /// と書く必要があった。
+    ///
+    /// [ADR-0007]: ../../../docs/adr/0007-multi-input-aggregation.md
+    #[error("入力を読めません: {path}")]
+    Open {
+        /// 開こうとした対象。
+        path: PathBuf,
+        /// 元の I/O 失敗。
+        #[source]
+        source: io::Error,
+    },
+
+    /// 集計そのものの失敗。**どの入力で起きたかを必ず持つ。**
+    ///
+    /// **段階 5 では `#[error(transparent)]` で文脈を足していなかった。**
+    /// 当時は `TallyError::OpenInput` が path を持っていたため、
+    /// 文脈を被せると **同じ path が 2 度出た**。
+    /// `OpenInput` を [`CliErrorKind::Open`] へ移した結果、その二重は消えた
+    /// （[ADR-0007] 論点 3）。
+    ///
+    /// **名前が要るのは行番号のためでもある。** [`tally_core::LineError`] の
+    /// 行番号は入力ごとに 1 から数えるので、
+    /// **どの入力かが言えないと行番号まで意味を失う。**
+    ///
+    /// [ADR-0007]: ../../../docs/adr/0007-multi-input-aggregation.md
+    #[error("{name} の集計に失敗しました")]
+    Input {
+        /// どの入力か。
+        name: InputName,
+        /// 元の失敗。
+        #[source]
+        source: TallyError,
+    },
 
     /// 集計結果を書き出せなかった。
     ///
@@ -119,7 +176,9 @@ impl CliError {
             // パイプの下流が先に閉じた場合（`tally big.log | head`）。
             // これは異常ではないので、静かに成功終了する。Unix ツールの作法。
             CliErrorKind::Write(source) if is_broken_pipe(source) => EXIT_OK,
-            CliErrorKind::Tally(_) | CliErrorKind::Write(_) => EXIT_FAILURE,
+            CliErrorKind::Open { .. } | CliErrorKind::Input { .. } | CliErrorKind::Write(_) => {
+                EXIT_FAILURE
+            }
         }
     }
 }
@@ -155,10 +214,12 @@ impl Error for CliError {
 #[must_use]
 pub fn hint_for(err: &TallyError) -> Option<&'static str> {
     match err {
-        // 開けない・読めないは利用者の操作で直せるが、
+        // 読めないのは利用者の操作で直せるが、
         // **`tally` の使い方を変えて直るものではない。** パスや権限の話なので、
-        // メッセージ本体（path を含む）以上に言えることが無い。
-        TallyError::OpenInput { .. } | TallyError::Read(_) => None,
+        // メッセージ本体（入力の名前を含む）以上に言えることが無い。
+        // **開けなかった場合は `CliErrorKind::Open` になり、ここを通らない**
+        // （ADR-0007 論点 3 で `OpenInput` を CLI へ移した）。
+        TallyError::Read(_) => None,
         TallyError::Line(line) => match &line.kind {
             LineErrorKind::MissingField { .. } => {
                 Some("--strict を外すと、この行はスキップされます")
@@ -217,6 +278,15 @@ mod tests {
         CliError::new(CliErrorKind::Write(io::Error::from(kind)), None)
     }
 
+    /// 標準入力の集計が失敗した形。**テストの大半は名前を問わない**ので、
+    /// 既定を 1 つ決めて短く書けるようにする。
+    fn input_kind(source: TallyError) -> CliErrorKind {
+        CliErrorKind::Input {
+            name: InputName::Stdin,
+            source,
+        }
+    }
+
     fn line_err(kind: LineErrorKind) -> TallyError {
         TallyError::Line(LineError::new(1, "{\"other\":1}", kind))
     }
@@ -234,17 +304,18 @@ mod tests {
 
     #[test]
     fn 集計の失敗は終了コード_1() {
-        let err = CliError::new(CliErrorKind::Tally(missing_field()), None);
+        let err = CliError::new(input_kind(missing_field()), None);
         assert_eq!(err.exit_code(), EXIT_FAILURE);
     }
 
     #[test]
     fn 入力を開けない場合も終了コード_1() {
+        // 開けない失敗は `Open`。**`Input` を通らない**（ADR-0007 論点 3）。
         let err = CliError::new(
-            CliErrorKind::Tally(TallyError::OpenInput {
+            CliErrorKind::Open {
                 path: "/nope".into(),
                 source: io::Error::from(io::ErrorKind::NotFound),
-            }),
+            },
             None,
         );
         assert_eq!(err.exit_code(), EXIT_FAILURE);
@@ -253,7 +324,7 @@ mod tests {
     #[test]
     fn 読み取りの失敗も終了コード_1() {
         let err = CliError::new(
-            CliErrorKind::Tally(TallyError::Read(io::Error::from(
+            input_kind(TallyError::Read(io::Error::from(
                 io::ErrorKind::InvalidData,
             ))),
             None,
@@ -315,11 +386,10 @@ mod tests {
     }
 
     #[test]
-    fn 入力を開けない場合には示唆を付けない() {
-        let err = TallyError::OpenInput {
-            path: "/nope".into(),
-            source: io::Error::from(io::ErrorKind::NotFound),
-        };
+    fn 読み取りの失敗には示唆を付けない() {
+        // 開けない失敗は `CliErrorKind::Open` になり、`hint_for` を通らない
+        // （ADR-0007 論点 3 で `OpenInput` を CLI へ移した）。
+        let err = TallyError::Read(io::Error::from(io::ErrorKind::InvalidData));
         assert_eq!(hint_for(&err), None);
     }
 
@@ -335,7 +405,7 @@ mod tests {
         // hint を出すかは呼び出し側の判断。Display に混ぜると
         // ログへ落としたときにも付いて回る。
         let err = CliError::new(
-            CliErrorKind::Tally(missing_field()),
+            input_kind(missing_field()),
             Some("この文は Display に出てはいけない"),
         );
         assert!(
@@ -357,11 +427,34 @@ mod tests {
     }
 
     #[test]
-    fn one_line_は集計の失敗に文脈を足さない() {
-        // `#[error(transparent)]` なので、CLI 側の層は何も被せない。
+    fn one_line_は集計の失敗に入力の名前を前置する() {
+        // 段階 5 では `#[error(transparent)]` で何も被せなかった。
+        // 複数入力では **どの入力の何行目かが言えなくなる**ので、
+        // 名前を前置する形に変えた（ADR-0007 論点 3）。
         let inner = missing_field();
         let expected = inner.to_string();
-        let err = CliError::new(CliErrorKind::Tally(inner), None);
-        assert!(one_line(&err).starts_with(&expected), "{}", one_line(&err));
+        let err = CliError::new(
+            CliErrorKind::Input {
+                name: InputName::Path("a.log".into()),
+                source: inner,
+            },
+            None,
+        );
+        let shown = one_line(&err);
+        assert!(shown.starts_with("a.log の集計に失敗しました: "), "{shown}");
+        // 元の失敗（行番号と抜粋を含む）は落ちない。
+        assert!(shown.ends_with(&expected), "{shown}");
+    }
+
+    #[test]
+    fn 標準入力にも呼び名がある() {
+        // path が無い入力を `Option<PathBuf>` の `None` で表すと、
+        // 表示の場合分けが呼び出し側に漏れる。
+        let err = CliError::new(input_kind(missing_field()), None);
+        assert!(
+            one_line(&err).starts_with("標準入力 の集計に失敗しました: "),
+            "{}",
+            one_line(&err)
+        );
     }
 }

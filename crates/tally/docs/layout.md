@@ -105,7 +105,9 @@ error[E0603]: function `quote_field` is private
 | **終了コード `2` は clap 側に残る** | `Cli::parse()` が `run` より前に返すので `exit_code` を通らない。**プロセスを起動しないと観測できない唯一の終了コード** |
 | **hint が型のフィールドで、既定値を持つコンストラクタが無い** | 「この失敗に対して利用者は何ができるか」を打鍵時に問わせる。既定化すると価値がゼロになる |
 | **hint は stderr にのみ、`error:` とは別の行に出す** | stdout はデータ専用。`error:` 行を機械的に拾う利用者を壊さない |
-| **`CliErrorKind::Tally` が `#[error(transparent)]`** | path の文脈を被せると `TallyError::OpenInput` と二重になる。入力は最大 1 つなので、読み取り途中の失敗で path が出ないことは受け入れた |
+| **`CliErrorKind::Input` が入力の名前を前置する** | 行番号は入力ごとに 1 から数えるので、**名前が無いと行番号まで意味を失う**（[ADR-0007](../../../docs/adr/0007-multi-input-aggregation.md) 論点 3）。段階 5 の `Tally(#[error(transparent)])` は、`TallyError::OpenInput` と path が二重になるのを避けた形だった |
+| **開けなかった失敗（`CliErrorKind::Open`）が CLI にある** | `tally_core` はファイルを開かない。**開く主体が名前を知っている**（ADR-0007 論点 3。段階 5 までは `tally_core` 側にあった） |
+| **`InputName` が `Option<PathBuf>` ではない** | 標準入力には path が無い。`None` で表すと「持つが空」の状態が生まれ、表示の場合分けが呼び出し側に漏れる |
 | `Format` に `clap::ValueEnum` を derive | enum を 2 つ持って同期させるほうが害が大きい（同じ事実が 2 箇所になる） |
 | `Format` を trait にしていない | [ADR-0002](../../../docs/adr/0002-output-format-abstraction.md)。形式ごとの本体が「概ね 20 行超」かつ「操作が 2 つ以上」になったら再評価する |
 | `write_report` が `impl Write` を受ける | `Vec<u8>` に書いて内容を検証できる。`Stdout` 固定だと差し替えの仕掛けが要る |

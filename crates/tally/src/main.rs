@@ -7,7 +7,7 @@ use std::process::ExitCode;
 use clap::Parser as _;
 
 use tally::cli::Cli;
-use tally::error::{CliError, CliErrorKind, EXIT_OK};
+use tally::error::{CliError, CliErrorKind, EXIT_OK, InputName};
 use tally::{error, format};
 use tally_core::{Report, TallyError, tally_reader};
 
@@ -55,13 +55,7 @@ fn report_error(err: &CliError) {
 }
 
 fn run(cli: &Cli) -> Result<(), CliError> {
-    let report = aggregate(cli).map_err(|source| {
-        // **hint をここで打つ。** `From<TallyError> for CliError` を実装して
-        // `?` に任せると、「この失敗に対して利用者は何ができるか」を
-        // 問う瞬間が消える（ADR-0004 論点 6）。
-        let hint = error::hint_for(&source);
-        CliError::new(CliErrorKind::Tally(source), hint)
-    })?;
+    let report = aggregate(cli)?;
 
     write_output(cli, &report)
         // 書き出しの失敗（ディスクフル、パイプ切断）に対して
@@ -79,8 +73,20 @@ fn run(cli: &Cli) -> Result<(), CliError> {
     Ok(())
 }
 
+/// 集計の失敗に入力の名前を被せる。
+///
+/// **包む責任は呼び出し側にある**（ADR-0007 論点 3）。包み忘れても型検査は通るので、
+/// **`tally_reader` を呼ぶ経路をこの関数 1 つに集約する。**
+///
+/// **hint もここで打つ。** `From<TallyError> for CliError` を実装して `?` に任せると、
+/// 「この失敗に対して利用者は何ができるか」を問う瞬間が消える（ADR-0004 論点 6）。
+fn input_error(name: InputName, source: TallyError) -> CliError {
+    let hint = error::hint_for(&source);
+    CliError::new(CliErrorKind::Input { name, source }, hint)
+}
+
 /// 入力を開いて集計する。**I/O の面倒はここに閉じる。**
-fn aggregate(cli: &Cli) -> Result<Report, TallyError> {
+fn aggregate(cli: &Cli) -> Result<Report, CliError> {
     let selector = cli.selector();
     let counter = cli.counter();
     // `--filter` 未指定なら全行を通す述語にする。core 側に `Option` を渡さないのは、
@@ -93,16 +99,26 @@ fn aggregate(cli: &Cli) -> Result<Report, TallyError> {
     // 行ごとに動的ディスパッチを払うことになる。
     if let Some(path) = cli.input.as_deref() {
         tracing::debug!(path = %path.display(), "ファイルから読み込みます");
-        // **開くのはここ。** `tally_core` はファイルを開かない。
-        let file = File::open(path).map_err(|source| TallyError::OpenInput {
-            path: path.to_path_buf(),
-            source,
+        // **開くのはここ。** `tally_core` はファイルを開かないので、
+        // 開けなかった失敗も CLI の型になる（ADR-0007 論点 3）。
+        let file = File::open(path).map_err(|source| {
+            // 開けない理由（パス・権限）に対して、`tally` の使い方を変えて
+            // できることは無い。だから hint は `None`。
+            CliError::new(
+                CliErrorKind::Open {
+                    path: path.to_path_buf(),
+                    source,
+                },
+                None,
+            )
         })?;
         tally_reader(counter, BufReader::new(file), &selector, keep, cli.limit)
+            .map_err(|source| input_error(InputName::Path(path.to_path_buf()), source))
     } else {
         tracing::debug!("標準入力から読み込みます");
         let stdin = io::stdin();
         tally_reader(counter, stdin.lock(), &selector, keep, cli.limit)
+            .map_err(|source| input_error(InputName::Stdin, source))
     }
 }
 

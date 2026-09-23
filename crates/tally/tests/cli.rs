@@ -216,7 +216,8 @@ fn 示唆の無い失敗では_hint_行が出ない() {
 /// 入力を開けない場合は、**どのパスを開けなかったか**を出す。
 ///
 /// `anyhow` の `.context()` を落としたので、path はエラー型
-/// （`TallyError::OpenInput`）が持っている。ここはその配線の確認。
+/// （`CliErrorKind::Open`。ADR-0007 論点 3 で `tally_core` から移した）が
+/// 持っている。ここはその配線の確認。
 #[test]
 fn 存在しないファイルは失敗して原因とパスを示す() {
     tally()
@@ -226,6 +227,38 @@ fn 存在しないファイルは失敗して原因とパスを示す() {
         .stdout("")
         .stderr(predicate::str::contains("入力を読めません"))
         .stderr(predicate::str::contains("/definitely/not/here.log"));
+}
+
+/// 読み取り途中で失敗した場合も、**どの入力かが出る。**
+///
+/// **包む責任は呼び出し側にある**（ADR-0007 論点 3 が 3b に負けている軸）。
+/// 包み忘れても型検査は通るので、ここで押さえる。
+/// **行番号は入力ごとに 1 から数える**ため、名前が無いと行番号まで意味を失う。
+#[test]
+fn 集計に失敗した入力の名前が診断に出る() {
+    let dir = tempfile::tempdir().expect("一時ディレクトリを作れるはず");
+    let path = dir.path().join("broken.log");
+    std::fs::write(&path, "{\"lvl\":\"info\"}\n{\"other\":1}\n").expect("書けるはず");
+
+    tally()
+        .args(["--field", "lvl", "--strict"])
+        .arg(&path)
+        .assert()
+        .code(1)
+        .stdout("")
+        .stderr(predicate::str::contains("broken.log の集計に失敗しました"))
+        .stderr(predicate::str::contains("2 行目"));
+}
+
+/// 標準入力の失敗にも呼び名が付く。**`Option<PathBuf>` の `None` にしない。**
+#[test]
+fn 標準入力の失敗は標準入力という名前で出る() {
+    tally()
+        .args(["--field", "lvl", "--strict"])
+        .write_stdin("{\"other\":1}\n")
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("標準入力 の集計に失敗しました"));
 }
 
 // --- clap が返す終了コード ---
