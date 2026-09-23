@@ -61,12 +61,12 @@ pub type Result<T, E = TallyError> = std::result::Result<T, E>;
 /// use tally_core::{Counter, Key, Selector, TallyError, tally_reader};
 ///
 /// let selector = Selector::new(Key::JsonField("lvl".to_owned()));
+/// let mut counter = Counter::new().strict(true);
 /// let err = tally_reader(
-///     Counter::new().strict(true),
+///     &mut counter,
 ///     "{\"other\":1}\n".as_bytes(),
 ///     &selector,
 ///     |_| true,
-///     None,
 /// )
 /// .expect_err("strict なので失敗する");
 ///

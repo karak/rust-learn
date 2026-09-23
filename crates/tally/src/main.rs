@@ -88,7 +88,7 @@ fn input_error(name: InputName, source: TallyError) -> CliError {
 /// 入力を開いて集計する。**I/O の面倒はここに閉じる。**
 fn aggregate(cli: &Cli) -> Result<Report, CliError> {
     let selector = cli.selector();
-    let counter = cli.counter();
+    let mut counter = cli.counter();
     // `--filter` 未指定なら全行を通す述語にする。core 側に `Option` を渡さないのは、
     // 「フィルタが無い」を分岐として core に持ち込まないため。
     let keep = |line: &str| cli.filter.as_ref().is_none_or(|re| re.is_match(line));
@@ -112,14 +112,19 @@ fn aggregate(cli: &Cli) -> Result<Report, CliError> {
                 None,
             )
         })?;
-        tally_reader(counter, BufReader::new(file), &selector, keep, cli.limit)
-            .map_err(|source| input_error(InputName::Path(path.to_path_buf()), source))
+        tally_reader(&mut counter, BufReader::new(file), &selector, keep)
+            .map_err(|source| input_error(InputName::Path(path.to_path_buf()), source))?;
     } else {
         tracing::debug!("標準入力から読み込みます");
         let stdin = io::stdin();
-        tally_reader(counter, stdin.lock(), &selector, keep, cli.limit)
-            .map_err(|source| input_error(InputName::Stdin, source))
+        tally_reader(&mut counter, stdin.lock(), &selector, keep)
+            .map_err(|source| input_error(InputName::Stdin, source))?;
     }
+
+    // **順位づけはここで初めて起きる**（ADR-0007 論点 2）。`tally_reader` が返すのは
+    // 順位づけ前の状態で、`limit` はその切り詰めなので `report` が持つ。
+    // **失敗したときはここに来ない。** 途中まで積まれた `counter` は `?` とともに捨てられる。
+    Ok(counter.report(cli.limit))
 }
 
 /// 集計結果を stdout に書き出す。

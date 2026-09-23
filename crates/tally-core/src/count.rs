@@ -11,15 +11,16 @@ use crate::select::{Key, Selector};
 /// ```
 /// use tally_core::{Counter, Key, Selector, tally_reader};
 ///
-/// let report = tally_reader(
-///     Counter::new(),
+/// let mut counter = Counter::new();
+/// tally_reader(
+///     &mut counter,
 ///     "a\nb\na\n".as_bytes(),
 ///     &Selector::new(Key::WholeLine),
 ///     |_| true,
-///     None,
 /// )
 /// .expect("集計できる");
 ///
+/// let report = counter.report(None);
 /// assert_eq!(report.entries[0].key, "a");
 /// assert_eq!(report.entries[0].count, 2);
 /// ```
@@ -149,6 +150,47 @@ impl Counter {
         }
     }
 
+    /// 別のカウンタの集計を取り込む。
+    ///
+    /// **方針（`strict`）は `self` のものを保つ。** `other` の方針は捨てる。
+    /// 方針は「これから行を積むときどうするか」であって、積み終えた数の性質ではない。
+    /// **[`Report`] は方針に依存しない**ので、**合流の順序を変えても結果は同じ**である。
+    ///
+    /// # `Extend` でも `Add` でもない理由
+    ///
+    /// [`std::collections::HashMap`] の `Extend` は **値を上書きする**ので、
+    /// 同じ形で加算すると意味が反転する。`Add` / `Sum` は単位元と結合則と可換性を
+    /// 記号で約束するが、**`strict` を持つ `Counter` の単位元は 1 つに決まらない**
+    /// （[ADR-0007] 論点 1）。
+    ///
+    /// ```
+    /// use tally_core::{Counter, Key, Selector};
+    ///
+    /// let selector = Selector::new(Key::WholeLine);
+    /// let mut left = Counter::new();
+    /// let mut right = Counter::new();
+    /// left.push_line(&selector, "a", 1).expect("積める");
+    /// right.push_line(&selector, "a", 1).expect("積める");
+    ///
+    /// left.merge(right);
+    ///
+    /// let report = left.report(None);
+    /// assert_eq!(report.entries[0].count, 2);
+    /// assert_eq!(report.total, 2);
+    /// ```
+    ///
+    /// [ADR-0007]: ../../../docs/adr/0007-multi-input-aggregation.md
+    pub fn merge(&mut self, other: Counter) {
+        // **`other` を消費して反復する。** `Counter` は `Clone` を持たないので、
+        // キーの `String` を作り直さずにそのまま引き取れる。
+        for (key, count) in other.counts {
+            *self.counts.entry(key).or_insert(0) += count;
+        }
+        self.skipped += other.skipped;
+        self.total += other.total;
+        // **`other.strict` は捨てる。** 上のドキュメントの理由による。
+    }
+
     /// 上位 `limit` 件を返す。`None` なら全件。
     ///
     /// 件数の降順、同数ならキーの昇順。**同数時のタイブレークを決めておかないと
@@ -215,20 +257,32 @@ impl Counter {
 /// **その方針を決めるのは呼び出し側**である。内部で `Counter::new()` を作ると
 /// 方針を渡す手段が無くなる。
 ///
+/// **`&mut` で受けて `Report` を返さない**（[ADR-0007] 論点 2）。
+/// 値で受けて値を返す形にすると、内部の畳み込みを呼び出し側にも綴らせることになり、
+/// **戻り値を黙って捨てる書き方も生まれる**（`Counter` に `#[must_use]` は無い）。
+/// `limit` を取らないのは、**この関数が返すのは順位づけ前の状態**だからで、
+/// 上位 N 件への切り詰めは [`Counter::report`] の仕事である。
+///
+/// # 失敗したときの `counter`
+///
+/// **`Err` を返しても、失敗した行より前の分は `counter` に積まれたまま残る。**
+/// 部分的な集計を報告しない規則なら、**呼び出し側がその `Counter` を捨てること。**
+///
 /// ```
 /// use tally_core::{Counter, Key, Selector, tally_reader};
 ///
 /// let input = "info\nwarn\ninfo\ndebug\n";
-/// let report = tally_reader(
-///     Counter::new(),
+/// let mut counter = Counter::new();
+/// tally_reader(
+///     &mut counter,
 ///     input.as_bytes(),
 ///     &Selector::new(Key::WholeLine),
 ///     // "debug" の行は読まなかったことにする。
 ///     |line| line != "debug",
-///     None,
 /// )
 /// .expect("集計できる");
 ///
+/// let report = counter.report(None);
 /// assert_eq!(report.entries[0].key, "info");
 /// assert_eq!(report.entries[0].count, 2);
 /// // 落ちた行は total にも skipped にも入らない。
@@ -237,18 +291,18 @@ impl Counter {
 /// ```
 ///
 /// [ADR-0005]: ../../../docs/adr/0005-selector-public-api.md
+/// [ADR-0007]: ../../../docs/adr/0007-multi-input-aggregation.md
 pub fn tally_reader<R, F>(
-    counter: Counter,
+    counter: &mut Counter,
     reader: R,
     selector: &Selector,
     keep: F,
-    limit: Option<usize>,
-) -> Result<Report>
+) -> Result<()>
 where
     R: BufRead,
     F: Fn(&str) -> bool,
 {
-    let counter = reader
+    reader
         .lines()
         // **`filter` より前に置く。** ここを後ろにすると、落とした行のぶんだけ
         // 行番号がずれ、エラーが指す行と入力の行が食い違う。
@@ -266,17 +320,16 @@ where
         // **`collect::<Result<Vec<_>, _>>()` を使わない。** 短絡はするが、
         // 短絡するまでの成功分をすべて `Vec` に確保する。入力は標準入力の
         // ストリームでありうるので、入力サイズぶんのメモリを要求する形にしない。
-        // `try_fold` なら 1 行ずつ畳み込み、最初のエラーで打ち切る。
-        .try_fold(counter, |mut counter, item| -> Result<Counter> {
+        // `try_for_each` なら 1 行ずつ積み、最初のエラーで打ち切る
+        // （`&mut Counter` を受ける形にしたので、畳み込む値はもう無い）。
+        .try_for_each(|item| -> Result<()> {
             // `item?` は `io::Error` → `TallyError::Read`、
             // `push_line?` は `LineError` → `TallyError::Line` と、
             // **別々の `From` 実装を経由して同じ型に合流する。**
             let (line_no, line) = item?;
             counter.push_line(selector, &line, line_no)?;
-            Ok(counter)
-        })?;
-
-    Ok(counter.report(limit))
+            Ok(())
+        })
 }
 
 #[cfg(test)]
@@ -290,19 +343,100 @@ mod tests {
 
     /// 既定のカウンタで丸ごと集計する。
     fn tally_str(input: &str, selector: &Selector) -> Report {
-        tally_reader(Counter::new(), input.as_bytes(), selector, |_| true, None)
-            .expect("集計に成功するはず")
+        let mut counter = Counter::new();
+        tally_reader(&mut counter, input.as_bytes(), selector, |_| true)
+            .expect("集計に成功するはず");
+        counter.report(None)
     }
 
     /// `strict` で丸ごと集計する。
+    ///
+    /// **失敗しても途中まで積まれた `Counter` は捨てる。** 部分的な集計を
+    /// 報告しないのは呼び出し側の責任である（ADR-0007 論点 2）。
     fn tally_strict(input: &str, selector: &Selector) -> Result<Report> {
-        tally_reader(
-            Counter::new().strict(true),
-            input.as_bytes(),
-            selector,
-            |_| true,
-            None,
-        )
+        let mut counter = Counter::new().strict(true);
+        tally_reader(&mut counter, input.as_bytes(), selector, |_| true)?;
+        Ok(counter.report(None))
+    }
+
+    // --- マージ（ADR-0007 論点 1） ---
+
+    #[test]
+    fn マージは度数を足し合わせる() {
+        let selector = Selector::new(Key::WholeLine);
+        let mut left = Counter::new();
+        let mut right = Counter::new();
+        left.push_line(&selector, "a", 1).expect("積めるはず");
+        left.push_line(&selector, "b", 2).expect("積めるはず");
+        right.push_line(&selector, "a", 1).expect("積めるはず");
+
+        left.merge(right);
+
+        let report = left.report(None);
+        assert_eq!(report.entries[0].key, "a");
+        assert_eq!(report.entries[0].count, 2);
+        assert_eq!(report.total, 3);
+    }
+
+    #[test]
+    fn マージはスキップ数も運ぶ() {
+        // `Extend<(String, u64)>` を選ばなかった理由がここにある（ADR-0007 論点 1）。
+        // 項目の列では skipped を運べず、合流が 2 手順に割れる。
+        let selector = json("lvl");
+        let mut left = Counter::new();
+        let mut right = Counter::new();
+        left.push_line(&selector, "{\"other\":1}", 1)
+            .expect("スキップされる");
+        right
+            .push_line(&selector, "{\"other\":2}", 1)
+            .expect("スキップされる");
+
+        left.merge(right);
+
+        assert_eq!(left.report(None).skipped, 2);
+    }
+
+    #[test]
+    fn どう分割して合流しても結果が同じ() {
+        // 並列版と逐次版が一致することの核。結合則が破れていればここで落ちる。
+        let selector = Selector::new(Key::WholeLine);
+        let lines = ["a", "b", "a", "c", "b", "a"];
+
+        let mut whole = Counter::new();
+        for (index, line) in lines.iter().enumerate() {
+            whole
+                .push_line(&selector, line, index + 1)
+                .expect("積めるはず");
+        }
+
+        for split in 1..lines.len() {
+            let mut left = Counter::new();
+            let mut right = Counter::new();
+            for (index, line) in lines.iter().enumerate() {
+                let target = if index < split { &mut left } else { &mut right };
+                target
+                    .push_line(&selector, line, index + 1)
+                    .expect("積めるはず");
+            }
+            left.merge(right);
+            assert_eq!(
+                left.report(None),
+                whole.report(None),
+                "分割位置 {split} で結果が変わった"
+            );
+        }
+    }
+
+    #[test]
+    fn マージ後も自分の方針を保つ() {
+        // `strict` は合流できない（ADR-0007 論点 1）。self の方針が残る。
+        let selector = json("lvl");
+        let mut strict = Counter::new().strict(true);
+        strict.merge(Counter::new().strict(false));
+
+        strict
+            .push_line(&selector, "{\"other\":1}", 1)
+            .expect_err("self の strict が残っているはず");
     }
 
     // --- 集計 ---
@@ -359,12 +493,12 @@ mod tests {
 
     #[test]
     fn json_として壊れている行は行番号つきで失敗する() {
+        let mut counter = Counter::new();
         let err = tally_reader(
-            Counter::new(),
+            &mut counter,
             "{\"lvl\":\"info\"}\nnot json\n".as_bytes(),
             &json("lvl"),
             |_| true,
-            None,
         )
         .expect_err("2 行目で失敗するはず");
 
@@ -377,14 +511,16 @@ mod tests {
 
     #[test]
     fn limit_は件数の多い順に切り詰める() {
-        let report = tally_reader(
-            Counter::new(),
+        let mut counter = Counter::new();
+        tally_reader(
+            &mut counter,
             "a\na\nb\nc\n".as_bytes(),
             &Selector::new(Key::WholeLine),
             |_| true,
-            Some(2),
         )
         .expect("集計に成功するはず");
+        // **`limit` は `tally_reader` ではなく `report` が持つ**（ADR-0007 論点 2）。
+        let report = counter.report(Some(2));
         assert_eq!(report.entries.len(), 2);
         assert_eq!(report.entries[0].key, "a");
     }
@@ -488,14 +624,15 @@ mod tests {
     fn 述語で落ちた行は集計にも総数にも入らない() {
         // フィルタは集計の上流にある。落ちた行は「読まなかった」のと同じ扱いで、
         // これにより `tally --filter X` の出力が `grep X | tally` と一致する。
-        let report = tally_reader(
-            Counter::new(),
+        let mut counter = Counter::new();
+        tally_reader(
+            &mut counter,
             "a\nb\na\n".as_bytes(),
             &Selector::new(Key::WholeLine),
             |line| line != "b",
-            None,
         )
         .expect("集計に成功するはず");
+        let report = counter.report(None);
 
         assert_eq!(
             report.entries,
@@ -513,12 +650,12 @@ mod tests {
         // 3 行目が壊れている。2 行目を落としても「3 行目」と言えなければ、
         // 利用者は入力ファイルの該当行を開けない。
         // enumerate を filter より前に置くことでこれを保証する。
+        let mut counter = Counter::new();
         let err = tally_reader(
-            Counter::new(),
+            &mut counter,
             "{\"lvl\":\"a\"}\nDROP ME\nnot json\n".as_bytes(),
             &json("lvl"),
             |line| line != "DROP ME",
-            None,
         )
         .expect_err("3 行目で失敗するはず");
 
@@ -530,12 +667,12 @@ mod tests {
     #[test]
     fn 不正な_utf8_は読み取り失敗になる() {
         // `lines()` は InvalidData を返す。行の失敗（LineError）とは別の枝に入る。
+        let mut counter = Counter::new();
         let err = tally_reader(
-            Counter::new(),
+            &mut counter,
             &b"ok\n\xff\xfe\n"[..],
             &Selector::new(Key::WholeLine),
             |_| true,
-            None,
         )
         .expect_err("不正な UTF-8 で失敗するはず");
 

@@ -105,7 +105,9 @@ CLI の統合テストは `crates/tally/tests/cli.rs` にある。
 | `fold_case` が `Cow` を返す | 変換不要なら借用のまま返す。無条件に `to_lowercase()` を呼ぶとテストが落ちる |
 | **`tally_reader` が `Regex` ではなく `Fn(&str) -> bool` を受ける** | ここに正規表現の実装を持ち込まないため。テストも正規表現なしで書ける |
 | 述語の境界が `FnMut` ではなく **`Fn`** | 状態を持つ述語（「最初の 10 行だけ」）を渡せると、フィルタが `limit` と競合する別機能になる |
-| **`tally_reader` が `Counter` を引数で受ける** | `strict` の方針を決めるのは呼び出し側。内部で `Counter::new()` を作ると渡す手段が無くなる |
+| **`tally_reader` が `&mut Counter` を受け、`Result<()>` を返す** | `strict` の方針を決めるのは呼び出し側。内部で `Counter::new()` を作ると渡す手段が無くなる。**値で受けて値を返す形にしない**のは、畳み込みを呼び出し側にも綴らせることになり、戻り値を黙って捨てる書き方も生まれるため（[ADR-0007](../../../docs/adr/0007-multi-input-aggregation.md) 論点 2） |
+| **`tally_reader` が `limit` を取らない** | 返すのは順位づけ前の状態。切り詰めは `Counter::report` の仕事（ADR-0007 論点 2） |
+| **合流は `Counter::merge`。`Extend` も `Add` も実装しない** | `HashMap` の `Extend` は上書きなので意味が反転する。`Add` / `Sum` は単位元・結合則・可換性を約束するが、`strict` を持つ `Counter` の単位元が定まらない（ADR-0007 論点 1） |
 | **`enumerate` を `filter` より前に置く** | 行番号は入力の行番号でなければならない。後ろに置くと除外した行のぶんずれる |
 | 集計結果に全順序を与えている | `HashMap` の反復順に依存すると出力が実行ごとに変わる |
 
