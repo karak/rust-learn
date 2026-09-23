@@ -1,5 +1,6 @@
 ---
 status: "accepted"
+partially-superseded-by: "ADR-0007（論点 3）"
 date: 2026-08-17
 decision-makers: 学習者, Claude
 consulted: 外部文献（下記「参照した文献」）
@@ -14,6 +15,12 @@ Confirmation の 6 項目をすべて終えた。実装は `crates/tally-core/sr
 
 **この文書は以後変更しない。** 決定を覆すときは新しい ADR で supersede する
 （[ADR-0001](0001-record-architecture-decisions.md) の手順）。
+
+> **一部が supersede された**（2026-09-23、[ADR-0007](0007-multi-input-aggregation.md) 論点 3）。
+> **`TallyError::OpenInput` は `tally-core` から CLI へ移った。**
+> 影響を受けるのは論点 1 の `TallyError` の骨格（`OpenInput` のバリアント）と、
+> Confirmation の判明事項 2（`CliErrorKind::Tally` を transparent にした判断）の 2 箇所。
+> **他の論点の決定は有効。** 下の記述は当時の決定としてそのまま残す。
 
 ## コンテキストと問題提起
 
@@ -96,6 +103,9 @@ Confirmation の 6 項目をすべて終えた。実装は `crates/tally-core/sr
 **括り出す。** 行に紐づく失敗を `LineError` にまとめ、
 共有する文脈（行番号・抜粋）を構造体のフィールドに、
 判別と個別データを内側の `kind` enum に置く。
+
+**`OpenInput` は [ADR-0007](0007-multi-input-aggregation.md) 論点 3 で CLI へ移した。**
+以下は 2026-08-17 時点の決定である。
 
 ```rust
 /// 分類の骨格。**閉じたまま**（論点 2）
@@ -694,6 +704,9 @@ hint: --strict を外すと、この行はスキップされます
    **同じ path が 2 度出る。** 入力は最大 1 つなので、
    読み取り途中の失敗で path が出ないことは受け入れた。
    **複数入力を扱うようになったら見直す。**
+   → **見直した**（2026-09-23、[ADR-0007](0007-multi-input-aggregation.md) 論点 3）。
+   `OpenInput` を CLI へ移し、`CliErrorKind::Input` が入力の名前を前置する形にした。
+   **この判明事項 2 はここで supersede された。**
 
 ## 参照した文献
 
@@ -731,3 +744,4 @@ hint: --strict を外すと、この行はスキップされます
 | 8 | 2026-08-17 | **前提の書き換えと 2 決定の変更** | 射程を「自分専用の補助ツール」から **「AI コーディング用のハーネス（自前ルールの linter / 外部連携の入り口）を作るための設計判断」** へ広げた。判断の基準を「いまこの規模で必要か」から **「中規模の実務ツールで公開 API だったときの定石はどうか」** へ置き換えた（前者は案件規模が小さいため常に「不要」を返し、粗雑な方向にしか倒れないため）。**1.0 以前は破壊的変更を受け入れる**という但し書きを追加。**論点 2 を変更**: 一律に付けないのをやめ、型ごとに分けた（`TallyError` は閉じたまま、`LineErrorKind` に `#[non_exhaustive]`）。**論点 4 を変更**: 公開のままから **newtype で隠す**へ |
 | 7 | 2026-08-17 | 帰結の訂正と未決事項の是正 | **未決定を既定として書いていた箇所を 3 つ是正**: `Selector` に `#[non_exhaustive]` を付ける方針だと 2 箇所で断定していたが、それは ADR-0005 の論点 2 であり未決。論点 3 の図で `extract` の戻り値を `LineError` としていたが `LineErrorKind` が正しい。あわせて論点 1 の帰結 2 点を [ADR-0005](0005-selector-public-api.md) の論点 5 の決定に合わせて訂正。**「抜粋の生成箇所が 1 → 3 に増える」は偽**（`LineError::new` に集約するため 1 箇所のまま）。`extract` は抜粋を作らず、`line_no` 引数が消える |
 | 9 | 2026-08-19 | **実装・実測・Confirmation の完了。`accepted` へ** | 段階 5 で実装した。**論点 7 を実測**（変更前の値は旧コミットを一時ワークツリーに取り出して測った）: `TallyError` は 48 バイトのまま変わらず、**最内段の戻り値だけ 48 → 32 に縮んだ**（ADR-0005 論点 5 の副産物）。`JsonError` は 8 バイトで、newtype の代償に大きさは含まれないことを確認。**Confirmation 6 項目すべて通過。** 実装時に決めた 2 件を追記 — **`anyhow` を残さず一本化した**（不透明な型では終了コードの網羅性検査が書けず、併用すると表現が 2 系統になる）、**`CliErrorKind::Tally` を transparent にした**（path が 2 度出るのを避けた） |
+| 10 | 2026-09-23 | **一部が supersede された** | [ADR-0007](0007-multi-input-aggregation.md) 論点 3 が `TallyError::OpenInput` を `tally-core` から CLI へ移した。影響は論点 1 の骨格と Confirmation の判明事項 2 の 2 箇所で、**決定の記述は書き換えず、指し先だけを足した**（ADR-0001 の「明確化」）。他の論点は有効 |
