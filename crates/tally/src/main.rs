@@ -2,14 +2,16 @@
 
 use std::fs::File;
 use std::io::{self, BufReader, IsTerminal, Write};
+use std::num::NonZeroUsize;
 use std::process::ExitCode;
 
 use clap::Parser as _;
 
+use tally::aggregate::{Execution, aggregate_all};
 use tally::cli::Cli;
 use tally::error::{CliError, CliErrorKind, EXIT_OK, InputName};
 use tally::{error, format};
-use tally_core::{Report, TallyError, tally_reader};
+use tally_core::{Counter, Report, TallyError, tally_reader};
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
@@ -85,41 +87,71 @@ fn input_error(name: InputName, source: TallyError) -> CliError {
     CliError::new(CliErrorKind::Input { name, source }, hint)
 }
 
+/// 引数から実行戦略を決める。
+///
+/// **この対応づけは `cli` にも `aggregate` にも置けない。** `cli` は層 3 で
+/// `aggregate` を知らず、`aggregate` は層 2 で `clap` を知らない
+/// （`crates/tally/docs/layout.md` の層の表）。**繋ぐのは最上層の仕事。**
+fn execution_of(cli: &Cli) -> Execution {
+    match cli.jobs.map(NonZeroUsize::get) {
+        // **1 は「スレッド 1 本の並列」ではなく逐次。** rayon を経由しない経路を
+        // 通すことに意味がある（検証経路として `-j 1` を残した理由）。
+        Some(1) => Execution::Sequential,
+        _ => Execution::Parallel { threads: cli.jobs },
+    }
+}
+
 /// 入力を開いて集計する。**I/O の面倒はここに閉じる。**
 fn aggregate(cli: &Cli) -> Result<Report, CliError> {
     let selector = cli.selector();
-    let mut counter = cli.counter();
     // `--filter` 未指定なら全行を通す述語にする。core 側に `Option` を渡さないのは、
     // 「フィルタが無い」を分岐として core に持ち込まないため。
     let keep = |line: &str| cli.filter.as_ref().is_none_or(|re| re.is_match(line));
 
-    // **2 つの枝を 1 本にまとめられない。** 読み手の型が
-    // `BufReader<File>` と `StdinLock` で別物であり、`tally_reader` は
-    // `R: BufRead` で単相化される。`Box<dyn BufRead>` にすれば 1 本になるが、
-    // 行ごとに動的ディスパッチを払うことになる。
-    if let Some(path) = cli.input.as_deref() {
-        tracing::debug!(path = %path.display(), "ファイルから読み込みます");
-        // **開くのはここ。** `tally_core` はファイルを開かないので、
-        // 開けなかった失敗も CLI の型になる（ADR-0007 論点 3）。
-        let file = File::open(path).map_err(|source| {
-            // 開けない理由（パス・権限）に対して、`tally` の使い方を変えて
-            // できることは無い。だから hint は `None`。
-            CliError::new(
-                CliErrorKind::Open {
-                    path: path.to_path_buf(),
-                    source,
-                },
-                None,
-            )
-        })?;
-        tally_reader(&mut counter, BufReader::new(file), &selector, keep)
-            .map_err(|source| input_error(InputName::Path(path.to_path_buf()), source))?;
-    } else {
+    let counter = if cli.inputs.is_empty() {
         tracing::debug!("標準入力から読み込みます");
+        // **標準入力は並列化しない。** 単位が 1 つしかなく、`StdinLock` は
+        // 複数のジョブへ分けられない。
+        let mut counter = cli.counter();
         let stdin = io::stdin();
         tally_reader(&mut counter, stdin.lock(), &selector, keep)
             .map_err(|source| input_error(InputName::Stdin, source))?;
-    }
+        counter
+    } else {
+        // **ジョブは「1 ファイルを開いて集計する」閉包。**
+        // 並列化ポリシー（`aggregate` モジュール）はファイルを知らないので、
+        // ここで閉じ込める（ADR-0007 論点 5）。
+        let jobs: Vec<_> = cli
+            .inputs
+            .iter()
+            .map(|path| {
+                let selector = &selector;
+                let keep = &keep;
+                move || -> Result<Counter, CliError> {
+                    tracing::debug!(path = %path.display(), "ファイルから読み込みます");
+                    // **開くのはここ。** `tally_core` はファイルを開かないので、
+                    // 開けなかった失敗も CLI の型になる（ADR-0007 論点 3）。
+                    let file = File::open(path).map_err(|source| {
+                        // 開けない理由（パス・権限）に対して、`tally` の使い方を変えて
+                        // できることは無い。だから hint は `None`。
+                        CliError::new(
+                            CliErrorKind::Open {
+                                path: path.clone(),
+                                source,
+                            },
+                            None,
+                        )
+                    })?;
+                    let mut counter = cli.counter();
+                    tally_reader(&mut counter, BufReader::new(file), selector, keep)
+                        .map_err(|source| input_error(InputName::Path(path.clone()), source))?;
+                    Ok(counter)
+                }
+            })
+            .collect();
+
+        aggregate_all(&jobs, || cli.counter(), execution_of(cli))?
+    };
 
     // **順位づけはここで初めて起きる**（ADR-0007 論点 2）。`tally_reader` が返すのは
     // 順位づけ前の状態で、`limit` はその切り詰めなので `report` が持つ。

@@ -33,6 +33,7 @@
 use std::error::Error;
 use std::fmt;
 use std::io;
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 
 use tally_core::{LineErrorKind, TallyError};
@@ -132,12 +133,66 @@ pub enum CliErrorKind {
         source: TallyError,
     },
 
+    /// 並列実行を準備できなかった。
+    ///
+    /// **スレッドを立てられない**（OS の上限、資源の枯渇）場合にここへ来る。
+    /// 集計そのものは始まっていない。
+    #[error("{requested} スレッドの並列実行を準備できません")]
+    Threads {
+        /// 要求したスレッド数。
+        requested: NonZeroUsize,
+        /// 元の失敗。**不透明な型で包んでいる**（[`ExecutionError`] を参照）。
+        #[source]
+        source: ExecutionError,
+    },
+
     /// 集計結果を書き出せなかった。
     ///
     /// パイプの下流が先に閉じた場合（`tally big.log | head`）もここに来る。
     /// [`CliError::exit_code`] がそれを成功として扱う。
     #[error("集計結果を書き出せません")]
     Write(#[source] io::Error),
+}
+
+impl CliErrorKind {
+    /// [`CliErrorKind::Threads`] を組み立てる。
+    ///
+    /// **`rayon` の型を引数で受けない。** 受けると `error` モジュールが
+    /// `rayon` を知ることになり、層の規則（`crates/tally/docs/layout.md`）を破る。
+    pub(crate) fn threads(
+        requested: NonZeroUsize,
+        source: impl Error + Send + Sync + 'static,
+    ) -> Self {
+        Self::Threads {
+            requested,
+            source: ExecutionError(Box::new(source)),
+        }
+    }
+}
+
+/// 並列実行の準備に失敗した原因。**中身を公開しない。**
+///
+/// `rayon::ThreadPoolBuildError` をそのまま持つと、**`rayon` が公開依存になる**
+/// （[ADR-0004] 論点 4 が `serde_json::Error` に対して採ったのと同じ判断）。
+/// 加えて、このモジュールは層 1 であり **`rayon` を知らない**
+/// （`crates/tally/docs/layout.md` の層の表）。
+///
+/// [ADR-0004]: ../../../docs/adr/0004-error-type-shape.md
+#[derive(Debug)]
+pub struct ExecutionError(Box<dyn Error + Send + Sync>);
+
+impl fmt::Display for ExecutionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl Error for ExecutionError {
+    /// **`self.0` を原因として指さない。** 指すと `Display` が二重に出る
+    /// （`tally_core::error` の「`Display` と `source()` の合成規則」と同じ理由）。
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
+    }
 }
 
 impl CliError {
@@ -176,9 +231,10 @@ impl CliError {
             // パイプの下流が先に閉じた場合（`tally big.log | head`）。
             // これは異常ではないので、静かに成功終了する。Unix ツールの作法。
             CliErrorKind::Write(source) if is_broken_pipe(source) => EXIT_OK,
-            CliErrorKind::Open { .. } | CliErrorKind::Input { .. } | CliErrorKind::Write(_) => {
-                EXIT_FAILURE
-            }
+            CliErrorKind::Open { .. }
+            | CliErrorKind::Input { .. }
+            | CliErrorKind::Threads { .. }
+            | CliErrorKind::Write(_) => EXIT_FAILURE,
         }
     }
 }

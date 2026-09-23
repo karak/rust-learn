@@ -3,6 +3,7 @@
 //! `main.rs` に置かず独立させているのは、`Cli::try_parse_from(...)` で
 //! **プロセスを起動せずに** 引数解釈をテストできるようにするため。
 
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 
 use clap::Parser;
@@ -16,8 +17,11 @@ use crate::format::Format;
 #[derive(Debug, Parser)]
 #[command(name = "tally", version, about, long_about = None)]
 pub struct Cli {
-    /// 入力ファイル。省略時は標準入力を読む。
-    pub input: Option<PathBuf>,
+    /// 入力ファイル。**複数指定できる。** 省略時は標準入力を読む。
+    ///
+    /// 複数指定した場合は **1 つの集計に合流する。**
+    /// 並び順は結果に影響しない（`docs/output-format.md`）。
+    pub inputs: Vec<PathBuf>,
 
     /// 各行を JSON として解釈し、このフィールドの値を集計する。
     ///
@@ -70,6 +74,19 @@ pub struct Cli {
     /// 集計対象の行数・スキップ行数を標準エラーに出す。
     #[arg(long)]
     pub stats: bool,
+
+    /// 並列度（同時に走らせるスレッド数）。
+    ///
+    /// 省略時は論理コア数（環境変数 `RAYON_NUM_THREADS` があればそれ）。
+    /// **`1` を指定すると逐次実行**になり、並列化を経由しない。
+    ///
+    /// **`0` は受け付けない。** 0 スレッドは意味を持たないので、
+    /// 型（`NonZeroUsize`）で拒否して終了コード 2 を返す。
+    ///
+    /// **検証の経路として残している。** 並列版と逐次版を同じ引数で
+    /// 比べられないと、実機での比較ができない。
+    #[arg(short = 'j', long, value_name = "N")]
+    pub jobs: Option<NonZeroUsize>,
 }
 
 impl Cli {

@@ -261,6 +261,98 @@ fn 標準入力の失敗は標準入力という名前で出る() {
         .stderr(predicate::str::contains("標準入力 の集計に失敗しました"));
 }
 
+// --- 複数入力（ADR-0007） ---
+
+/// 複数のファイルを 1 つの集計に合流させる。
+#[test]
+fn 複数のファイルが_1_つの集計に合流する() {
+    let dir = tempfile::tempdir().expect("一時ディレクトリを作れるはず");
+    let first = dir.path().join("first.log");
+    let second = dir.path().join("second.log");
+    std::fs::write(&first, "info\nwarn\n").expect("書けるはず");
+    std::fs::write(&second, "info\n").expect("書けるはず");
+
+    tally()
+        .arg(&first)
+        .arg(&second)
+        .assert()
+        .success()
+        .stdout("2\tinfo\n1\twarn\n");
+}
+
+/// **引数の順序を入れ替えても、同じバイト列が出る**（段階 6 の完了条件）。
+#[test]
+fn 入力の順序は出力を変えない() {
+    let dir = tempfile::tempdir().expect("一時ディレクトリを作れるはず");
+    let first = dir.path().join("a.log");
+    let second = dir.path().join("b.log");
+    std::fs::write(&first, "x\ny\n").expect("書けるはず");
+    std::fs::write(&second, "y\n").expect("書けるはず");
+
+    let forward = tally().arg(&first).arg(&second).assert().success();
+    let backward = tally().arg(&second).arg(&first).assert().success();
+
+    assert_eq!(
+        forward.get_output().stdout,
+        backward.get_output().stdout,
+        "順序で出力が変わってはいけない"
+    );
+}
+
+/// **複数が失敗したときは、引数順で最初のものを報告する**（ADR-0007 論点 4）。
+///
+/// 並列に回すと「最初に見つかった失敗」は実行ごとに変わりうる。
+/// 規則が引数順であることを示すため、**順序を入れ替えると報告も入れ替わる**ことまで見る。
+#[test]
+fn 複数が失敗したときは引数順で最初のものを報告する() {
+    let dir = tempfile::tempdir().expect("一時ディレクトリを作れるはず");
+    let first = dir.path().join("first.log");
+    let second = dir.path().join("second.log");
+    std::fs::write(&first, "{\"other\":1}\n").expect("書けるはず");
+    std::fs::write(&second, "{\"other\":2}\n").expect("書けるはず");
+
+    tally()
+        .args(["--field", "lvl", "--strict"])
+        .arg(&first)
+        .arg(&second)
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("first.log"))
+        .stderr(predicate::str::contains("second.log").not());
+
+    tally()
+        .args(["--field", "lvl", "--strict"])
+        .arg(&second)
+        .arg(&first)
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("second.log"))
+        .stderr(predicate::str::contains("first.log").not());
+}
+
+/// `-j 1` は逐次実行。**検証経路として残している**（結果は並列と一致する）。
+#[test]
+fn jobs_1_でも同じ結果になる() {
+    let dir = tempfile::tempdir().expect("一時ディレクトリを作れるはず");
+    let path = dir.path().join("a.log");
+    std::fs::write(&path, "a\nb\na\n").expect("書けるはず");
+
+    let parallel = tally().arg(&path).assert().success();
+    let sequential = tally().args(["-j", "1"]).arg(&path).assert().success();
+
+    assert_eq!(parallel.get_output().stdout, sequential.get_output().stdout);
+}
+
+/// `-j 0` は **引数の誤り**として集計前に拒否する。
+#[test]
+fn jobs_0_は終了コード_2_で拒否される() {
+    tally()
+        .args(["-j", "0"])
+        .write_stdin("a\n")
+        .assert()
+        .code(2);
+}
+
 // --- clap が返す終了コード ---
 
 /// 壊れた正規表現は **集計を始める前に** 引数の誤りとして拒否される。

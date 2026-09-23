@@ -23,10 +23,12 @@
 //!
 //! [ADR-0007]: ../../../docs/adr/0007-multi-input-aggregation.md
 
+use std::num::NonZeroUsize;
+
 use rayon::prelude::*;
 use tally_core::Counter;
 
-use crate::error::CliError;
+use crate::error::{CliError, CliErrorKind};
 
 /// ジョブの走らせ方。
 ///
@@ -41,10 +43,18 @@ use crate::error::CliError;
 /// [ADR-0007]: ../../../docs/adr/0007-multi-input-aggregation.md
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Execution {
-    /// 1 つずつ順に走らせる。
+    /// 1 つずつ順に走らせる。**`rayon` を経由しない。**
     Sequential,
     /// `rayon` で並列に走らせる。
-    Parallel,
+    Parallel {
+        /// スレッド数。`None` なら rayon の既定（論理コア数、
+        /// または環境変数 `RAYON_NUM_THREADS`）。
+        ///
+        /// **`Some` のときは専用のスレッドプールを立てる。**
+        /// 大域のプールを設定する形（`build_global`）にしないのは、
+        /// 一度しか呼べず、**測定のために 2 通りを続けて走らせられない**ため。
+        threads: Option<NonZeroUsize>,
+    },
 }
 
 /// ジョブの列を 1 つの集計に畳む。
@@ -87,21 +97,46 @@ where
             }
             Ok(merged)
         }
-        Execution::Parallel => {
-            // **`try_reduce` を使わない。** 短絡するが、rayon は分割点が
-            // 非決定的なので「どの失敗が返るか」が実行ごとに変わりうる。
-            // 引数順で選ぶために、いったん全件の結果を並べる（ADR-0007 論点 4）。
-            let results: Vec<Result<Counter, CliError>> =
-                jobs.par_iter().map(|job| job()).collect();
-
-            let mut merged = new_counter();
-            for result in results {
-                // 添字の小さい順に見るので、最初に見つかる `Err` が最も左の失敗。
-                merged.merge(result?);
-            }
-            Ok(merged)
+        Execution::Parallel { threads: None } => merge_in_order(run_parallel(jobs), new_counter),
+        Execution::Parallel {
+            threads: Some(threads),
+        } => {
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(threads.get())
+                .build()
+                .map_err(|source| CliError::new(CliErrorKind::threads(threads, source), None))?;
+            // **`install` の中で並列イテレータを回す**と、このプールのスレッドが使われる。
+            merge_in_order(pool.install(|| run_parallel(jobs)), new_counter)
         }
     }
+}
+
+/// 全ジョブを並列に走らせ、**引数順のまま**結果を並べる。
+///
+/// **`try_reduce` を使わない。** 短絡するが、rayon は分割点が非決定的なので
+/// 「どの失敗が返るか」が実行ごとに変わりうる（[ADR-0007] 論点 4）。
+///
+/// [ADR-0007]: ../../../docs/adr/0007-multi-input-aggregation.md
+fn run_parallel<J>(jobs: &[J]) -> Vec<Result<Counter, CliError>>
+where
+    J: Fn() -> Result<Counter, CliError> + Sync,
+{
+    jobs.par_iter().map(|job| job()).collect()
+}
+
+/// 添字の小さい順に合流する。**最初に見つかった `Err` が「最も左の失敗」。**
+fn merge_in_order<N>(
+    results: Vec<Result<Counter, CliError>>,
+    new_counter: N,
+) -> Result<Counter, CliError>
+where
+    N: Fn() -> Counter,
+{
+    let mut merged = new_counter();
+    for result in results {
+        merged.merge(result?);
+    }
+    Ok(merged)
 }
 
 #[cfg(test)]
@@ -111,7 +146,15 @@ mod tests {
 
     use crate::error::{CliErrorKind, InputName};
 
-    const BOTH: [Execution; 2] = [Execution::Sequential, Execution::Parallel];
+    const BOTH: [Execution; 3] = [
+        Execution::Sequential,
+        Execution::Parallel { threads: None },
+        // **スレッド数を指定した経路も必ず通す。** 専用プールを立てる枝が
+        // 検査されないと、`-j N` が黙って壊れる。
+        Execution::Parallel {
+            threads: NonZeroUsize::new(2),
+        },
+    ];
 
     /// メモリ上の文字列を 1 単位として集計するジョブ。
     ///
@@ -188,7 +231,7 @@ mod tests {
         let sequential = aggregate_all(&jobs, Counter::new, Execution::Sequential)
             .expect("成功するはず")
             .report(None);
-        let parallel = aggregate_all(&jobs, Counter::new, Execution::Parallel)
+        let parallel = aggregate_all(&jobs, Counter::new, Execution::Parallel { threads: None })
             .expect("成功するはず")
             .report(None);
 

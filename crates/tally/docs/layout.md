@@ -32,7 +32,7 @@
 
 | パス | 役割 | 置いてよいもの | 置いてはいけないもの |
 | --- | --- | --- | --- |
-| `src/cli.rs` | 引数定義 | `clap` の型、引数から `tally_core` の型への変換 | 集計ロジック、I/O |
+| `src/cli.rs` | 引数定義 | `clap` の型、引数から `tally_core` の型への変換 | 集計ロジック、I/O、**実行戦略への対応づけ**（`aggregate` を知らない） |
 | `src/format.rs` | 出力の整形 | `(Report, Format) → バイト列` の純粋関数 | 書き込み先の決定、終了コード |
 | `src/error.rs` | CLI 固有の失敗 | `CliError`、終了コード、hint、チェーンの表示 | 集計の失敗の分類（`tally-core` 側） |
 | `src/main.rs` | 実行の外枠 | 引数解釈の呼び出し、I/O、終了コード、ログ初期化 | **ロジック全般。** 純粋関数にできるものは lib へ |
@@ -134,6 +134,10 @@ error[E0603]: function `quote_field` is private
 | **`CliErrorKind::Input` が入力の名前を前置する** | 行番号は入力ごとに 1 から数えるので、**名前が無いと行番号まで意味を失う**（[ADR-0007](../../../docs/adr/0007-multi-input-aggregation.md) 論点 3）。段階 5 の `Tally(#[error(transparent)])` は、`TallyError::OpenInput` と path が二重になるのを避けた形だった |
 | **開けなかった失敗（`CliErrorKind::Open`）が CLI にある** | `tally_core` はファイルを開かない。**開く主体が名前を知っている**（ADR-0007 論点 3。段階 5 までは `tally_core` 側にあった） |
 | **`InputName` が `Option<PathBuf>` ではない** | 標準入力には path が無い。`None` で表すと「持つが空」の状態が生まれ、表示の場合分けが呼び出し側に漏れる |
+| **`-j 1` が「スレッド 1 本の並列」ではなく逐次** | rayon を経由しない経路を通すことに意味がある。**検証の経路**として残した |
+| **引数から `Execution` への対応づけが `main.rs`** | `cli` は `aggregate` を知らず、`aggregate` は `clap` を知らない（層の表）。繋ぐのは最上層 |
+| **`ExecutionError` が中身を公開しない newtype** | `rayon` を公開依存にしないため（ADR-0004 論点 4 と同じ判断）。層 1 は `rayon` を知らない |
+| **標準入力は並列化しない** | 単位が 1 つしかなく、`StdinLock` を複数のジョブに分けられない |
 | `Format` に `clap::ValueEnum` を derive | enum を 2 つ持って同期させるほうが害が大きい（同じ事実が 2 箇所になる） |
 | `Format` を trait にしていない | [ADR-0002](../../../docs/adr/0002-output-format-abstraction.md)。形式ごとの本体が「概ね 20 行超」かつ「操作が 2 つ以上」になったら再評価する |
 | `write_report` が `impl Write` を受ける | `Vec<u8>` に書いて内容を検証できる。`Stdout` 固定だと差し替えの仕掛けが要る |
