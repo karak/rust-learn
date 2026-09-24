@@ -25,10 +25,11 @@ CLI ツール開発を題材にした Rust 学習環境。
 - **VS Code**: リポジトリを開き「Reopen in Container」。
 - **CLI**: `devcontainer up --workspace-folder .`
 
-**push にはホストの `~/.ssh` が要る。** 読み取り専用でマウントし、
-`postCreateCommand` が正しいパーミッションで複製する。
-GitHub に SSH 鍵を登録していない場合は先に用意すること
-（鍵が無くても fetch とビルドは通る）。
+**コンテナから push はできない。** 資格情報を渡していないため。
+commit までをコンテナで行い、**push はホストから**行う
+（`.git` は共有されているので、コミットはホストからそのまま見える）。
+`fetch` とビルドはコンテナでも通る。
+理由は [ADR-0008](docs/adr/0008-container-push-credentials.md)。
 
 `.devcontainer/Dockerfile` はツールチェーンを **`rust-toolchain.toml` と同じ 1.97.1** で
 焼き込んでいる。**片方を上げたら必ずもう片方も上げること。** ずれていると

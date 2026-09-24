@@ -36,8 +36,8 @@
   `-j` / `--jobs` で並列度を指定でき、`-j 1` は逐次（検証の経路）
 - **モジュール間の依存規則を `scripts/check-module-deps.sh` が検査する。**
   規則の正本は `crates/tally/docs/layout.md` の層の表
-- **未 push のブランチは無い**（2026-08-23 時点）。
-  **ただし push できるのはホストからだけ** — コンテナからの push は動いていない（未決事項 10）
+- **push はホストから行う。** コンテナへ資格情報を渡さないと決めた
+  （2026-09-25、[ADR-0008](adr/0008-container-push-credentials.md)）
 - **`tally` は `anyhow` を使わない。** `CLAUDE.md` の方針 3 を段階 5 で書き換えた
 - 公開済み: <https://github.com/karak/rust-learn>（public）
 
@@ -99,13 +99,10 @@
 - **rustdoc の警告は `cargo lint` では出ない。**
   `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps` が別に要る
   （CI には入っている）。**公開項目から非公開項目へのリンク**はここでしか拾えない
-- **コンテナからの push は動かない**（2026-08-23 に確認）。
-  `devcontainer.json` の mounts と `scripts/setup-git-auth.sh` は
-  ホストの SSH 鍵を複製する設計だが、**鍵を持っていることと使えることは別**だった。
-  詳細と代替案は未決事項 10。
-  **当面はコンテナで commit し、ホストから push する**（`.git` は共有なので成立する）。
-  **remote URL は書き換えない** — `.git/config` がホストと共有されているため
-  （`url.insteadOf` をコンテナ内の `~/.gitconfig` にだけ置く）
+- **コンテナから push はできない。設計上そうしてある**
+  （[ADR-0008](adr/0008-container-push-credentials.md)）。
+  **commit はコンテナ、push はホスト。** `.git` が共有なので成立する。
+  資格情報が無いだけなので、**push を試みれば git がその場で明確に失敗する**
 - **git-secrets のパターンとフックは git の追跡外**（`.git/config` と `.git/hooks`）。
   clone やコンテナ再作成で消える。`scripts/setup-git-secrets.sh` を回す
   （devcontainer は自動）。**パターンに literal な空白を書かない** —
@@ -185,26 +182,13 @@
 9. **`AsRef` / `Deref` と関連型を、実際のコードで一度も使っていない。**
    段階 5 で回収を試みたが、**trait を自分で定義するまで出番が来ない**と分かった。
    段階 6 でも来ない見込み。**必要になる課題を用意しないと消化されない**
-10. **コンテナから push する方法が決まっていない。**
-    2026-08-23 にホストで確認した事実: `~/.ssh/config` が `github.com` に指定している
-    鍵は**パスフレーズ付き**で、**ssh-agent には identity が 0 件**。
-    ホストで `ssh -T git@github.com` 自体が通らない。
-    **鍵ファイルを複製する現行設計は、複製先でも解錠できない。**
-    検討した候補は 3 つ。**(a) ssh-agent をフォワードする**
-    — 鍵の実体がコンテナに入らないので最も安全。ホストで一度
-    `ssh-add --apple-use-keychain` する必要があり、`devcontainer up` CLI では
-    socket の bind mount が別途要る（VS Code の拡張は自動でやる）。
-    **(b) パスフレーズ無しの ed25519 を deploy key として登録する**
-    — 非対話で通るが平文の秘密鍵が残る。被害はこのリポジトリに閉じる。
-    **(c) token を渡す** — 最も速いが、classic PAT の `repo` は全リポジトリに及ぶ。
-    採るなら fine-grained + 期限つきに絞ること。
-    **決めるまでは push をホストから行う**（落とし穴の項も参照）
-
-CI の稼働状況はここに書かない（腐るため）。
-GitHub Actions の実行履歴を見ること。
-**`gh` は devcontainer には入っていないが、ホストには入っている** —
-`gh run list` / `gh run watch` が使える（2026-08-23 に確認）。
-
+10. **[ADR-0008](adr/0008-container-push-credentials.md) が `proposed` のまま。**
+    「コンテナへ資格情報を渡さない」は決まり、参照も全て消した
+    （Confirmation 1 は済）。**残る 2〜4 はコンテナの再ビルドが要る** —
+    `postCreateCommand` が通るか、コンテナの commit をホストから push できるか、
+    **コンテナからの push が静かに成功せず明確に失敗するか。**
+    最後の 1 つは決め手 3 の根拠そのものなので、確認まで含めて 1 単位。
+    2026-09-25 時点ではホストの Docker デーモンが停止していて実施できなかった
 11. **ADR-0001 が「部分的な supersede」を定めていない。**
     ステータスは `Accepted` → `Superseded` の全体遷移しかなく、
     **「一部の論点だけ置き換わった」状態を表せない。**
@@ -220,3 +204,8 @@ GitHub Actions の実行履歴を見ること。
 13. **`Execution` を trait にする条件を決めたが、監視していない。**
     ADR-0007 論点 5 が「実装が 3 つ以上」「`tally` 以外の消費者」「エラー型の総称化」を
     挙げた。**戦略を足すときにこの条件を見ること**
+
+CI の稼働状況はここに書かない（腐るため）。
+GitHub Actions の実行履歴を見ること。
+**`gh` は devcontainer には入っていないが、ホストには入っている** —
+`gh run list` / `gh run watch` が使える（2026-08-23 に確認）。
