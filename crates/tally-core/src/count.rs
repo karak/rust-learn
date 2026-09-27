@@ -3,6 +3,8 @@
 use std::collections::HashMap;
 use std::io::BufRead;
 
+use foldhash::fast::RandomState;
+
 use crate::error::{LineError, LineErrorKind, Result};
 use crate::select::{Key, Selector};
 
@@ -75,7 +77,18 @@ pub struct Report {
 /// [ADR-0005]: ../../../docs/adr/0005-selector-public-api.md
 #[derive(Debug, Default)]
 pub struct Counter {
-    counts: HashMap<String, u64>,
+    // **既定の `SipHash 1-3` ではなく `foldhash`**（段階 7 の改善 4）。
+    // 実測では、行全体をキーにする入力でハッシュ計算が 12% を占めていた。
+    //
+    // **`rustc-hash`（`FxHash`）を採らなかった。** あちらは固定シードなので、
+    // **キーが利用者の入力そのもの**であるこのツールでは、衝突を事前計算されうる
+    // （`HashMap` が O(n²) に退化する）。`foldhash` はインスタンスごとに
+    // 乱数シードを持つので、その前提が崩れない。
+    // ADR-0005 論点 3 で `fancy-regex` を退けたのと同じ形の判断である。
+    //
+    // **`quality` ではなく `fast`。** `HashMap` のキーに使うだけで、
+    // ハッシュ値そのものを外に出さない（分散やシャーディングに使わない）。
+    counts: HashMap<String, u64, RandomState>,
     skipped: usize,
     total: usize,
     strict: bool,

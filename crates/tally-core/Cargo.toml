@@ -14,6 +14,8 @@ workspace = true
 # 一方向で、引数解釈とエラーの束ね方はこのクレートの関心事ではない。
 # 逆流していないことは `cargo tree -p tally-core` で確かめられる。
 [dependencies]
+# 既定の SipHash より速く、**乱数シードを保つ**（段階 7 の改善 4）。
+foldhash.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

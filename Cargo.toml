@@ -25,6 +25,9 @@ serde_json = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 rayon = "1"
+# ハッシュの差し替え。**rustc-hash を採らない** — 固定シードなので、
+# 利用者の入力をキーにする集計では衝突を事前計算されうる（段階 7）。
+foldhash = "0.2"
 camino = "1"
 regex = "1"
 
