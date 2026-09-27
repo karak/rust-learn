@@ -294,7 +294,7 @@ impl Counter {
 /// [ADR-0007]: ../../../docs/adr/0007-multi-input-aggregation.md
 pub fn tally_reader<R, F>(
     counter: &mut Counter,
-    reader: R,
+    mut reader: R,
     selector: &Selector,
     keep: F,
 ) -> Result<()>
@@ -302,34 +302,45 @@ where
     R: BufRead,
     F: Fn(&str) -> bool,
 {
-    reader
-        .lines()
-        // **`filter` より前に置く。** ここを後ろにすると、落とした行のぶんだけ
+    // **1 本のバッファを使い回す。** `BufRead::lines()` は 1 行ごとに `String` を
+    // 確保して返すため、1000 万行なら 1000 万回の確保になる（段階 7 の実測では、
+    // 行全体をキーにする入力で確保と UTF-8 検証が上位を占めた）。
+    let mut line = String::new();
+    let mut line_no = 0;
+
+    loop {
+        line.clear();
+        // `item?` は `io::Error` → `TallyError::Read`、
+        // `push_line?` は `LineError` → `TallyError::Line` と、
+        // **別々の `From` 実装を経由して同じ型に合流する。**
+        if reader.read_line(&mut line)? == 0 {
+            // **`collect::<Result<Vec<_>, _>>()` を使わない。** 短絡はするが、
+            // 短絡するまでの成功分をすべて `Vec` に確保する。入力は標準入力の
+            // ストリームでありうるので、入力サイズぶんのメモリを要求する形にしない。
+            // このループなら 1 行ずつ積み、最初のエラーで `?` が打ち切る。
+            break;
+        }
+
+        // **述語（`keep`）より前に置く。** ここを後ろにすると、落とした行のぶんだけ
         // 行番号がずれ、エラーが指す行と入力の行が食い違う。
-        .enumerate()
-        // `Result` の中身にだけ触る。`Result<T, E>` は `map` を持つので、
-        // 成功のときだけ組を作り、失敗はそのまま素通しできる。
-        .map(|(index, line)| line.map(|line| (index + 1, line)))
-        .filter(|item| match item {
-            Ok((_, line)) => keep(line),
-            // **`Err` は必ず下流へ流す。** 述語で判定できないからと捨てると、
-            // I/O 失敗が「フィルタに合わなかった行」と区別できなくなり、
-            // 途中で読めなくなった入力が成功として集計される。
-            Err(_) => true,
-        })
-        // **`collect::<Result<Vec<_>, _>>()` を使わない。** 短絡はするが、
-        // 短絡するまでの成功分をすべて `Vec` に確保する。入力は標準入力の
-        // ストリームでありうるので、入力サイズぶんのメモリを要求する形にしない。
-        // `try_for_each` なら 1 行ずつ積み、最初のエラーで打ち切る
-        // （`&mut Counter` を受ける形にしたので、畳み込む値はもう無い）。
-        .try_for_each(|item| -> Result<()> {
-            // `item?` は `io::Error` → `TallyError::Read`、
-            // `push_line?` は `LineError` → `TallyError::Line` と、
-            // **別々の `From` 実装を経由して同じ型に合流する。**
-            let (line_no, line) = item?;
-            counter.push_line(selector, &line, line_no)?;
-            Ok(())
-        })
+        line_no += 1;
+
+        // `lines()` と同じ規則で行末を落とす（LF、および CRLF の CR）。
+        let trimmed = line.strip_suffix('\n').map_or(line.as_str(), |rest| {
+            rest.strip_suffix('\r').unwrap_or(rest)
+        });
+
+        // **`Err` は必ず下流へ流す。** 述語で判定できないからと捨てると、
+        // I/O 失敗が「フィルタに合わなかった行」と区別できなくなり、
+        // 途中で読めなくなった入力が成功として集計される。
+        if !keep(trimmed) {
+            continue;
+        }
+
+        counter.push_line(selector, trimmed, line_no)?;
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
