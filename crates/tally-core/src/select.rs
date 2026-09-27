@@ -4,6 +4,9 @@
 //! [`tally_reader`][crate::tally_reader] が述語で受ける。
 
 use std::borrow::Cow;
+use std::fmt;
+
+use serde::de::{DeserializeSeed, IgnoredAny, MapAccess, SeqAccess, Visitor};
 
 use crate::error::{JsonError, LineError, LineErrorKind};
 
@@ -67,29 +70,242 @@ impl Key {
         match self {
             Self::WholeLine => Ok(Some(Cow::Borrowed(line.trim()))),
             Self::JsonField(field) => {
-                let value: serde_json::Value =
-                    serde_json::from_str(line).map_err(|source| LineErrorKind::InvalidJson {
+                // **`serde_json::Value` を作らない**（段階 7 の改善 2）。
+                // `Value` は行の全フィールドを `BTreeMap<String, Value>` に積むので、
+                // 1 つしか要らないのに残りも確保し、行ごとに捨てることになる。
+                // 実測では構築 31.5% + 破棄 15.8% で、この関数の費用の大半だった。
+                let mut de = serde_json::Deserializer::from_str(line);
+                let picked = PickField { field }
+                    .deserialize(&mut de)
+                    // **`end()` を忘れない。** `serde_json::from_str` はこれを含むので、
+                    // 省くと `{"lvl":"a"} ゴミ` のような行が通ってしまう。
+                    .and_then(|picked| de.end().map(|()| picked))
+                    .map_err(|source| LineErrorKind::InvalidJson {
                         source: JsonError::new(source),
                     })?;
 
-                let Some(found) = value.get(field) else {
-                    return Ok(None);
-                };
-
-                let rendered = match found {
-                    serde_json::Value::String(s) => Cow::Owned(s.clone()),
-                    serde_json::Value::Number(n) => Cow::Owned(n.to_string()),
-                    serde_json::Value::Bool(b) => Cow::Owned(b.to_string()),
-                    serde_json::Value::Null => return Ok(None),
-                    _ => {
-                        return Err(LineErrorKind::UnsupportedFieldType {
-                            field: field.as_str().into(),
-                        });
-                    }
-                };
-                Ok(Some(rendered))
+                match picked {
+                    // 引用符の中にエスケープが無ければ、**入力を借用したまま返る。**
+                    // 以前は `Value::String` から必ず `clone()` していた。
+                    Picked::Borrowed(found) => Ok(Some(Cow::Borrowed(found))),
+                    Picked::Owned(found) => Ok(Some(Cow::Owned(found))),
+                    // **`serde_json::Number` を経由する。** `f64` に落として
+                    // `to_string()` すると `3.0` が `3` になり、出力が変わる。
+                    Picked::Number(found) => Ok(Some(Cow::Owned(found.to_string()))),
+                    Picked::Bool(found) => Ok(Some(Cow::Owned(found.to_string()))),
+                    Picked::Missing => Ok(None),
+                    Picked::Unsupported => Err(LineErrorKind::UnsupportedFieldType {
+                        field: field.as_str().into(),
+                    }),
+                }
             }
         }
+    }
+}
+
+/// 1 行から **指定した 1 フィールドだけ** を取り出す seed。
+///
+/// **`Deserialize` ではなく `DeserializeSeed`。** 探すフィールド名は実行時の値
+/// （`--field` の引数）なので、型に埋め込めない。
+/// C#/Java の「デシリアライザに引数を渡す」に相当するものが serde では seed である。
+struct PickField<'f> {
+    field: &'f str,
+}
+
+/// 取り出した値。**JSON の DOM を作らずに済む形だけを持つ。**
+enum Picked<'a> {
+    /// エスケープが無かったので、入力を借用している。
+    Borrowed(&'a str),
+    /// エスケープを解いたので所有している。
+    Owned(String),
+    /// **`f64` ではなく `Number`。** 表示が `serde_json` と一致する必要がある。
+    Number(serde_json::Number),
+    Bool(bool),
+    /// フィールドが無い、値が `null`、または行がオブジェクトでない。
+    Missing,
+    /// 配列・オブジェクト。集計に使えない。
+    Unsupported,
+}
+
+impl<'de> DeserializeSeed<'de> for PickField<'_> {
+    type Value = Picked<'de>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        // **`deserialize_map` ではなく `deserialize_any`。** 行がオブジェクトでない
+        // 場合（`[1,2]` や `"文字列"`）は、以前の実装では `Value::get` が `None` を
+        // 返してスキップされていた。エラーにすると振る舞いが変わる。
+        deserializer.deserialize_any(self)
+    }
+}
+
+impl<'de> Visitor<'de> for PickField<'_> {
+    type Value = Picked<'de>;
+
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "JSON の値")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut found = Picked::Missing;
+        // **全キーを走査する。** 途中で打ち切ると、後続の構文エラーを見逃す。
+        while let Some(matched) = map.next_key_seed(MatchKey { field: self.field })? {
+            if matched {
+                // **一致するたびに上書きする。** キーが重複した行では、
+                // `Value`（`BTreeMap`）が後勝ちだったので、それに揃える。
+                found = map.next_value_seed(PickValue)?;
+            } else {
+                // **値を読み捨てる。** 読まずに次のキーへ進むことはできない。
+                map.next_value::<IgnoredAny>()?;
+            }
+        }
+        Ok(found)
+    }
+
+    // --- オブジェクト以外は「フィールドが無い」と同じ扱い ---
+
+    fn visit_bool<E>(self, _value: bool) -> Result<Self::Value, E> {
+        Ok(Picked::Missing)
+    }
+
+    fn visit_i64<E>(self, _value: i64) -> Result<Self::Value, E> {
+        Ok(Picked::Missing)
+    }
+
+    fn visit_u64<E>(self, _value: u64) -> Result<Self::Value, E> {
+        Ok(Picked::Missing)
+    }
+
+    fn visit_f64<E>(self, _value: f64) -> Result<Self::Value, E> {
+        Ok(Picked::Missing)
+    }
+
+    fn visit_str<E>(self, _value: &str) -> Result<Self::Value, E> {
+        Ok(Picked::Missing)
+    }
+
+    fn visit_unit<E>(self) -> Result<Self::Value, E> {
+        Ok(Picked::Missing)
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        // **読み捨てる。** 途中でやめると構文検査が甘くなる。
+        while seq.next_element::<IgnoredAny>()?.is_some() {}
+        Ok(Picked::Missing)
+    }
+}
+
+/// キーが探しているフィールドかどうかだけを返す seed。
+///
+/// **`String` にも `Cow` にもしない。** どちらも確保を伴うが、
+/// ここで要るのは一致するかどうかの真偽値だけである。
+struct MatchKey<'f> {
+    field: &'f str,
+}
+
+impl<'de> DeserializeSeed<'de> for MatchKey<'_> {
+    type Value = bool;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_str(self)
+    }
+}
+
+impl Visitor<'_> for MatchKey<'_> {
+    type Value = bool;
+
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "オブジェクトのキー")
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> {
+        Ok(value == self.field)
+    }
+}
+
+/// 一致したフィールドの値を [`Picked`] として取り出す seed。
+struct PickValue;
+
+impl<'de> DeserializeSeed<'de> for PickValue {
+    type Value = Picked<'de>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_any(self)
+    }
+}
+
+impl<'de> Visitor<'de> for PickValue {
+    type Value = Picked<'de>;
+
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "集計に使える値")
+    }
+
+    /// **エスケープが無い文字列だけがここに来る。** 入力をそのまま借用できる。
+    fn visit_borrowed_str<E>(self, value: &'de str) -> Result<Self::Value, E> {
+        Ok(Picked::Borrowed(value))
+    }
+
+    /// エスケープを解いた文字列。借用できないので確保する。
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> {
+        Ok(Picked::Owned(value.to_owned()))
+    }
+
+    fn visit_string<E>(self, value: String) -> Result<Self::Value, E> {
+        Ok(Picked::Owned(value))
+    }
+
+    fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E> {
+        Ok(Picked::Number(value.into()))
+    }
+
+    fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E> {
+        Ok(Picked::Number(value.into()))
+    }
+
+    fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E> {
+        // JSON に NaN と無限大は書けないので `None` にはならないが、
+        // **`unwrap()` を置かずに型で処理する**（このリポジトリの方針 4）。
+        Ok(serde_json::Number::from_f64(value).map_or(Picked::Unsupported, Picked::Number))
+    }
+
+    fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E> {
+        Ok(Picked::Bool(value))
+    }
+
+    /// `null`。**エラーではなくスキップ**（`Key::extract` の doc を参照）。
+    fn visit_unit<E>(self) -> Result<Self::Value, E> {
+        Ok(Picked::Missing)
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        while seq.next_element::<IgnoredAny>()?.is_some() {}
+        Ok(Picked::Unsupported)
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        while map.next_entry::<IgnoredAny, IgnoredAny>()?.is_some() {}
+        Ok(Picked::Unsupported)
     }
 }
 
@@ -349,6 +565,72 @@ mod tests {
         assert_eq!(select_one(&json("v"), "{\"v\":\"s\"}").as_ref(), "s");
         assert_eq!(select_one(&json("v"), "{\"v\":12}").as_ref(), "12");
         assert_eq!(select_one(&json("v"), "{\"v\":true}").as_ref(), "true");
+    }
+
+    /// **`Value` を経由しない実装でも、表示が変わらないこと。**
+    ///
+    /// `f64` に落として `to_string()` すると `3.0` が `3` になる。
+    /// `serde_json::Number` を保つことでそれを防いでいる（段階 7 の改善 2）。
+    #[test]
+    fn 小数の表示は_serde_json_と同じ() {
+        assert_eq!(select_one(&json("v"), "{\"v\":3.0}").as_ref(), "3.0");
+        assert_eq!(select_one(&json("v"), "{\"v\":1.5}").as_ref(), "1.5");
+        assert_eq!(select_one(&json("v"), "{\"v\":-0.25}").as_ref(), "-0.25");
+    }
+
+    /// エスケープが無ければ **入力を借用したまま返る**（段階 7 の改善 2）。
+    #[test]
+    fn エスケープの無い_json_文字列は借用のまま返る() {
+        let extracted = json("v")
+            .select("{\"v\":\"info\"}", 1)
+            .expect("読める")
+            .expect("値がある");
+        assert!(matches!(extracted, Cow::Borrowed(_)), "{extracted:?}");
+    }
+
+    /// エスケープを解く必要があれば所有値になる。**解けていることも見る。**
+    #[test]
+    fn エスケープを含む_json_文字列は解かれて所有値になる() {
+        let extracted = json("v")
+            .select("{\"v\":\"a\\tb\"}", 1)
+            .expect("読める")
+            .expect("値がある");
+        assert_eq!(extracted.as_ref(), "a\tb");
+        assert!(matches!(extracted, Cow::Owned(_)), "{extracted:?}");
+    }
+
+    /// **行がオブジェクトでなければスキップ**（フィールドが無いのと同じ扱い）。
+    ///
+    /// `Value` 経由の実装では `Value::get` が `None` を返していた。
+    /// seed の実装でエラーにすると振る舞いが変わるので、`deserialize_any` で受ける。
+    #[test]
+    fn オブジェクトでない行はスキップする() {
+        for line in ["[1,2]", "\"文字列\"", "42", "null", "true"] {
+            assert_eq!(
+                json("lvl").select(line, 1).expect("読める"),
+                None,
+                "行: {line}"
+            );
+        }
+    }
+
+    /// キーが重複した行は **後勝ち**（`BTreeMap` に入れていたときと同じ）。
+    #[test]
+    fn 重複したキーは後勝ち() {
+        assert_eq!(
+            select_one(&json("v"), "{\"v\":\"first\",\"v\":\"second\"}").as_ref(),
+            "second"
+        );
+    }
+
+    /// 一致するキーの後ろに構文エラーがあっても見逃さない。
+    #[test]
+    fn 値を取り出せても後続の構文エラーは失敗にする() {
+        let err = json("v")
+            .select("{\"v\":\"ok\"} ゴミ", 3)
+            .expect_err("末尾のゴミで失敗するはず");
+        assert!(matches!(err.kind, LineErrorKind::InvalidJson { .. }));
+        assert_eq!(err.line_no, 3);
     }
 
     #[test]
