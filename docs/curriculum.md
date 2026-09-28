@@ -439,7 +439,7 @@ I/O バウンドの場合に並列化が効かない（あるいは遅くなる�
 
 - **段階 6 の積み残し 2 件をここで片付ける。**
   - **キャッシュが冷えた状態での測定**（`sudo purge` + `hyperfine`）
-  - **`Box<dyn BufRead>` の間接呼び出しのコスト**（`docs/learning-log.md` 13 節）
+  - **`Box<dyn BufRead>` の間接呼び出しのコスト**（`docs/learning-log.md` 14 節）
 - **`cargo-semver-checks` を試す。** 段階 6 で公開 API を実際に壊したので、
   **検出されるはずの変更が検出されるか**を確かめられる
 

@@ -71,7 +71,7 @@
 2. **段階 6 で積み残した測定が 2 件ある。**
    - **キャッシュが冷えた状態での測定**（`sudo purge` + `hyperfine`）。
      `divan` の反復の中では作れない
-   - **`Box<dyn BufRead>` の間接呼び出しのコスト**（`learning-log.md` 13 節）
+   - **`Box<dyn BufRead>` の間接呼び出しのコスト**（`learning-log.md` 14 節）
 3. **`cargo-semver-checks` を試す好機。** 段階 6 で公開 API を実際に壊したので、
    **検出されるはずの変更が検出されるか**を確かめられる（未決事項 6）
 
