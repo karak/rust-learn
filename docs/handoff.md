@@ -31,7 +31,7 @@
   **ただし決定の全経路を通したわけではない** — 未決事項 8
 - **[ADR-0007](adr/0007-multi-input-aggregation.md) も `accepted` になった**（2026-09-24）。
   複数入力・マージ・失敗の文脈・並列化の置き場所を決め、実装と実測まで終えた。
-  **ADR-0004 と ADR-0005 を部分的に supersede している**（未決事項 11）
+  **ADR-0004 と ADR-0005 を部分的に supersede している**（未決事項 10）
 - **`tally` は複数ファイルを取り、ファイル単位で並列に集計する。**
   `-j` / `--jobs` で並列度を指定でき、`-j 1` は逐次（検証の経路）
 - **モジュール間の依存規則を `scripts/check-module-deps.sh` が検査する。**
@@ -117,9 +117,16 @@
   `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps` が別に要る
   （CI には入っている）。**公開項目から非公開項目へのリンク**はここでしか拾えない
 - **コンテナから push はできない。設計上そうしてある**
-  （[ADR-0008](adr/0008-container-push-credentials.md)）。
+  （[ADR-0008](adr/0008-container-push-credentials.md)、2026-09-29 に実地確認）。
   **commit はコンテナ、push はホスト。** `.git` が共有なので成立する。
-  資格情報が無いだけなので、**push を試みれば git がその場で明確に失敗する**
+  push を試みると、**端末が無ければ終了コード 128、端末があれば
+  `Username for` を聞いて止まる**（静かには成功しない）
+- **コンテナでの commit は `.git/config` の identity に乗っている。**
+  `user.name` / `user.email` はリポジトリ固有で、**git の追跡外。**
+  clone し直すと消え、`Author identity unknown` で commit が止まる
+- **devcontainer は git のワークツリーでは検証できない。**
+  ワークツリーの `.git` は親リポジトリを指すファイルで、
+  **コンテナ内からその絶対パスを辿れない。** 別ブランチを試すならクローンを作る
 - **git-secrets のパターンとフックは git の追跡外**（`.git/config` と `.git/hooks`）。
   clone やコンテナ再作成で消える。`scripts/setup-git-secrets.sh` を回す
   （devcontainer は自動）。**パターンに literal な空白を書かない** —
@@ -201,26 +208,19 @@
 9. **`AsRef` / `Deref` と関連型を、実際のコードで一度も使っていない。**
    段階 5 で回収を試みたが、**trait を自分で定義するまで出番が来ない**と分かった。
    段階 6 でも来ない見込み。**必要になる課題を用意しないと消化されない**
-10. **[ADR-0008](adr/0008-container-push-credentials.md) が `proposed` のまま。**
-    「コンテナへ資格情報を渡さない」は決まり、参照も全て消した
-    （Confirmation 1 は済）。**残る 2〜4 はコンテナの再ビルドが要る** —
-    `postCreateCommand` が通るか、コンテナの commit をホストから push できるか、
-    **コンテナからの push が静かに成功せず明確に失敗するか。**
-    最後の 1 つは決め手 3 の根拠そのものなので、確認まで含めて 1 単位。
-    2026-09-25 時点ではホストの Docker デーモンが停止していて実施できなかった
-11. **ADR-0001 が「部分的な supersede」を定めていない。**
+10. **ADR-0001 が「部分的な supersede」を定めていない。**
     ステータスは `Accepted` → `Superseded` の全体遷移しかなく、
     **「一部の論点だけ置き換わった」状態を表せない。**
     段階 6 では frontmatter に `partially-superseded-by` を足し、
     該当箇所に指し先を書く形で運用した（ADR-0004 と ADR-0005）。
     **これは ADR-0001 の「明確化」の枠を広げて使っている。**
     枠を正式にするなら ADR-0001 を supersede する新しい ADR が要る
-12. **依存規則の検査がコメント行を見ない。**
+11. **依存規則の検査がコメント行を見ない。**
     `scripts/check-module-deps.sh` は `//` で始まる行を落とすので、
     **doc コメント内のコード例に禁止された依存が書かれていても拾えない。**
     doc テストはコンパイルされるので、本来は拾いたい。
     `cargo expand` か rustdoc の JSON を使う案があるが、どちらも重い
-13. **`Execution` を trait にする条件を決めたが、監視していない。**
+12. **`Execution` を trait にする条件を決めたが、監視していない。**
     ADR-0007 論点 5 が「実装が 3 つ以上」「`tally` 以外の消費者」「エラー型の総称化」を
     挙げた。**戦略を足すときにこの条件を見ること**
 
