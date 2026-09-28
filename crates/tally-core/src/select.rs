@@ -68,7 +68,7 @@ impl Key {
     /// [ADR-0005]: ../../../docs/adr/0005-selector-public-api.md
     fn extract<'a>(&self, line: &'a str) -> Result<Option<Cow<'a, str>>, LineErrorKind> {
         match self {
-            Self::WholeLine => Ok(Some(Cow::Borrowed(trim_line(line)))),
+            Self::WholeLine => Ok(Some(Cow::Borrowed(line.trim()))),
             Self::JsonField(field) => {
                 // **`serde_json::Value` を作らない**（段階 7 の改善 2）。
                 // `Value` は行の全フィールドを `BTreeMap<String, Value>` に積むので、
@@ -307,40 +307,6 @@ impl<'de> Visitor<'de> for PickValue {
         while map.next_entry::<IgnoredAny, IgnoredAny>()?.is_some() {}
         Ok(Picked::Unsupported)
     }
-}
-
-/// 行全体をキーにするときの前後空白除去。
-///
-/// **ASCII だけの行は、バイト単位で落とす**（段階 7 の改善 3）。
-/// `str::trim` は Unicode の `White_Space` を見るため文字を復号するが、
-/// ASCII の範囲に限れば **空白は `0x09..=0x0D` と `0x20` の 6 つだけ**である。
-/// 実測では行全体キーの入力で `trim_matches` が 11% を占めていた。
-///
-/// **`str::trim_ascii` は使えない。** あちらの空白は `WhatWG` の定義で、
-/// **垂直タブ（`0x0B`）を含まない。** `str::trim` は Unicode なので含む。
-/// 取り違えるとキーが変わる（テストで固定した）。
-fn trim_line(line: &str) -> &str {
-    if !line.is_ascii() {
-        return line.trim();
-    }
-
-    let bytes = line.as_bytes();
-    let start = bytes
-        .iter()
-        .position(|byte| !is_ascii_space(*byte))
-        .unwrap_or(bytes.len());
-    let end = bytes
-        .iter()
-        .rposition(|byte| !is_ascii_space(*byte))
-        .map_or(start, |last| last + 1);
-
-    // ASCII なのでバイト境界と文字境界が一致する。
-    &line[start..end]
-}
-
-/// Unicode の `White_Space` のうち、ASCII 範囲にあるもの。
-const fn is_ascii_space(byte: u8) -> bool {
-    matches!(byte, 0x09..=0x0D | 0x20)
 }
 
 /// 大小無視のために小文字化する。**変換が不要なら借用のまま返す。**
@@ -601,9 +567,13 @@ mod tests {
         assert_eq!(select_one(&json("v"), "{\"v\":true}").as_ref(), "true");
     }
 
-    /// **ASCII の速い経路と Unicode の経路で、結果が一致すること。**
+    /// **空白の定義は Unicode の `White_Space`。**
     ///
-    /// 段階 7 の改善 3 で `is_ascii()` の分岐を入れた。分岐の両側がずれていないかを見る。
+    /// 段階 7 で ASCII の速い経路（`str::trim_ascii`）を試したときに、
+    /// **垂直タブ（`0x0B`）の扱いが違う**ことが分かった。
+    /// `trim_ascii` は `WhatWG` の定義で、垂直タブを空白と見なさない。
+    /// 最適化自体は測って効果が出なかったので戻したが、
+    /// **この落とし穴はテストとして残す**（次に同じ置き換えを試す人のため）。
     #[test]
     fn 空白除去は_ascii_でも非_ascii_でも同じ規則() {
         // ASCII の空白 5 種 + 空白。
