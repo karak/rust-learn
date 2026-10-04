@@ -90,7 +90,7 @@
   ホストのターミナルで次を実行して記録する:
   `hyperfine --runs 3 -p 'sudo purge' 'target/release/tally --field lvl target/perf/json.log' 'target/release/tally -j 1 --field lvl target/perf/json.log'`
   測定用の入力は `scripts/gen-input.sh target/perf 10000000` で作れる
-- **`Box<dyn BufRead>` の間接呼び出しのコスト**（`learning-log.md` 14 節）
+- **`Box<dyn BufRead>` の間接呼び出しのコスト**（`learning-log.md` 15 節）
 
 ## クレートの構造
 

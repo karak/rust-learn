@@ -29,7 +29,8 @@
 | 11. モジュールとクレートの分割 | `tally-core/src/lib.rs` ほか |
 | 12. 並行と並列 | `tally/src/aggregate.rs` / `tally-core/src/count.rs` |
 | 13. 性能とメモリ | `tally-core/src/select.rs` / `tally-core/src/count.rs` |
-| 13. 未解決の論点 | ファイル非依存 |
+| 14. `unsafe` の境界 | ファイル非依存（依存クレートを読む） |
+| 15. 未解決の論点 | ファイル非依存 |
 
 ---
 
@@ -1535,7 +1536,128 @@ str::trim_ascii   0x09, 0x0A, 0x0C, 0x0D, 0x20（0x0B を含まない）
 
 ---
 
-## 14. 未解決の論点
+## 14. `unsafe` の境界
+
+**読んだのは依存している実物**（版は `Cargo.lock` のもの） —
+`foldhash` 0.1.5、`serde_json` 1.0.151、`rayon-core` 1.13.0。
+**どれも段階 6・7 で自分が入れたか、自分が時間を削った経路にある。**
+
+### 14-1. `unsafe` が外すのは借用検査ではない（段階 8）
+
+**3 か所とも、借用検査は最後まで効いていた。** `unsafe` ブロックの中でも
+借用規則は変わらず、外れているのは**次の 5 つだけ**である —
+生ポインタの参照外し、`unsafe fn` の呼び出し、`static mut` への触れ方、
+共用体のフィールド読み、そして **`unsafe` trait の実装**。
+
+**読んだ 3 か所の内訳がそれを示している。**
+
+| 対象 | 外しているもの |
+| --- | --- |
+| `foldhash` の `GlobalSeedStorage` | `unsafe impl Sync` と、`UnsafeCell::get` が返す生ポインタの参照外し |
+| `serde_json` の `read.rs` | `from_utf8_unchecked` / `offset_from` / `ptr::write`（いずれも `unsafe fn`） |
+| `rayon-core` の `ScopePtr` | `unsafe impl Send` / `Sync` と、`*const T` の参照外し |
+
+**C++ との差がはっきり出るのはここ。** C++ には「ここから先は規則が緩む」という
+**構文上の境界が無い**ので、`reinterpret_cast` も生ポインタ演算も
+**地の文に混ざる。** Rust は境界を文法にしたので、
+**`grep unsafe` が「人間が証明責任を負った箇所」の全件リストになる。**
+実際、この段階の読みは `grep -rn unsafe` から始めて、
+**件数で対象を選べた**（`foldhash` 5 件、`serde_json` の `read.rs` 3 件、
+`rayon-core` は 88 件あったので `ScopePtr` に絞った）。
+
+### 14-2. 不変条件を作るのは「直前の検査」とは限らない（段階 8）
+
+**読む前の予測は「`unsafe` の手前に検査がある」だった。外れた。**
+**3 か所とも、前提を作っている場所が違う。**
+
+| 対象 | 前提 | 誰が作っているか |
+| --- | --- | --- |
+| `foldhash` の `GlobalSeed::get` | 状態が `INIT` である | **型そのもの。** コンストラクタが `init_slow()` を通すことでしか作れない |
+| `serde_json` の `StrRead::parse_str` | バイト列が valid UTF-8 | **入力の型。** `&str` として入ってきた事実が、そのまま前提になっている |
+| `rayon-core` の `ScopePtr::as_ref` | 指している先が生きている | **呼び出し側の時間順序。** スコープ終了をラッチが待つ |
+
+**`foldhash` のやり方が一番学びになった。**
+
+```rust
+pub struct GlobalSeed {
+    // So we can't accidentally type GlobalSeed { } within this crate.
+    _no_accidental_unsafe_init: (),
+}
+```
+
+**ゼロサイズの型が「初期化済み」という証明書になっている。**
+`()` の非公開フィールドが 1 つあるだけで、
+**クレート内であっても `GlobalSeed { }` と書けない** —
+`new()` を通る以外に値を作る道が無い。
+**`get()` の `unsafe` は、この型を持っていること自体を根拠にしている。**
+
+**他言語の直感との差はここ。** C++ なら「初期化済みフラグを見る」か
+「規約で呼び出し順を決める」になるところを、
+**値の存在そのものに置き換えている**（型による証明 / typestate）。
+**実行時の検査が 1 つも残らない**のがこの書き方の目的で、
+コメントもそう言っている — 毎回グローバルが設定済みか確かめたくない、と。
+
+**`serde_json` の例は、自分のコードに直結していた。**
+段階 7 で `Deserializer::from_str` に寄せた経路が、
+**まさにこの「`&str` で入ってきたから UTF-8 検査を省ける」側**である。
+
+```rust
+// The deserialization input came in as &str with a UTF-8 guarantee,
+// and the \u-escapes are checked along the way, so don't need to
+// check here.
+Ok(unsafe { str::from_utf8_unchecked(bytes) })
+```
+
+**速さの出どころが「省略」ではなく「型が既に証明していること」だと分かる。**
+同じ関数の `&[u8]` 版（`SliceRead`）は、この近道を取れない。
+
+### 14-3. `unsafe impl Send` は、安全性の宣言とは限らない（段階 8）
+
+**`rayon-core` の `ScopePtr` の `SAFETY:` コメントが予想外だった。**
+
+```rust
+// SAFETY: !Send for raw pointers is not for safety, just as a lint
+unsafe impl<T: Sync> Send for ScopePtr<T> {}
+```
+
+**生ポインタが既定で `!Send` なのは、健全性のためではなく lint である** —
+という主張になっている。**実際の安全性の議論は `unsafe impl` の側に無い。**
+危ないのは参照外しのほうで、それは別の `unsafe fn as_ref` に分けてある。
+
+**つまり `unsafe impl` は「この型を送ってよい」と言っているだけで、
+「送った先で何をしてよいか」は言っていない。**
+**証明責任は 2 か所に分かれている。**
+
+**なぜこうするかは、段階 6 で見た `scope` の形から追える。**
+`scope` のジョブは `'scope` の借用を掴んだままスレッド間を渡る。
+ライフタイムを偽装する（`transmute` で `'static` にする）代わりに、
+**`*const T` にして寿命を型から消し、**
+スコープ終了をラッチで待つことで埋め合わせている。
+型の上の説明を捨てて、**実行時の順序に置き換えた**と読める。
+`ScopePtr` の doc コメントがそれを一言で言っている —
+*without faking a lifetime*。
+
+### 14-4. `miri` は「書いていない `unsafe`」には何も言わない（段階 8）
+
+**`cargo +nightly miri test -p tally-core` は通った。**
+ワークスペースで `unsafe` を `deny` にしているので、当然ではある。
+**予測どおりだったが、予測どおりだったこと自体に意味は薄い。**
+
+**分かったのは別のこと** — `miri` の下では単体テスト 64 件が
+**10.56 秒かかった**（通常は 0.675 秒）。**およそ 16 倍。**
+`tally` 側に当てなかったのは正しく、
+**プロセス起動とファイル I/O を含む層では現実的な時間にならない。**
+
+**`miri` が本当に要るのは、自分が `unsafe` を書いたときか、
+依存の `unsafe` を疑ったときである。** 前者はこのリポジトリでは起きない。
+**後者のために、当て方だけ分かる状態にしておく**のがこの段階の収穫になった。
+
+**nightly が要る。** `rust-toolchain.toml` は 1.97.1 に固定してあるので、
+`cargo +nightly` で明示的に越えている（固定そのものは変えていない）。
+
+---
+
+## 15. 未解決の論点
 
 - `Pin` と async の関係（3-1 で触れた自己参照の制約の帰結）
 - `Send` / `Sync` の詳細と、`Arc<Mutex<T>>` が必要になる境界
