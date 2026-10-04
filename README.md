@@ -48,6 +48,21 @@ macOS の bind mount は I/O が遅く、`target/` を共有するとビルド�
 cargo install cargo-nextest cargo-expand cargo-deny --locked
 ```
 
+**測定と点検の道具は必須ではない。** 段階 7・8 で使ったもので、
+**CI にも devcontainer にも入っていない**（ホストに入れて使った）。
+
+```bash
+cargo install samply cargo-semver-checks --locked   # プロファイラ / 公開 API の破壊検査
+brew install hyperfine                               # 端から端までの時間測定
+rustup toolchain install nightly --profile minimal --component miri
+```
+
+**`miri` は nightly を要る。** `rust-toolchain.toml` の 1.97.1 固定はそのままで、
+`cargo +nightly miri test -p tally-core` と明示して越える。
+**`tally` には当てない** — プロセス起動とファイル I/O を含み、
+`miri` の下では現実的な時間で終わらない
+（`tally-core` でも通常実行の約 16 倍かかる）。
+
 さらに **秘密情報スキャンの設定**を 1 回だけ実行する
 （devcontainer では `postCreateCommand` が自動で走るので不要）。
 
