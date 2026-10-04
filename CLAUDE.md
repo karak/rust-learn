@@ -181,6 +181,7 @@ scripts/setup-git-secrets.sh    秘密情報スキャンのパターンとフッ
 | `curriculum.md` の見出しに（済）が無い | 完了状況は `stage-log.md` |
 | `curriculum.md` にチェックボックスが無い | 状態を持たせると予実管理メモに戻る |
 | `curriculum.md` に実績の節が無い | 「実」は `stage-log.md` |
+| **`curriculum.md` が `docs/handoff.md` を指さない** | 持ち越し・未決事項は handoff の側だけが持つ。予に書くと「自分の課題」と読まれる |
 | **どの文書にもテストのフルパス（`::tests::`）が無い** | `cargo nextest list` が答える |
 | **`aggregate` が `clap` / `regex` / ファイル操作に触れない** | 並列化ポリシーを切り出せる状態に保つ（ADR-0007 論点 5） |
 | `stage-log.md` に現在地・次の作業の節が無い | 状態は `handoff.md` の 1 箇所 |
