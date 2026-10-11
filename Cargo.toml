@@ -19,7 +19,9 @@ tally-core = { path = "crates/tally-core", version = "0.1.0" }
 anyhow = "1"
 thiserror = "2"
 clap = { version = "4", features = ["derive", "env", "wrap_help"] }
+# **xtask だけが使う。** 配布物の補完と man を生成する（ADR-0009 論点 2）。
 clap_complete = "4"
+clap_mangen = "0.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tracing = "0.1"

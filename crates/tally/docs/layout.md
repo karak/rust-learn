@@ -48,7 +48,8 @@
 ## 層（モジュール間で許される依存）
 
 **下の層は上の層を知らない。** 根拠は
-[ADR-0007](../../../docs/adr/0007-multi-input-aggregation.md) 論点 5。
+[ADR-0007](../../../docs/adr/0007-multi-input-aggregation.md) 論点 5 と
+[ADR-0009](../../../docs/adr/0009-release-distribution.md) 論点 2。
 
 | 層 | モジュール | 依存してよいもの | 依存してはいけないもの |
 | --- | --- | --- | --- |
@@ -58,6 +59,13 @@
 | 3 | `src/input.rs` | `std`（`fs` を含む）、`tally_core`、`crate::error` | `clap`、`rayon`、`crate::aggregate`、`crate::cli`、`crate::format` |
 | 3 | `src/cli.rs`、`src/format.rs` | `clap` / `regex` / `serde_json`、`tally_core`、`crate::error` | ファイルを開く操作、`rayon`、`crate::aggregate` |
 | 4 | `src/main.rs` | すべて | — |
+| 外 | （別クレート）`xtask` | `crate::cli` の `Cli`、`clap_complete`、`clap_mangen` | **`tally_core`、`rayon`、集計の中身** |
+
+**`xtask` は層の外側にある。** `tally` に依存する唯一のクレートだが、
+**`tally` は `xtask` を知らない。** 一方向である理由は
+**`clap_complete` を `tally` の依存にすると、
+集計しかしない利用者のビルドに生成が乗る**ため（ADR-0009 論点 2）。
+`cargo tree -p tally` に生成器系が出ないことで確かめる。
 
 **層 2 の目的は「切り出せる状態を保つ」こと。** 並列化ポリシーは
 入力の種類にも集計の中身にも依存しないので、

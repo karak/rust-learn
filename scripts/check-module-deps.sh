@@ -105,12 +105,30 @@ for f in crates/tally-core/src/*.rs; do
         'このクレートはファイルを開かない。BufRead を受け取るのが唯一の I/O 境界'
 done
 
+# --- 生成器（xtask）は一方向にしか依存しない -----------------------------
+#
+# **xtask は `tally` の `Cli` を見てよい。逆は禁じる**（ADR-0009 論点 2）。
+# 逆を許すと、**集計しかしない利用者のビルドに生成器が乗る。**
+# クレート単位の依存は cargo tree が答えるが、
+# **「まだ Cargo.toml に無い依存を書こうとした」段階で落としたい。**
+
+for f in crates/tally/src/*.rs crates/tally-core/src/*.rs; do
+    deny "$f" '\bxtask\b|\bclap_complete\b|\bclap_mangen\b' '生成器とその依存' \
+        '補完と man の生成は xtask 側だけ。tally に入れると利用者のビルドに乗る'
+done
+
+# xtask は集計の中身を知らない。`Cli` の形だけを見る。
+XT=crates/xtask/src/main.rs
+deny "$XT" '\btally_core\b|\brayon\b' '集計の中身と実行戦略' \
+    '生成器は引数の形だけを見る。集計も並列化も知らない'
+
 # --- 結果 ---------------------------------------------------------------
 
 if [ "$fail" -eq 0 ]; then
     echo "モジュール間の依存: OK"
 else
     printf '\n規則の正本は crates/tally/docs/layout.md の層の表。\n'
-    printf '根拠は docs/adr/0007-multi-input-aggregation.md 論点 5。\n'
+    printf '根拠は docs/adr/0007-multi-input-aggregation.md 論点 5 と\n'
+    printf '       docs/adr/0009-release-distribution.md 論点 2。\n'
 fi
 exit "$fail"
