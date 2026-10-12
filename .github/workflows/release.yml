@@ -1,0 +1,222 @@
+name: Release
+
+# **手で書いている。`cargo dist` は採らなかった**（ADR-0009 論点 1）。
+# 段階 9 の学習対象はクロスコンパイルと静的リンクそのもので、
+# cargo dist はそこを設定 1 行に畳む。全工程が読めることを優先した。
+
+on:
+  # **版のタグだけを引き金にする**（ADR-0009 論点 3）。
+  # `adr-0002-baseline` のような版でないタグは `v` で始まらないので当たらない。
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+", "v[0-9]+.[0-9]+.[0-9]+-*"]
+  # **ドライランの経路は置いていない**（ADR-0009 論点 3 の 3c を却下）。
+  # 試すならプレリリースのタグ（v0.1.0-rc.1）を使う。
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # **最初に版の一致を見る。** ずれたまま公開すると、
+  # `--version` の出力とダウンロード元の版が食い違う（ADR-0009 論点 3）。
+  # ビルドより先に落とすので、無駄なクロスコンパイルをしない。
+  version:
+    name: version check
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: check
+        name: tag と Cargo.toml の版が一致するか
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          crate=$(cargo metadata --no-deps --format-version 1 \
+            | python3 -c 'import json,sys; print(next(p["version"] for p in json.load(sys.stdin)["packages"] if p["name"]=="tally"))')
+          printf 'tag=%s crate=%s\n' "$tag" "$crate"
+          if [ "$tag" != "$crate" ]; then
+            printf '::error::タグ %s と crates/tally/Cargo.toml の版 %s がずれている\n' "$tag" "$crate"
+            exit 1
+          fi
+          printf 'version=%s\n' "$tag" >> "$GITHUB_OUTPUT"
+
+  # **補完と man は 1 回だけ作る。** ターゲットに依存しないので、
+  # ビルドのマトリクスの中で作ると同じものを 2 回作ることになる。
+  assets:
+    name: completions / man
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: 生成する
+        run: cargo run -p xtask -- dist-assets
+
+      # **実物が出たことを確かめる。** 「生成するコードを書いた」で止めない。
+      # 入れ忘れても誰も気づかないので、件数で見る（ADR-0009 論点 2 の欠点への対処）。
+      - name: 生成物を数える
+        run: |
+          ls -l dist-assets/completions dist-assets/man
+          n=$(find dist-assets -type f | wc -l | tr -d ' ')
+          if [ "$n" -ne 5 ]; then
+            printf '::error::生成物が 5 件でなく %s 件\n' "$n"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-assets
+          path: dist-assets/
+
+  build:
+    name: build ${{ matrix.target }}
+    needs: [version, assets]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # **1 つが落ちても残りを走らせる。** どのターゲットだけが
+      # 壊れているのかを 1 回の実行で知りたい。
+      fail-fast: false
+      matrix:
+        include:
+          # **musl を選んだのは静的リンクのため。** gnu だと
+          # ビルドした runner の glibc 以上が要求される。
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+          - target: aarch64-apple-darwin
+            os: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      # **musl のリンカが要る。** ターゲットを指定しただけでは
+      # 静的にならない（リンクが通らない）。
+      - name: musl のツールを入れる
+        if: endsWith(matrix.target, '-musl')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends musl-tools
+
+      - name: build
+        run: cargo build --release --locked -p tally --target ${{ matrix.target }}
+
+      # **静的リンクは意図ではなく実物で確かめる**（ADR-0009 確認 1・2）。
+      - name: リンクを確かめる（Linux）
+        if: runner.os == 'Linux'
+        run: |
+          bin=target/${{ matrix.target }}/release/tally
+          file "$bin"
+          # **musl 静的なら ldd は「動的実行形式ではない」と言う。**
+          # 終了コードは 1 になるので、出力で判定する。
+          out=$(ldd "$bin" 2>&1 || true)
+          printf '%s\n' "$out"
+          case "$out" in
+            *"not a dynamic executable"*|*"statically linked"*) ;;
+            *) printf '::error::静的リンクになっていない\n'; exit 1 ;;
+          esac
+
+      - name: リンクを確かめる（macOS）
+        if: runner.os == 'macOS'
+        run: |
+          bin=target/${{ matrix.target }}/release/tally
+          file "$bin"
+          otool -L "$bin"
+          # **macOS に完全な静的リンクは無い。** libSystem は必ず付く。
+          # 確かめるのは「システム以外に依存していない」こと。
+          if otool -L "$bin" | tail -n +2 | grep -qvE '/usr/lib/|/System/'; then
+            printf '::error::システム外のライブラリに依存している\n'
+            exit 1
+          fi
+
+      - name: 大きさを記録する
+        run: ls -l target/${{ matrix.target }}/release/tally
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-assets
+          path: dist-assets
+
+      # **アーカイブの構造は外部の契約**（crates/tally/docs/output-format.md）。
+      # ここを変えると利用者の手順が壊れる。
+      - name: アーカイブを作る
+        run: |
+          name=tally-${{ needs.version.outputs.version }}-${{ matrix.target }}
+          mkdir -p "stage/$name"
+          cp target/${{ matrix.target }}/release/tally "stage/$name/"
+          cp -R dist-assets/completions dist-assets/man "stage/$name/"
+          # **`|| true` で逃がさない。** Cargo.toml が license = "MIT" を
+          # 宣言しているので、**本文が無いまま配ると宣言と中身が食い違う。**
+          cp README.md LICENSE "stage/$name/"
+          tar -C stage -czf "$name.tar.gz" "$name"
+          shasum -a 256 "$name.tar.gz" | tee "$name.tar.gz.sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: |
+            *.tar.gz
+            *.tar.gz.sha256
+
+  # **ビルドした runner とは別のジョブで動かす**（ADR-0009 確認 3）。
+  # 自分の機械では「他人の機械で動くか」を確かめられない。
+  # **`--version` だけでは足りない** — 集計を 1 回やらせる。
+  smoke:
+    name: smoke ${{ matrix.target }}
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+          - target: aarch64-apple-darwin
+            os: macos-latest
+    steps:
+      # **ソースを取らない。** バイナリだけを受け取って動かす。
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+
+      - name: 展開して集計させる
+        run: |
+          tar -xzf ./*.tar.gz
+          cd tally-*/
+          ./tally --version
+          # **集計を 1 回やらせる。** 入出力が通ることまで見る。
+          printf 'a\nb\na\n' | ./tally --format csv > out.csv
+          cat out.csv
+          # 期待する中身を明示して突き合わせる（存在確認で終わらせない）。
+          printf 'key,count\na,2\nb,1\n' > want.csv
+          diff -u want.csv out.csv
+          # 同梱物が実際に入っているか
+          test -f man/tally.1
+          test -f completions/tally.bash
+
+  release:
+    name: GitHub Release
+    needs: smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dl
+      - name: 一覧を出す
+        run: find dl -type f | sort
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dl/*/*.tar.gz
+            dl/*/*.tar.gz.sha256
+          # **プレリリースのタグなら prerelease にする。**
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          fail_on_unmatched_files: true
