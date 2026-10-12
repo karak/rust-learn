@@ -13,6 +13,56 @@ CLI ツール開発を題材にした Rust 学習環境。
 - **コードの配置ルール** → [`crates/tally-core/docs/layout.md`](crates/tally-core/docs/layout.md)
   と [`crates/tally/docs/layout.md`](crates/tally/docs/layout.md)
 - **出力の外部仕様（利用者への契約）** → [`crates/tally/docs/output-format.md`](crates/tally/docs/output-format.md)
+- **配布物の外部仕様** → [`crates/tally/docs/distribution.md`](crates/tally/docs/distribution.md)
+
+## 入手する（ビルドせずに使う）
+
+**まだリリースしていない。** 下はリリース後の手順である。
+
+[Releases](https://github.com/karak/rust-learn/releases) から
+自分のターゲットのアーカイブを取り、展開して `tally` を
+`PATH` の通った場所に置く。
+
+```bash
+tar -xzf tally-<版>-<ターゲット>.tar.gz
+cd tally-<版>-<ターゲット>
+install -m 755 tally ~/.local/bin/
+```
+
+**checksum を確かめられる。** 同名 + `.sha256` が同じ場所にある。
+
+```bash
+shasum -a 256 -c tally-<版>-<ターゲット>.tar.gz.sha256
+```
+
+**インストーラスクリプトは用意していない**（[ADR-0009](docs/adr/0009-release-distribution.md) 論点 1）。
+
+### 補完と man
+
+アーカイブに同梱してある。置き場所はシェルごとに違う。
+
+```bash
+# zsh — fpath の通ったディレクトリへ
+cp completions/_tally ~/.zsh/completions/
+# bash
+cp completions/tally.bash ~/.local/share/bash-completion/completions/tally
+# fish
+cp completions/tally.fish ~/.config/fish/completions/
+# man
+cp man/tally.1 ~/.local/share/man/man1/
+```
+
+### macOS で初回起動が止まる
+
+**署名も公証もしていない**（ADR-0009 論点 1）。Gatekeeper に止められたら、
+「システム設定 → プライバシーとセキュリティ」で許可するか、
+隔離属性を自分で外す。
+
+```bash
+xattr -d com.apple.quarantine ./tally
+```
+
+**何を実行しようとしているかを理解したうえで行うこと。**
 
 ## セットアップ
 

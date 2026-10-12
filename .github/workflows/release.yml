@@ -193,8 +193,10 @@ jobs:
           # **集計を 1 回やらせる。** 入出力が通ることまで見る。
           printf 'a\nb\na\n' | ./tally --format csv > out.csv
           cat out.csv
-          # 期待する中身を明示して突き合わせる（存在確認で終わらせない）。
-          printf 'key,count\na,2\nb,1\n' > want.csv
+          # **期待する中身を明示して突き合わせる**（存在確認で終わらせない）。
+          # 形は `件数,キー`。**ヘッダを出さない**のが CSV の契約
+          # （crates/tally/docs/output-format.md、ADR-0003）。
+          printf '2,a\n1,b\n' > want.csv
           diff -u want.csv out.csv
           # 同梱物が実際に入っているか
           test -f man/tally.1
