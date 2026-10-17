@@ -16,7 +16,7 @@ workspace = true
 [dependencies]
 # **`Cli` の定義を見るためだけに依存している。** 逆向きは禁じる
 # （`tally` は xtask を知らない）。規則は scripts/check-module-deps.sh。
-tally = { path = "../tally", version = "0.1.0-rc.1" }
+tally = { path = "../tally", version = "0.1.0-rc.2" }
 
 clap.workspace = true
 clap_complete.workspace = true
