@@ -97,8 +97,13 @@
 **コンテナからは打たない**（[ADR-0008](adr/0008-container-push-credentials.md)）。
 
 ```bash
-# プレリリースで全経路を通す（ADR-0009 論点 4 の 4c）
-git tag v0.1.0-rc.1 && git push origin v0.1.0-rc.1
+# 1. 先に Cargo.toml の版を上げる。**タグだけ打つと version ジョブが落ちる。**
+#    上げる場所は 2 箇所ある（プレリリースは 0.1.0 の要求に一致しない）
+#      crates/tally/Cargo.toml  の [package] version
+#      crates/xtask/Cargo.toml  の tally 依存の version
+#    理由は learning-log.md 15-5
+# 2. ブランチで commit し、--ff-only で main に載せてから打つ
+git tag v0.1.0-rc.1 && git push origin v0.1.0-rc.1   # プレリリース（ADR-0009 論点 4 の 4c）
 gh run watch   # Release ワークフローを見る
 ```
 

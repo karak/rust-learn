@@ -1767,6 +1767,32 @@ smoke テストの期待値が、CSV の契約（`件数,キー`、ヘッダな�
 「全工程が 1 ファイルで見える」ことを優先したためで、
 **読みやすさと試しやすさがここで競合した。**
 
+### 15-5. プレリリースの版は、通常の版要求に一致しない（段階 9）
+
+`crates/tally/Cargo.toml` の版を `0.1.0` から `0.1.0-rc.1` に上げたら、
+**`xtask` のビルドが落ちた。**
+
+```
+required by package `xtask v0.0.0`
+help: if you are looking for the prerelease package it needs to be specified explicitly
+```
+
+`xtask` は `tally = { path = "../tally", version = "0.1.0" }` と書いていた。
+**semver の順序では `0.1.0-rc.1` < `0.1.0` なので、`0.1.0` の要求に一致しない。**
+`path` で場所が確定していても、`version` を併記した以上は照合される。
+
+**プレリリースは「その版の手前」であって「その版の一種」ではない。**
+C#/Java の版解決でもプレリリースは別扱いだが、
+**cargo は `path` 依存でも `version` を無視しない**ところが効いた。
+
+**ここから引けるのは、版を上げる操作が 1 箇所で済まないということである。**
+ワークスペース内のクレートを `version` 付きで参照している限り、
+**版は「`[package]` の 1 行」ではなく「それを名指す全箇所」にある。**
+`workspace.dependencies` に寄せていれば 1 箇所になるが、
+このリポジトリの `xtask` は `[dependencies]` に直接書いている。
+
+---
+
 ---
 
 ## 16. 未解決の論点
