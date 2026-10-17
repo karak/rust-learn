@@ -580,3 +580,30 @@ Mac16,10（性能コア 4 + 効率コア 6）、`profile.profiling` でプロフ
 
 **予測 P2 の片方が当たった** — 「ターゲットの指定だけでは足りない」。
 **ただし足りなかったのはリンカではなく、ターゲット自体の導入だった。**
+
+### 公開した（2026-10-17、`v0.1.0-rc.2`）
+
+**`rustup target add` を足して打ち直したら、5 ジョブすべて通った。**
+**GitHub Releases にプレリリースとして出た**（`prerelease: true`）。
+
+| 項目 | `x86_64-unknown-linux-musl` | `aarch64-apple-darwin` |
+| --- | --- | --- |
+| 実行ファイル | **3,066,080 バイト** | **2,508,480 バイト** |
+| アーカイブ（`tar.gz`） | **1,288,803 バイト** | **1,096,513 バイト** |
+| `file` | `ELF 64-bit LSB pie executable, static-pie linked, stripped` | — |
+| 動的リンク先 | **なし**（`ldd` は `statically linked`） | `libiconv.2.dylib`、`libSystem.B.dylib` |
+
+**musl のほうが 22% 大きい。** libc を実際に抱えているぶんである。
+
+**`ldd` の文言が予想と違った。** 「静的なら `not a dynamic executable` と言う」
+と思って書いていたが、**実際は `statically linked` だった。**
+判定を 2 つの文字列の `case` で書いていたので通ったが、
+**1 つに決めていたら、静的リンクに成功しているのに落ちていた。**
+**「期待する文言」を 1 つに絞ることが、検査を脆くする側に働く例である。**
+
+**`smoke` は checkout していない。** 配布物を展開して
+`printf 'a\nb\na\n' | ./tally --format csv` を走らせ、
+`2,a` / `1,b` が出ることを `diff -u` で突き合わせた。
+**両ターゲットで通った** — **他人の機械で動くことを、初めて確かめた。**
+
+**ADR-0009 を `accepted` にした。** 10 項目すべて確認済み。
