@@ -6,16 +6,23 @@
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 
-use clap::Parser;
+use clap::{ArgGroup, Parser};
 use regex::Regex;
 
-use tally_core::{Counter, Key, Selector};
+use tally_core::{Counter, JsonPointer, Key, Selector};
 
 use crate::format::Format;
 
 /// 行指向データの度数を集計する。
+///
+/// **`key_source` グループが `--field` と `--pointer` の排他を表明する。**
+/// 同じ「どこから取るか」を 2 通りに指定させないためで、
+/// `--strict` もこのグループを `requires` する（[ADR-0010] 論点 4）。
+///
+/// [ADR-0010]: ../../../docs/adr/0010-json-pointer-key.md
 #[derive(Debug, Parser)]
 #[command(name = "tally", version, about, long_about = None)]
+#[command(group = ArgGroup::new("key_source").args(["field", "pointer"]))]
 pub struct Cli {
     /// 入力ファイル。**複数指定できる。** 省略時は標準入力を読む。
     ///
@@ -28,6 +35,17 @@ pub struct Cli {
     /// 省略時は行全体をキーにする。
     #[arg(short, long, value_name = "NAME")]
     pub field: Option<String>,
+
+    /// 各行を JSON として解釈し、この JSON Pointer の指す値を集計する。
+    ///
+    /// `--field` がトップレベルの 1 フィールドしか取れないのに対し、
+    /// **入れ子と配列を辿れる**（`/req/status`、`/items/0`）。
+    ///
+    /// **`/` で始まらない綴りは受け付けない。** RFC 6901 では「先頭が `/` でない」は
+    /// 単に一致しない指定であり、**通すと全行スキップで度数 0 が静かに出る。**
+    /// `--filter` の `Regex` と同じく、**型で受けて引数解釈の時点で検証する。**
+    #[arg(long, value_name = "PTR")]
+    pub pointer: Option<JsonPointer>,
 
     /// 上位 N 件だけ出力する。
     #[arg(short = 'n', long, value_name = "N")]
@@ -53,10 +71,13 @@ pub struct Cli {
     /// このフラグに関わらず常にエラーになる。「値が無い」のではなく
     /// 「集計に使えない形をしている」ため、既定でも見逃さない。
     ///
-    /// `--field` を伴わないと意味を持たない（行全体をキーにする場合、
+    /// `--field` も `--pointer` も伴わないと意味を持たない（行全体をキーにする場合、
     /// 取り出しに失敗しようがない）ため、clap の `requires` で関係を表明している。
     /// 実行時に黙って無視するより、引数解釈の時点で拒否するほうが親切。
-    #[arg(long, requires = "field")]
+    ///
+    /// **指すのはグループであって `--field` 単体ではない。**
+    /// 単体を指したままにすると `--pointer` と併用できなくなる。
+    #[arg(long, requires = "key_source")]
     pub strict: bool,
 
     /// この正規表現にマッチする行だけを集計する。
@@ -93,9 +114,11 @@ impl Cli {
     /// 引数から集計キーを決める。
     #[must_use]
     pub fn key(&self) -> Key {
-        match &self.field {
-            Some(name) => Key::JsonField(name.clone()),
-            None => Key::WholeLine,
+        match (&self.pointer, &self.field) {
+            // 排他は clap の `key_source` グループが保証する。両方が来ることはない。
+            (Some(pointer), _) => Key::JsonPointer(pointer.clone()),
+            (None, Some(name)) => Key::JsonField(name.clone()),
+            (None, None) => Key::WholeLine,
         }
     }
 
@@ -125,6 +148,39 @@ mod tests {
     fn clap_の定義自体が矛盾していない() {
         // 短縮フラグの重複などを clap が検証してくれる。CLI が増えたら効いてくる。
         Cli::command().debug_assert();
+    }
+
+    #[test]
+    fn pointer_指定時は_json_pointer_がキーになる() {
+        let cli =
+            Cli::try_parse_from(["tally", "--pointer", "/req/status"]).expect("解釈できるはず");
+        assert_eq!(
+            cli.key(),
+            Key::JsonPointer(JsonPointer::new("/req/status").expect("正しいポインタ"))
+        );
+    }
+
+    #[test]
+    fn 不正なポインタは引数解釈で拒否される() {
+        // 入力を読み始めてから失敗させない。--filter の Regex と同じ形。
+        for bad in ["lvl", "/items/-", "/a~2b"] {
+            Cli::try_parse_from(["tally", "--pointer", bad])
+                .expect_err(&format!("拒否されるはず: {bad}"));
+        }
+    }
+
+    #[test]
+    fn field_と_pointer_は同時に指定できない() {
+        Cli::try_parse_from(["tally", "--field", "lvl", "--pointer", "/lvl"])
+            .expect_err("排他なので拒否されるはず");
+    }
+
+    #[test]
+    fn strict_は_pointer_とも併用できる() {
+        // requires が --field 単体を指していると、ここが落ちる。
+        let cli = Cli::try_parse_from(["tally", "--pointer", "/lvl", "--strict"])
+            .expect("解釈できるはず");
+        assert!(cli.strict);
     }
 
     #[test]

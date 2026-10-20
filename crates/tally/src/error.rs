@@ -277,7 +277,7 @@ pub fn hint_for(err: &TallyError) -> Option<&'static str> {
         // （ADR-0007 論点 3 で `OpenInput` を CLI へ移した）。
         TallyError::Read(_) => None,
         TallyError::Line(line) => match &line.kind {
-            LineErrorKind::MissingField { .. } => {
+            LineErrorKind::MissingField { .. } | LineErrorKind::MissingPointer { .. } => {
                 Some("--strict を外すと、この行はスキップされます")
             }
             // `UnsupportedFieldType` と `InvalidJson` は入力そのものの問題。
