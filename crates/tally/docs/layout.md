@@ -155,7 +155,9 @@ error[E0603]: function `quote_field` is private
 | `quote_field` が関数に切られている | 引用規則は CSV の外部契約そのもの。境界値（`,` `"` CR LF）を関数単位で検査したい |
 | **正規表現は `regex` クレート**（`fancy-regex` を採らない） | `--filter` は利用者の任意入力を受ける。先読み・後方参照と引き換えに入力長への線形時間を失うと、ReDoS が成立しうる。`regex-lite` はバイナリは小さいが実行が遅く、この用途で得がない |
 | `--filter` を `Option<String>` でなく `Option<Regex>` で受ける | 不正な正規表現を引数解釈の時点（終了コード 2）で拒否する。入力を読み始めてから失敗させない |
-| `--strict` が clap の `requires = "field"` を持つ | `--field` 無しでは意味を持たない。実行時に黙って無視するより引数解釈で拒否する |
+| `--strict` が clap の `requires = "key_source"` を持つ | `--field` も `--pointer` も無ければ意味を持たない。実行時に黙って無視するより引数解釈で拒否する。**グループを指すのは、`--field` 単体を指したままにすると `--pointer` と併用できないため** |
+| **`--field` と `--pointer` が `ArgGroup` で排他** | 同じ「どこから取るか」を 2 通りに指定させない（[ADR-0010](../../../docs/adr/0010-json-pointer-key.md) 論点 4）。`--field` が `/` で始まったらポインタと解釈する案は、`/` で始まるフィールド名を指せなくなるので却下した |
+| `--pointer` を `Option<String>` でなく `Option<JsonPointer>` で受ける | `--filter` の `Regex` と同じ形。不正な綴りを引数解釈の時点（終了コード 2）で拒否する |
 | **`--strict` が `Cli::counter()` に乗り、`Cli::selector()` には乗らない** | 「産まなかったときどうするか」は消費者の方針（[ADR-0005](../../../docs/adr/0005-selector-public-api.md) 論点 1） |
 | `main` が `ExitCode` を返す | `Result` を返すとエラーが `Debug` 表示になり読めない |
 | **書き出し後に明示的に `flush()` する** | 忘れると `BufWriter` の drop 時に落ち、失敗が捨てられる。パイプ切断はここで初めて観測されることが多い |

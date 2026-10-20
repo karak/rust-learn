@@ -152,6 +152,9 @@ $ printf 'a\nb\na\n' | cargo run -q -p tally
 1	b
 
 $ cat app.log | cargo run -q -p tally -- --field level -n 5 --format json
+
+# 入れ子と配列は JSON Pointer（RFC 6901）で辿る
+$ cat app.log | cargo run -q -p tally -- --pointer /req/status
 ```
 
 **クレートが 2 つに分かれている。**

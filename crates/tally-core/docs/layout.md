@@ -36,7 +36,7 @@
 
 | パス | 役割 | 置いてよいもの | 置いてはいけないもの |
 | --- | --- | --- | --- |
-| `src/select.rs` | キーの抽出と正規化 | `Key`、`Selector`、正規化の純粋関数 | **どの行が参加するかの判断**、欠損の扱い、I/O |
+| `src/select.rs` | キーの抽出と正規化 | `Key`、`Selector`、`JsonPointer`、正規化の純粋関数 | **どの行が参加するかの判断**、欠損の扱い、I/O |
 | `src/count.rs` | 度数の集計と結果の表現 | `Counter`、`Entry`、`Report`、`tally_reader` | 抽出規則、整形、ファイルを開く操作 |
 | `src/error.rs` | 失敗の型 | `thiserror` の型、抜粋の切り詰め | `anyhow`、終了コード、hint（CLI の語彙） |
 | `src/lib.rs` | 公開面の宣言 | `mod` 宣言、`pub use`、クレートの doc | 実装 |
@@ -94,9 +94,12 @@ CLI の統合テストは `crates/tally/tests/cli.rs` にある。
 | **`Selector` に入れてよいのは「参加する行がどうキーを産むか」だけ** | 「どの行が参加するか」は述語、「産まなかったときどうするか」は `Counter`。`Regex` は `PartialEq` を実装せず derive も壊れる |
 | **`strict` が `Counter` にある** | 「産まなかったときどうするか」は抽出器の性質ではなく消費者の方針。同じ `Selector` を厳格にも緩くも回せる |
 | **`Selector` / `Counter` のフィールドが非公開** | リテラル構築を封じるとフィールド追加が非破壊になる。`#[non_exhaustive]` は非公開フィールドがあれば冗長 |
+| **`JsonPointer` が検証つき newtype で、`Deref` を持つ** | 先頭 `/` の無い綴りを通すと、綴り間違いが「そのポインタを持たない行」と区別できず度数 0 が静かに出る（[ADR-0010](../../../docs/adr/0010-json-pointer-key.md) 論点 2）。`DerefMut` は実装しないので、検証を迂回する経路は無い |
+| **`JsonPointer` がセグメントを `first` と `rest` に分けて持つ** | 「セグメントが 1 つも無い」状態を型で消すため。1 本の `Box<[_]>` にすると走査のたびに空かどうかを問い直すことになり、`expect` が生える |
+| **`PickPath` が自分自身を `next_value_seed` に渡す** | 入れ子を `serde_json::Value` を作らずに辿るため（ADR-0010 論点 1）。段階 7 の改善 2 を新しい経路でも保つ |
 | **`Key` に `#[non_exhaustive]`** | バリアントは増える側。定義元では属性が無効なので、内部の網羅性検査は保たれる |
 | **`Key` / `Selector` の derive 4 つは公開の約束** | トレイト実装の削除は下流が自分では埋められない（孤児ルール）。「必要になるまで広げない」が効かない唯一の種類 |
-| `Counter::on_missing` の `match` が `_` を使わず全バリアントを列挙 | `Key` に変種が増えたとき、`strict` が黙って無視されずコンパイルエラーになる |
+| `Counter::on_missing` の `match` が `_` を使わず全バリアントを列挙 | `Key` に変種が増えたとき、`strict` が黙って無視されずコンパイルエラーになる。**`Key::JsonPointer` を足したとき、実際にここが落ちた** |
 | **抜粋を作るのは `LineError::new` だけ** | 切り詰めの規則（長さ・省略記号・文字境界）が散ると片方だけ直る |
 | **`LineError` の `Display` は 1 行で自己完結し、`source()` は `kind` を飛ばす** | 素朴に `#[source] kind` と書くと連結表示で同じ文が 2 度出る。抜粋のエスケープは**単一エラーの `to_string()`** で成立していなければならない |
 | **`serde_json::Error` を `JsonError` で隠す** | 公開依存にすると `serde_json` の major が版に波及する。enum のバリアントのフィールドは常に公開なので、型自体を不透明にするしか手がない |
