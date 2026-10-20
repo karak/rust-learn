@@ -236,6 +236,74 @@ pub enum LineErrorKind {
         /// 取り出せなかったフィールド名。
         field: Box<str>,
     },
+
+    /// ポインタの指す値が文字列・数値・真偽値のいずれでもなかった。
+    ///
+    /// **[`LineErrorKind::UnsupportedFieldType`] と分けているのは、
+    /// `field` という名前がポインタに対して嘘になるため。**
+    /// 既存バリアントのフィールド名を変えるのは破壊的変更なので、増やす側を選んだ
+    /// （[ADR-0010] 論点 3）。
+    ///
+    /// [ADR-0010]: ../../../docs/adr/0010-json-pointer-key.md
+    #[error("ポインタ `{pointer}` の指す値は文字列・数値・真偽値ではありません")]
+    UnsupportedPointerType {
+        /// 対象のポインタ。
+        pointer: Box<str>,
+    },
+
+    /// ポインタの指す値を取り出せなかった。
+    ///
+    /// 途中の段が無い場合、末端が無い場合、値が `null` の場合を区別しない。
+    /// **区別しないのは、どれも「この行にはその値が無い」でしかないため。**
+    #[error("ポインタ `{pointer}` の指す値を取り出せません")]
+    MissingPointer {
+        /// 取り出せなかったポインタ。
+        pointer: Box<str>,
+    },
+}
+
+/// JSON Pointer として解釈できなかった原因。
+///
+/// **行の失敗ではない。** 設定（引数）の失敗であり、行番号も抜粋も持たない。
+/// [`LineError`] にも [`TallyError`] にも載せない理由は [ADR-0010] 論点 2 にある。
+///
+/// **開いている**（`#[non_exhaustive]`）。検証の規則は増える側である。
+///
+/// ```
+/// use tally_core::{JsonPointer, JsonPointerError};
+///
+/// let err = JsonPointer::new("lvl").expect_err("先頭が / でないので失敗するはず");
+/// assert_eq!(err, JsonPointerError::NotRooted);
+/// ```
+///
+/// [ADR-0010]: ../../../docs/adr/0010-json-pointer-key.md
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum JsonPointerError {
+    /// 空のポインタ。RFC 6901 では文書全体を指す。
+    ///
+    /// **拒否する。** 文書全体をキーにしたいなら [`Key::WholeLine`][crate::Key::WholeLine]
+    /// がある。
+    #[error("空のポインタは指定できません")]
+    Empty,
+
+    /// 先頭が `/` でない。
+    ///
+    /// **これを通すと綴り間違いが全行スキップとして静かに出る。**
+    /// [`JsonPointer`][crate::JsonPointer] が存在する主な理由がこれである。
+    #[error("ポインタは `/` で始まる必要があります")]
+    NotRooted,
+
+    /// `-` セグメントが含まれていた。
+    ///
+    /// RFC 6901 では「配列の最後の次」を指す。**書けるが必ず空振りする**ので、
+    /// 集計のキーとしては意味を持たない。
+    #[error("`-` は常に存在しない位置を指すため、集計には使えません")]
+    DashSegment,
+
+    /// `~` の後ろが `0` でも `1` でもない。
+    #[error("`~` の後ろには `0` か `1` だけが書けます")]
+    BadEscape,
 }
 
 /// JSON として解釈できなかった原因。

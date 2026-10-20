@@ -67,5 +67,5 @@ mod error;
 mod select;
 
 pub use count::{Counter, Entry, Report, tally_reader};
-pub use error::{JsonError, LineError, LineErrorKind, Result, TallyError};
-pub use select::{Key, Selector};
+pub use error::{JsonError, JsonPointerError, LineError, LineErrorKind, Result, TallyError};
+pub use select::{JsonPointer, Key, Selector};

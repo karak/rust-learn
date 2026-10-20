@@ -5,10 +5,12 @@
 
 use std::borrow::Cow;
 use std::fmt;
+use std::ops::Deref;
+use std::str::FromStr;
 
 use serde::de::{DeserializeSeed, IgnoredAny, MapAccess, SeqAccess, Visitor};
 
-use crate::error::{JsonError, LineError, LineErrorKind};
+use crate::error::{JsonError, JsonPointerError, LineError, LineErrorKind};
 
 /// 各行からどの値を取り出すか。
 ///
@@ -49,6 +51,174 @@ pub enum Key {
     ///
     /// [ADR-0005]: ../../../docs/adr/0005-selector-public-api.md
     JsonField(String),
+    /// 行を JSON として解釈し、[JSON Pointer][rfc] の指す値をキーにする。
+    ///
+    /// **`JsonField` の格上げではなく別のバリアントである。** ポインタは `/` で
+    /// 始まるので、`JsonField("lvl")` と `JsonPointer("/lvl")` は綴りが違う
+    /// （[ADR-0005] 論点 3）。
+    ///
+    /// ```
+    /// use tally_core::{JsonPointer, Key};
+    ///
+    /// let key = Key::JsonPointer(JsonPointer::new("/req/status").expect("正しいポインタ"));
+    /// assert_ne!(key, Key::WholeLine);
+    /// ```
+    ///
+    /// [rfc]: https://www.rfc-editor.org/rfc/rfc6901
+    /// [ADR-0005]: ../../../docs/adr/0005-selector-public-api.md
+    JsonPointer(JsonPointer),
+}
+
+/// 検証済みの [JSON Pointer][rfc]。
+///
+/// **構築に成功した時点で、綴りは正しい。** 不正なポインタを持つ値は存在しない
+/// （[ADR-0010] 論点 2）。
+///
+/// # なぜ newtype なのか
+///
+/// `serde_json` の `Value::pointer` は **先頭が `/` でないと無条件に `None` を返す。**
+/// 生の `String` で受けると、`--pointer lvl` のような綴り間違いが
+/// 「そのポインタを持たない行」と区別できず、**度数 0 という結果が静かに出る。**
+///
+/// # 2 つの表現を持っている
+///
+/// 利用者が書いた綴り（[`as_str`][Self::as_str]）と、解釈済みのセグメント列を
+/// 両方持つ。**前者は診断に、後者は行ごとの照合に使う。**
+/// `regex` の [`Regex::as_str`][regex] が元のパターンを返しながら、
+/// 照合はコンパイル済みのプログラムで行うのと同じ形である。
+///
+/// ```
+/// use tally_core::JsonPointer;
+///
+/// let pointer = JsonPointer::new("/req/status").expect("正しいポインタ");
+/// assert_eq!(pointer.as_str(), "/req/status");
+///
+/// // `~1` は `/` を表す（RFC 6901）。綴りは保たれる。
+/// let escaped = JsonPointer::new("/a~1b").expect("正しいポインタ");
+/// assert_eq!(escaped.as_str(), "/a~1b");
+/// ```
+///
+/// [rfc]: https://www.rfc-editor.org/rfc/rfc6901
+/// [regex]: https://docs.rs/regex/latest/regex/struct.Regex.html#method.as_str
+/// [ADR-0010]: ../../../docs/adr/0010-json-pointer-key.md
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct JsonPointer {
+    /// 利用者が書いた綴り。**エラーの文面と `Display` に使う。**
+    raw: Box<str>,
+    /// 解釈済みの最初のセグメント。`~0` と `~1` は解いてある。
+    ///
+    /// **残りと分けて持つのは、「セグメントは 1 つ以上ある」を型で表すため。**
+    /// 1 本の `Box<[_]>` にすると、走査のたびに空かどうかを問い直すことになる。
+    ///
+    /// **行ごとに解き直さない。** 1 行につきセグメントの数だけ確保することになる。
+    first: Box<str>,
+    /// 2 つ目以降のセグメント。
+    rest: Box<[Box<str>]>,
+}
+
+impl JsonPointer {
+    /// 綴りを検証して組み立てる。
+    ///
+    /// # Errors
+    ///
+    /// 空、先頭が `/` でない、`-` セグメントを含む、`~` の後ろが `0` でも `1` でもない。
+    /// それぞれの理由は [`JsonPointerError`] を参照。
+    pub fn new(raw: &str) -> Result<Self, JsonPointerError> {
+        if raw.is_empty() {
+            return Err(JsonPointerError::Empty);
+        }
+        let Some(body) = raw.strip_prefix('/') else {
+            return Err(JsonPointerError::NotRooted);
+        };
+
+        // **`split('/')` は空のセグメントを落とさない。** `/a//b` の真ん中は
+        // 「空文字列というキー」であり、RFC 6901 ではこれが正しい。
+        // **`/` だけなら要素は 1 つ（空文字列）**で、これも「空というキー」である。
+        let mut parts = body.split('/');
+        let first = unescape_segment(parts.next().unwrap_or(""))?;
+        let rest = parts.map(unescape_segment).collect::<Result<Vec<_>, _>>()?;
+
+        Ok(Self {
+            raw: raw.into(),
+            first,
+            rest: rest.into_boxed_slice(),
+        })
+    }
+
+    /// 利用者が書いた綴りを返す。
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.raw
+    }
+
+    /// 走査用の seed を作る。**公開しない。** 内部表現である。
+    fn seed(&self) -> PickPath<'_> {
+        PickPath {
+            head: &self.first,
+            rest: &self.rest,
+        }
+    }
+}
+
+/// 1 セグメントのエスケープを解く。
+///
+/// **`~` を含まないセグメントは確保せずに済ませる。** ほとんどのポインタは
+/// エスケープを含まない。
+fn unescape_segment(segment: &str) -> Result<Box<str>, JsonPointerError> {
+    if segment == "-" {
+        return Err(JsonPointerError::DashSegment);
+    }
+    if !segment.contains('~') {
+        return Ok(segment.into());
+    }
+
+    let mut unescaped = String::with_capacity(segment.len());
+    let mut chars = segment.chars();
+    while let Some(c) = chars.next() {
+        if c != '~' {
+            unescaped.push(c);
+            continue;
+        }
+        match chars.next() {
+            Some('0') => unescaped.push('~'),
+            Some('1') => unescaped.push('/'),
+            _ => return Err(JsonPointerError::BadEscape),
+        }
+    }
+    Ok(unescaped.into())
+}
+
+impl fmt::Display for JsonPointer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.raw)
+    }
+}
+
+impl FromStr for JsonPointer {
+    type Err = JsonPointerError;
+
+    /// **`clap` の値パーサがこれを使う。** `--filter` の `Regex` と同じ形で、
+    /// 引数解釈の時点で検証させるための実装である。
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::new(s)
+    }
+}
+
+impl AsRef<str> for JsonPointer {
+    fn as_ref(&self) -> &str {
+        &self.raw
+    }
+}
+
+impl Deref for JsonPointer {
+    type Target = str;
+
+    /// **`Deref` を実装してよいのは、これが「文字列に検証を足したもの」だから。**
+    /// 文字列として読む操作は全部そのまま通してよく、
+    /// **検証を迂回して中身を書き換える経路が無い**（`DerefMut` は実装しない）。
+    fn deref(&self) -> &Self::Target {
+        &self.raw
+    }
 }
 
 impl Key {
@@ -96,6 +266,30 @@ impl Key {
                     Picked::Missing => Ok(None),
                     Picked::Unsupported => Err(LineErrorKind::UnsupportedFieldType {
                         field: field.as_str().into(),
+                    }),
+                }
+            }
+            // **`JsonField` の経路と `match` の形が同じで、`Unsupported` の
+            // 行き先だけが違う。** 共通化していないのは、上の各腕に段階 7 の
+            // 測定の記録が付いているためで、動かすと記録の文脈が切れる。
+            Self::JsonPointer(pointer) => {
+                let mut de = serde_json::Deserializer::from_str(line);
+                let picked = pointer
+                    .seed()
+                    .deserialize(&mut de)
+                    .and_then(|picked| de.end().map(|()| picked))
+                    .map_err(|source| LineErrorKind::InvalidJson {
+                        source: JsonError::new(source),
+                    })?;
+
+                match picked {
+                    Picked::Borrowed(found) => Ok(Some(Cow::Borrowed(found))),
+                    Picked::Owned(found) => Ok(Some(Cow::Owned(found))),
+                    Picked::Number(found) => Ok(Some(Cow::Owned(found.to_string()))),
+                    Picked::Bool(found) => Ok(Some(Cow::Owned(found.to_string()))),
+                    Picked::Missing => Ok(None),
+                    Picked::Unsupported => Err(LineErrorKind::UnsupportedPointerType {
+                        pointer: pointer.as_str().into(),
                     }),
                 }
             }
@@ -199,6 +393,142 @@ impl<'de> Visitor<'de> for PickField<'_> {
     {
         // **読み捨てる。** 途中でやめると構文検査が甘くなる。
         while seq.next_element::<IgnoredAny>()?.is_some() {}
+        Ok(Picked::Missing)
+    }
+}
+
+/// 1 行から **ポインタの指す 1 つの値だけ** を取り出す seed。
+///
+/// **[`PickField`] の入れ子版である。** 違いは 2 つ。
+///
+/// 1. **自分自身を `next_value_seed` に渡す。** セグメントを 1 つ削って再帰する
+/// 2. **配列を辿る。** セグメントが RFC 6901 の添字なら、その位置だけ拾う
+///
+/// `serde_json::Value` を作らない方針は [`PickField`] と同じ
+/// （[ADR-0010] 論点 1）。
+///
+/// **いま照合しているセグメント（`head`）と、その先（`rest`）を分けて持つ。**
+/// 「セグメントが尽きた」は `rest` が空であることで表し、
+/// **「セグメントが 1 つも無い」という状態は作れない。**
+///
+/// [ADR-0010]: ../../../docs/adr/0010-json-pointer-key.md
+struct PickPath<'p> {
+    head: &'p str,
+    rest: &'p [Box<str>],
+}
+
+impl PickPath<'_> {
+    /// 1 つ先へ進んだ seed。**末端なら `None`。**
+    fn descend(&self) -> Option<Self> {
+        self.rest
+            .split_first()
+            .map(|(head, rest)| Self { head, rest })
+    }
+}
+
+/// セグメントを配列の添字として読む。
+///
+/// **RFC 6901 は先頭 0 を許さない。** `01` はオブジェクトのキーとしては有効なので、
+/// ここで弾いても「キー `01` を持つオブジェクト」は辿れる。
+/// `usize::from_str` が `+1` を通すので、**数字だけであることも見る。**
+fn array_index(segment: &str) -> Option<usize> {
+    if segment.is_empty() || !segment.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    if segment.len() > 1 && segment.starts_with('0') {
+        return None;
+    }
+    segment.parse().ok()
+}
+
+impl<'de> DeserializeSeed<'de> for PickPath<'_> {
+    type Value = Picked<'de>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_any(self)
+    }
+}
+
+impl<'de> Visitor<'de> for PickPath<'_> {
+    type Value = Picked<'de>;
+
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "JSON の値")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut found = Picked::Missing;
+        // **全キーを走査する。** 打ち切ると後続の構文エラーを見逃す（`PickField` と同じ）。
+        while let Some(matched) = map.next_key_seed(MatchKey { field: self.head })? {
+            if matched {
+                found = match self.descend() {
+                    Some(deeper) => map.next_value_seed(deeper)?,
+                    None => map.next_value_seed(PickValue)?,
+                };
+            } else {
+                map.next_value::<IgnoredAny>()?;
+            }
+        }
+        Ok(found)
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let wanted = array_index(self.head);
+        let mut found = Picked::Missing;
+        let mut position = 0usize;
+
+        // **添字が無くても最後まで読む。** `PickField` が配列を読み捨てるのと同じ理由で、
+        // 途中でやめると構文検査が甘くなる。
+        loop {
+            if Some(position) == wanted {
+                let picked = match self.descend() {
+                    Some(deeper) => seq.next_element_seed(deeper)?,
+                    None => seq.next_element_seed(PickValue)?,
+                };
+                let Some(picked) = picked else {
+                    break;
+                };
+                found = picked;
+            } else if seq.next_element::<IgnoredAny>()?.is_none() {
+                break;
+            }
+            position += 1;
+        }
+        Ok(found)
+    }
+
+    // --- 走査できない形は「その値が無い」と同じ扱い（`PickField` に揃える）---
+
+    fn visit_bool<E>(self, _value: bool) -> Result<Self::Value, E> {
+        Ok(Picked::Missing)
+    }
+
+    fn visit_i64<E>(self, _value: i64) -> Result<Self::Value, E> {
+        Ok(Picked::Missing)
+    }
+
+    fn visit_u64<E>(self, _value: u64) -> Result<Self::Value, E> {
+        Ok(Picked::Missing)
+    }
+
+    fn visit_f64<E>(self, _value: f64) -> Result<Self::Value, E> {
+        Ok(Picked::Missing)
+    }
+
+    fn visit_str<E>(self, _value: &str) -> Result<Self::Value, E> {
+        Ok(Picked::Missing)
+    }
+
+    fn visit_unit<E>(self) -> Result<Self::Value, E> {
         Ok(Picked::Missing)
     }
 }
@@ -782,6 +1112,174 @@ mod tests {
         assert_eq!(
             selector.select("{\"Lvl\":\"INFO\"}", 1).expect("読める"),
             None
+        );
+    }
+
+    // --- JSON Pointer の検証（ADR-0010 論点 2）---
+
+    fn pointer(raw: &str) -> Selector {
+        Selector::new(Key::JsonPointer(
+            JsonPointer::new(raw).expect("正しいポインタのはず"),
+        ))
+    }
+
+    #[test]
+    fn 先頭が斜線でないポインタは組み立てられない() {
+        // ここを通すと、綴り間違いが「そのポインタを持たない行」と区別できず、
+        // 度数 0 という結果が静かに出る。newtype がある主な理由。
+        assert_eq!(JsonPointer::new("lvl"), Err(JsonPointerError::NotRooted));
+    }
+
+    #[test]
+    fn 空のポインタは組み立てられない() {
+        assert_eq!(JsonPointer::new(""), Err(JsonPointerError::Empty));
+    }
+
+    #[test]
+    fn 末尾を指す記号は組み立てられない() {
+        // RFC 6901 の `-` は「配列の最後の次」で、必ず存在しない位置を指す。
+        assert_eq!(
+            JsonPointer::new("/items/-"),
+            Err(JsonPointerError::DashSegment)
+        );
+    }
+
+    #[test]
+    fn 不正なエスケープは組み立てられない() {
+        assert_eq!(JsonPointer::new("/a~2b"), Err(JsonPointerError::BadEscape));
+        assert_eq!(JsonPointer::new("/a~"), Err(JsonPointerError::BadEscape));
+    }
+
+    #[test]
+    fn 綴りはそのまま保たれる() {
+        // 内部ではエスケープを解いているが、診断に使うのは利用者が書いた綴り。
+        let p = JsonPointer::new("/a~1b").expect("正しいポインタ");
+        assert_eq!(p.as_str(), "/a~1b");
+        assert_eq!(p.to_string(), "/a~1b");
+    }
+
+    // --- JSON Pointer の抽出（ADR-0010 論点 1 と論点 3）---
+
+    #[test]
+    fn 入れ子のフィールドを取り出せる() {
+        assert_eq!(
+            select_one(&pointer("/req/status"), r#"{"req":{"status":"500"}}"#).as_ref(),
+            "500"
+        );
+    }
+
+    #[test]
+    fn 配列の添字を辿れる() {
+        assert_eq!(
+            select_one(&pointer("/items/1"), r#"{"items":["a","b","c"]}"#).as_ref(),
+            "b"
+        );
+    }
+
+    #[test]
+    fn 添字が範囲を超えたら取り出せない() {
+        assert_eq!(
+            pointer("/items/9")
+                .select(r#"{"items":["a"]}"#, 1)
+                .expect("読める"),
+            None
+        );
+    }
+
+    #[test]
+    fn 先頭に零の付いた添字は配列の添字にならない() {
+        // RFC 6901 は先頭 0 を添字として認めない。オブジェクトのキーとしては有効なので、
+        // 配列に対しては空振りし、キー "01" を持つオブジェクトなら辿れる。
+        assert_eq!(
+            pointer("/items/01")
+                .select(r#"{"items":["a","b"]}"#, 1)
+                .expect("読める"),
+            None
+        );
+        assert_eq!(
+            select_one(&pointer("/items/01"), r#"{"items":{"01":"x"}}"#).as_ref(),
+            "x"
+        );
+    }
+
+    #[test]
+    fn エスケープを含むキーを指せる() {
+        // `~1` は `/`、`~0` は `~`。
+        assert_eq!(
+            select_one(&pointer("/a~1b"), r#"{"a/b":"x"}"#).as_ref(),
+            "x"
+        );
+        assert_eq!(
+            select_one(&pointer("/a~0b"), r#"{"a~b":"x"}"#).as_ref(),
+            "x"
+        );
+    }
+
+    #[test]
+    fn 途中の段が辿れない行はスキップになる() {
+        // 途中が無い場合も、途中がスカラの場合も、区別せず「その値が無い」とする。
+        for line in [r#"{"req":{}}"#, r#"{"req":"ok"}"#, r"{}", "[1,2]"] {
+            assert_eq!(
+                pointer("/req/status").select(line, 1).expect("読める"),
+                None,
+                "失敗した行: {line}"
+            );
+        }
+    }
+
+    #[test]
+    fn 値が_null_の行はスキップになる() {
+        assert_eq!(
+            pointer("/req/status")
+                .select(r#"{"req":{"status":null}}"#, 1)
+                .expect("読める"),
+            None
+        );
+    }
+
+    #[test]
+    fn 集計に使えない形はエラーになる() {
+        let err = pointer("/req/status")
+            .select(r#"{"req":{"status":[1]}}"#, 1)
+            .expect_err("配列は集計に使えないので失敗するはず");
+        assert!(
+            matches!(
+                err.kind,
+                LineErrorKind::UnsupportedPointerType { ref pointer }
+                    if pointer.as_ref() == "/req/status"
+            ),
+            "実際: {:?}",
+            err.kind
+        );
+    }
+
+    #[test]
+    fn ポインタでも借用のまま返る() {
+        // 段階 7 の改善と同じ性質を新しい経路でも保つ（ADR-0010 論点 1）。
+        // エスケープが無ければ入力を借用したまま返す。
+        let extracted = select_one(&pointer("/req/status"), r#"{"req":{"status":"500"}}"#);
+        assert!(matches!(extracted, Cow::Borrowed(_)), "{extracted:?}");
+    }
+
+    #[test]
+    fn ポインタの経路でも末尾のゴミを見逃さない() {
+        // `de.end()` を忘れると通ってしまう行。
+        let err = pointer("/lvl")
+            .select(r#"{"lvl":"a"} ゴミ"#, 1)
+            .expect_err("末尾にゴミがあるので失敗するはず");
+        assert!(
+            matches!(err.kind, LineErrorKind::InvalidJson { .. }),
+            "実際: {:?}",
+            err.kind
+        );
+    }
+
+    #[test]
+    fn 重複したキーは後勝ちになる() {
+        // `PickField` と同じ規則（`Value` が `BTreeMap` で後勝ちだったのに揃えてある）。
+        assert_eq!(
+            select_one(&pointer("/lvl"), r#"{"lvl":"a","lvl":"b"}"#).as_ref(),
+            "b"
         );
     }
 }

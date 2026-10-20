@@ -156,7 +156,14 @@ impl Counter {
                     field: field.as_str().into(),
                 },
             )),
-            Key::JsonField(_) | Key::WholeLine => {
+            Key::JsonPointer(pointer) if self.strict => Err(LineError::new(
+                line_no,
+                line,
+                LineErrorKind::MissingPointer {
+                    pointer: pointer.as_str().into(),
+                },
+            )),
+            Key::JsonField(_) | Key::JsonPointer(_) | Key::WholeLine => {
                 self.skipped += 1;
                 Ok(())
             }
