@@ -73,6 +73,18 @@ fn field_指定で_json_の値を集計する() {
 }
 
 #[test]
+fn pointer_指定で入れ子の値を集計する() {
+    tally()
+        .args(["--pointer", "/req/status"])
+        .write_stdin(
+            "{\"req\":{\"status\":\"500\"}}\n{\"req\":{\"status\":\"200\"}}\n{\"req\":{\"status\":\"500\"}}\n",
+        )
+        .assert()
+        .success()
+        .stdout("2\t500\n1\t200\n");
+}
+
+#[test]
 fn ignore_case_が配線されている() {
     tally()
         .arg("--ignore-case")
@@ -373,4 +385,26 @@ fn 壊れた正規表現は終了コード_2_で拒否される() {
 #[test]
 fn field_なしの_strict_は終了コード_2_で拒否される() {
     tally().args(["--strict"]).assert().code(2);
+}
+
+/// 不正なポインタも **集計を始める前に** 拒否される。
+///
+/// **これを通すと全行スキップで度数 0 が静かに出る**ので、
+/// 「静かに成功しない」ことをプロセス越しに押さえておく（ADR-0010 論点 2）。
+#[test]
+fn 不正なポインタは終了コード_2_で拒否される() {
+    tally()
+        .args(["--pointer", "lvl"])
+        .write_stdin("{\"lvl\":\"info\"}\n")
+        .assert()
+        .code(2);
+}
+
+/// `--field` と `--pointer` は同じ「どこから取るか」なので併用できない。
+#[test]
+fn field_と_pointer_の併用は終了コード_2_で拒否される() {
+    tally()
+        .args(["--field", "lvl", "--pointer", "/lvl"])
+        .assert()
+        .code(2);
 }
