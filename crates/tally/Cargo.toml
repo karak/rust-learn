@@ -40,3 +40,7 @@ divan.workspace = true
 [[bench]]
 name = "aggregate"
 harness = false
+
+[[bench]]
+name = "reader_dispatch"
+harness = false

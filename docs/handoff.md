@@ -101,14 +101,13 @@
 **段階 10 を立てるかは決めていない。** 未決事項 1 の判断に含まれる。
 JSON Pointer の実装（ADR-0010）は段階に属さない 1 単位として通した。
 
-**積み残しが 2 件ある**（どちらも段階 6 由来）:
+**積み残しが 1 件残っている**（段階 6 由来）:
 
 - **キャッシュが冷えた状態での測定。** `sudo purge` が要るので
   **Claude からは実行できない**（端末がパスワードを要求する）。
   ホストのターミナルで次を実行して記録する:
   `hyperfine --runs 3 -p 'sudo purge' 'target/release/tally --field lvl target/perf/json.log' 'target/release/tally -j 1 --field lvl target/perf/json.log'`
   測定用の入力は `scripts/gen-input.sh target/perf 10000000` で作れる
-- **`Box<dyn BufRead>` の間接呼び出しのコスト**（`learning-log.md` 16 節）
 
 ## クレートの構造
 
