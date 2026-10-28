@@ -332,6 +332,26 @@ load average は 2.7 前後。
 **冷やしても 1.00 倍が 1.00 倍のまま出るだけだった。**
 段階 6 の予測 B1（1 ファイルは速くならない）がそのまま効いている。
 
+**測り直した手順**（入力もコマンドもリポジトリに残っていないので、ここに書く）
+
+```bash
+scripts/gen-input.sh target/perf                 # 1000 万行の json.log を作る
+mkdir -p target/perf/split10
+split -n l/10 target/perf/json.log target/perf/split10/part-   # 行境界で 10 分割
+sudo -v                                          # ← 先に認証する
+hyperfine --runs 3 -p 'sudo -n purge' \
+  'target/release/tally --field lvl target/perf/split10/part-*' \
+  'target/release/tally -j 1 --field lvl target/perf/split10/part-*'
+```
+
+**比べているのは「同じ 10 ファイルを並列で読むか逐次で読むか」だけである。**
+入力を 1 ファイルにすると `-j` が効かず、何も測らないことになる（上段落）。
+
+**`sudo -v` を分けるのは、`-p` の中で対話できないため。**
+`-p 'sudo purge'` にすると、**パスワードの催促が hyperfine の進捗表示に
+上書きされて見えず、`Sorry, try again.` を 3 回繰り返して落ちる。**
+先に認証を済ませてから `sudo -n`（催促しない）で回す。
+
 **予定と違ったこと**
 
 - **`tally-core` の公開 API が、予定より大きく変わった。**
