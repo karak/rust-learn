@@ -225,6 +225,21 @@ fn 示唆の無い失敗では_hint_行が出ない() {
         .stderr(predicate::str::contains("hint:").not());
 }
 
+/// **`-` は標準入力の別名ではない。** 普通のパスとして開きに行く。
+///
+/// `output-format.md` が「特別な名前は用意していない」と約束したので、
+/// **うっかり特別扱いを足したら落ちる**ようにしておく。
+#[test]
+fn ハイフンは標準入力の別名ではない() {
+    tally()
+        .arg("-")
+        .write_stdin("z\n")
+        .assert()
+        .code(1)
+        .stdout("")
+        .stderr(predicate::str::contains("入力を読めません: -"));
+}
+
 /// 入力を開けない場合は、**どのパスを開けなかったか**を出す。
 ///
 /// `anyhow` の `.context()` を落としたので、path はエラー型
