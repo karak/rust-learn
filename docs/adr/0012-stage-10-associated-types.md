@@ -233,9 +233,26 @@ trait Input { type Reader: BufRead; }
 
 - 利点: **1 つの出どころが複数の読み手を持てる**
 - 欠点: **その自由が要らない。** `Input<BufReader<File>>` と
-  `Input<StdinLock<'static>>` を同じ型に実装できてしまう。
-  **「どちらで開くか」を呼ぶ側が選べることになり、選択肢が増える**
-- 欠点: **呼ぶ側の型引数が 1 つ増える**
+  `Input<StdinLock<'static>>` を同じ型に実装できてしまう
+- 欠点: **壊れる場所が、定義側ではなく使用側になる。**
+  実装が 1 つのあいだは推論が通り、**2 つ目を足した瞬間に
+  すべての呼び出しが `E0283` で落ちる**（下の「試作で分かったこと」）。
+  **関連型なら 2 つ目の実装がそもそも書けない**
+
+#### 4e. 関連型を 2 つにする（`type Error`）（却下）
+
+```rust
+trait Input { type Reader: BufRead; type Error: Into<CliError>; }
+```
+
+- 利点: **「標準入力を開く操作は失敗しない」が型に出る**（`type Error = Infallible`）。
+  4a では決して失敗しない `Result` を返すことになる
+- 欠点: **`?` が自動で包む経路が戻る。**
+  [ADR-0004](0004-error-type-shape.md) 論点 6 は
+  `From<TallyError> for CliError` を入れない理由として
+  **「この失敗に対して利用者は何ができるか、を問う瞬間が消える」**と書いた。
+  **`Into<CliError>` 境界はその瞬間を再び消す**
+- 欠点: **`From<Infallible> for CliError` を `match e {}` で書くことになる**
 
 #### 4c. `Box<dyn BufRead>`（却下）
 
@@ -268,6 +285,37 @@ trait Input { type Reader: BufRead; }
 
 ---
 
+## 試作で分かったこと（2026-10-28、ADR を accepted にする前）
+
+**5 案を捨てる前提で実装し、切り替え器から動かした。**
+（セッションの作業領域に置いた。リポジトリには入れていない）
+
+**4b の欠点は、書いていたものと違った。**
+書いたのは「呼ぶ側の型引数が 1 つ増える」だったが、
+**実装が 1 つのあいだは推論が通り、turbofish は要らなかった。**
+2 つ目の実装を足すと、こう落ちる。
+
+```
+error[E0283]: type annotations needed
+  --> src/v2_param.rs:46:26
+   |
+46 |         .map(|p| move || tally_input(&PathInput(p)))
+   |                          ^^^^^^^^^^^ cannot infer type of the type parameter `R`
+   |
+note: multiple `impl`s satisfying `v2_param::PathInput<'_>: v2_param::Input<_>` found
+```
+
+**4d（enum）の費用は、転送の手書き 22 行だった。**
+`Read` と `BufRead` を `match` で 2 つの腕へ配る定型である。
+本文には「開く前と開いた後が同じ型になる」としか書いていなかった。
+
+**4e は成立した。** コンパイルも実行も通る。
+**却下は行数ではなく既存の方針による**（上記）。
+
+**rayon の境界は代役で確かめた。** 自前の
+`Fn() -> Result<usize, CliError> + Send + Sync` を要求する関数に通しただけで、
+**本物の `aggregate_all` では確かめていない。**
+
 ## 確認方法（Confirmation）
 
 | # | 確かめること | 方法 | 状態 |
@@ -285,3 +333,4 @@ trait Input { type Reader: BufRead; }
 | 日付 | 変更 | 理由 |
 | --- | --- | --- |
 | 2026-10-28 | 新規 | 未決事項 1 と 9 を一緒に解く |
+| 2026-10-28 | 論点 4 の改訂（`proposed` のまま） | **4b の欠点が観測と違った。** 試作で `E0283` を出して差し替え、4e（関連型 2 つ）を却下案として足した |
