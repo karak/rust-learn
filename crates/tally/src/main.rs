@@ -99,7 +99,7 @@ fn aggregate(cli: &Cli) -> Result<Report, CliError> {
         tracing::debug!("標準入力から読み込みます");
         // **標準入力は並列化しない。** 単位が 1 つしかなく、`StdinLock` は
         // 複数のジョブへ分けられない。
-        input::tally_stdin(cli.counter(), &selector, keep)?
+        input::tally_input(&io::stdin(), cli.counter(), &selector, keep)?
     } else {
         // **ジョブは「1 ファイルを開いて集計する」閉包。**
         // 並列化ポリシー（`aggregate` モジュール）はファイルを知らないので、
@@ -112,7 +112,7 @@ fn aggregate(cli: &Cli) -> Result<Report, CliError> {
                 let keep = &keep;
                 move || -> Result<Counter, CliError> {
                     tracing::debug!(path = %path.display(), "ファイルから読み込みます");
-                    input::tally_path(path, cli.counter(), selector, keep)
+                    input::tally_input(path.as_path(), cli.counter(), selector, keep)
                 }
             })
             .collect();

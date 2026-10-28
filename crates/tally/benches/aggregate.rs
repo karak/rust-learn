@@ -36,7 +36,7 @@ use std::sync::OnceLock;
 
 use divan::Bencher;
 use tally::aggregate::{Execution, aggregate_all};
-use tally::input::tally_path;
+use tally::input::tally_input;
 use tally_core::{Counter, Key, Selector};
 
 fn main() {
@@ -116,7 +116,7 @@ fn run(paths: &[PathBuf], execution: Execution) {
         .iter()
         .map(|path| {
             let selector = &selector;
-            move || tally_path(path, Counter::new(), selector, |_| true)
+            move || tally_input(path.as_path(), Counter::new(), selector, |_| true)
         })
         .collect();
 
