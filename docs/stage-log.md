@@ -681,3 +681,64 @@ stderr の扱いが未定義。**`--strict` には既にテストがあり、`hi
 `cargo-semver-checks` の baseline を `v0.1.0` に取れることも確かめた
 （196 検査すべて通過、58 skip）。**プレリリースでは baseline にならない**
 （[ADR-0009](adr/0009-release-distribution.md) 論点 4c）ので、ここで初めて使える。
+
+---
+
+## 段階 10: trait を定義する
+
+**実施: 2026-10-28。** 判断は [ADR-0012](adr/0012-stage-10-associated-types.md)。
+
+- **`trait Input { type Reader: BufRead; … }` を `tally` 層に定義した。**
+  実装は 2 つ。`Path` が `BufReader<File>`、`io::Stdin` が `StdinLock<'static>`
+- **`input.rs` の `tally_path` と `tally_stdin` が `tally_input` 1 つになった**
+- **このリポジトリで初めて自分で定義した trait である。**
+  段階 3 が用意した `trait Formatter` の機会は、
+  [ADR-0002](adr/0002-output-format-abstraction.md) が enum を選んで消えていた
+
+### 試作で案を比べた（2026-10-28）
+
+**5 案を捨てる前提で書き、1 つの切り替え器から動かした。**
+リポジトリには入れていない。
+
+| 案 | 行数（コメント除く） | 結果 |
+| --- | --- | --- |
+| 関連型 | 42 | 採用 |
+| 型パラメータ | 50 | **2 つ目の実装で `E0283`** |
+| `Box<dyn BufRead>` | 25 | 最短。trait を定義しない |
+| `enum` | 49 | **転送の手書きが 22 行** |
+| 関連型 2 つ（`type Error`） | 50 | 成立するが却下 |
+
+**ADR の記述が 1 つ間違っていた。** 型パラメータの欠点を
+「呼ぶ側の型引数が増える」と書いていたが、
+**実装が 1 つのあいだは推論が通り、turbofish は要らない。**
+本当の欠点は、**2 つ目の実装を足した瞬間に呼び出し側が落ちる**ことだった。
+`proposed` のうちに直した。
+
+### 測ったこと（2026-10-28、load average 3.28）
+
+| 組 | 静的 | 動的 |
+| --- | --- | --- |
+| ファイル | 4.100 ms | 4.217 ms |
+| メモリ | 3.848 ms | 3.875 ms |
+
+**差は読めない。** 最速と最遅の開きが 25% ある。
+段階 6 の 13-7（`Box<dyn BufRead>` の値段は雑音の下）が再現した。
+**関連型を選んだ理由は速度ではない。**
+
+### 予定と違ったこと
+
+- **Confirmation の 1 項目が、書いた時点で間違っていた。**
+  「公開 API が変わっていない」と書いたが、
+  **公開関数を 2 つ消すのだから `tally` の lib API は壊れる。**
+  測ると `semver requires new major version`。
+  `tally-core` は 196 検査すべて通過で無傷。
+  **約束は破っていない** — [ADR-0011](adr/0011-v0-1-0-promise.md) が
+  契約を 2 つの文書に限ったので、`tally` の Rust API は外側にある
+- **呼び出し側が 3 つあった。** `main.rs` だけのつもりが
+  `benches/aggregate.rs` も `tally_path` を使っていた。
+  `cargo c` は `--all-targets` なので型検査には出る
+- **rayon の境界は問題にならなかった。** `aggregate_all` は `Send` を要求せず、
+  関連型はジョブの中で閉じる。**試作では自前の代役のほうが厳しかった**
+- **newtype を挟まなかった。** 試作は `PathInput` / `StdinInput` を置いていたが、
+  `Path` と `io::Stdin` に直接実装して型を 2 つ減らした。
+  **代わりに `?Sized` が要った**（`learning-log.md` 4-14）

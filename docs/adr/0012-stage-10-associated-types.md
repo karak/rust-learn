@@ -1,5 +1,5 @@
 ---
-status: "proposed"
+status: "accepted"
 date: 2026-10-28
 decision-makers: 学習者, Claude
 consulted: —
@@ -8,8 +8,8 @@ informed: —
 
 # 段階 10 を立て、リポジトリの終わりを定義する
 
-**`status` は `proposed`。** 論点 1〜4 の案を書いた段階で、**実装していない。**
-Confirmation は全項目が未実施である。
+**`status` は `accepted`**（2026-10-28）。4 論点とも案のまま実装した。
+Confirmation は 7 項目すべて済み。**ただし 5 は文面を直した** — 下記。
 
 ## なぜこれを ADR にするのか
 
@@ -320,17 +320,67 @@ note: multiple `impl`s satisfying `v2_param::PathInput<'_>: v2_param::Input<_>` 
 
 | # | 確かめること | 方法 | 状態 |
 | --- | --- | --- | --- |
-| 1 | `tally_path` と `tally_stdin` が 1 つの関数になる | `input.rs` を読む。**2 つ残るなら trait が効いていない** | 未実施 |
-| 2 | `type Reader` が 2 つの実装で別の型になっている | `BufReader<File>` と `StdinLock<'static>` | 未実施 |
-| 3 | **`Box<dyn BufRead>` が増えていない** | `grep -rn 'dyn BufRead' crates/` | 未実施 |
-| 4 | **4a と 4c の差が測れない**ことを確かめる | `benches/reader_dispatch.rs` の静的／動的の組を使う | 未実施 |
-| 5 | 公開 API が変わっていない | `cargo semver-checks --baseline-rev v0.1.0` | 未実施 |
-| 6 | **終了基準が `curriculum.md` に書かれている** | 読む。**書いていなければ未決事項 1 は閉じない** | 未実施 |
-| 7 | `learning-log.md` に関連型の節があり、実コードを指している | 節の「読み方」の表に対象ファイルが入っている | 未実施 |
+| 1 | `tally_path` と `tally_stdin` が 1 つの関数になる | `input.rs` を読む。**2 つ残るなら trait が効いていない** | 済（2026-10-28）。`tally_input` 1 つ |
+| 2 | `type Reader` が 2 つの実装で別の型になっている | `BufReader<File>` と `StdinLock<'static>` | 済（2026-10-28）。型注釈と `TypeId` の比較の両方で固定 |
+| 3 | **`Box<dyn BufRead>` が増えていない** | `grep -rn 'dyn BufRead' crates/` | 済（2026-10-28）。残るのは説明のコメントと `benches/reader_dispatch.rs` だけ |
+| 4 | **4a と 4c の差が測れない**ことを確かめる | `benches/reader_dispatch.rs` の静的／動的の組を使う | 済（2026-10-28）。**差は雑音の中** — 下記 |
+| 5 | ~~公開 API が変わっていない~~ → **`tally-core` が無傷で、`tally` の破壊が契約の外にあること** | `cargo semver-checks --baseline-rev v0.1.0` を両クレートに | 済（2026-10-28）。**文面を直した** — 下記 |
+| 6 | **終了基準が `curriculum.md` に書かれている** | 読む。**書いていなければ未決事項 1 は閉じない** | 済（2026-10-28） |
+| 7 | `learning-log.md` に関連型の節があり、実コードを指している | 節の「読み方」の表に対象ファイルが入っている | 済（2026-10-28）。4-13 と 4-14、表の 4 行目 |
+
+## 実装して分かったこと（2026-10-28）
+
+**Confirmation 5 の文面が、書いた時点で間違っていた。**
+「公開 API が変わっていない」と書いたが、
+**`pub fn tally_path` と `pub fn tally_stdin` を消すのだから、
+`tally` の lib API は壊れる。** 測るとそのとおりだった。
+
+| クレート | 結果 |
+| --- | --- |
+| `tally-core` | 196 検査すべて通過、58 skip。`no semver update required` |
+| `tally` | **`semver requires new major version`。** 関数 2 つの削除 |
+
+**壊れているが、約束は破っていない。**
+[ADR-0011](0011-v0-1-0-promise.md) が約束を `output-format.md` と
+`distribution.md` の 2 文書に限ったので、
+**`tally` の Rust API は契約の外側にある**（論点 3 の決定の帰結どおり）。
+**だから行は「通らなかった」ではなく、「確かめる対象を書き間違えていた」である。**
+文面を直し、測った値を残した。
+
+**4a と 4c の差は、今回も雑音に埋もれた**（load average 3.28 のホスト）。
+
+| 組 | 静的 | 動的 |
+| --- | --- | --- |
+| ファイル | 4.100 ms | 4.217 ms |
+| メモリ | 3.848 ms | 3.875 ms |
+
+**最速と最遅の開きが 25% あるので、2.8% の差は読めない。**
+13-7 の結論（`Box<dyn BufRead>` の値段はこの機械の雑音の下）が再現した。
+**関連型を選んだ理由は速度ではない。**
+
+**実装は newtype を挟まず `Path` と `io::Stdin` に直接当てた。**
+試作は `PathInput` と `StdinInput` を置いていたが、
+**孤児ルールは `Input` が自クレートにあるので満たし、
+包む型を足しても意味が増えない。** 型が 2 つと寿命引数が 1 つ消えた。
+
+**代わりに `?Sized` が要った。** `Path` は unsized なので、
+ジェネリック関数の既定の `Sized` 境界に引っかかる。
+**`&I` を取っているのに参照先へ境界が掛かる**のは直感に反する
+（`learning-log.md` 4-14）。
+
+**rayon の境界は問題にならなかった。** `aggregate_all` は
+`Fn() -> Result<Counter, CliError> + Sync` で `Send` を要求せず、
+**`I::Reader` はジョブの中で作られて中で落ちる**ので境界に届かない。
+**試作では自前の `Send + Sync` 付き代役で確かめていた** — 本物のほうが緩かった。
+
+**第 3 の呼び出し側があった。** `benches/aggregate.rs` が `tally_path` を
+使っていた。`cargo c` は `--all-targets` なので型検査には出るが、
+**作業の指示を書いた時点では見落としていた。**
 
 ## 改訂履歴
 
 | 日付 | 変更 | 理由 |
 | --- | --- | --- |
 | 2026-10-28 | 新規 | 未決事項 1 と 9 を一緒に解く |
+| 2026-10-28 | Confirmation の更新と `status` の変更 | 7 項目すべてを確認。**5 の文面は、確かめる対象を書き間違えていたので直した** |
 | 2026-10-28 | 論点 4 の改訂（`proposed` のまま） | **4b の欠点が観測と違った。** 試作で `E0283` を出して差し替え、4e（関連型 2 つ）を却下案として足した |
