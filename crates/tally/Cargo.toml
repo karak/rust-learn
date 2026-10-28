@@ -1,6 +1,6 @@
 [package]
 name = "tally"
-version = "0.1.0-rc.2"
+version = "0.1.0"
 description = "行指向データを集計する学習用 CLI"
 edition.workspace = true
 rust-version.workspace = true
