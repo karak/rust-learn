@@ -79,6 +79,9 @@
 - **道具が 3 つ増えた** — `samply`（プロファイラ）、`hyperfine`（時間測定）、
   `cargo-semver-checks`。**いずれもホストに入れたもので、リポジトリには入っていない**
 - **`tally` は `anyhow` を使わない。** `CLAUDE.md` の方針 3 を段階 5 で書き換えた
+- **[ADR-0013](adr/0013-book-phase.md) を `proposed` で立てた**（2026-10-31）。
+  **学ぶフェーズを終え、学びを人間向けのハンズオンの本にするフェーズに入る。**
+  本は `book/` に置き、`tally` を題材にする。**本は正本ではない**
 - 公開済み: <https://github.com/karak/rust-learn>（public）
 
 `docs/learning-log.md` は節ごとに対象ファイルを明記してある（「読み方」の表）。
@@ -98,22 +101,27 @@
 
 セットアップとコマンドは `README.md` を参照。
 
-## 次の作業: 無い
+## 次の作業: 本を作る
 
-**終了基準を満たした**（2026-10-28）。
-基準は `docs/curriculum.md` の末尾、過程は
-[ADR-0012](adr/0012-stage-10-associated-types.md) 論点 2 にある。
+**Rust を学ぶフェーズは終わった**（2026-10-28、終了基準は `docs/curriculum.md` の末尾）。
+**次は [ADR-0013](adr/0013-book-phase.md) の本のフェーズ。**
 
-**続ける場合は、段階を足す ADR から始めること。**
-**「やることが思いつくから足す」ではなく、
-基準をどう変えるのかを先に書く**（段階 10 がそうしたように）。
+**ADR-0013 は `proposed`。** 8 論点とも案で、Confirmation は 1 件も済んでいない。
+**実装しながら確かめ、確かめ終えてから `accepted` にする**（ADR-0012 と同じ進め方）。
 
-**`learning-log.md` 16（未解決の論点）は閉じていない。**
-`Pin` と async、NLL、GAT が残っているが、
-**これらは `curriculum.md` が一度も挙げていない** —
-カリキュラムの外にある関心事なので、基準には含めない。
+最初の 1 単位:
 
-**積み残しは無い。**
+1. `book/` に Docusaurus の骨組みを置く
+2. `.docscheckignore` を作り、`scripts/check-docs.sh` と
+   `scripts/check-module-deps.sh` の両方に読ませる（Confirmation 2）
+3. `CLAUDE.md`「文書の書き分け」の表に `book/` の行を足す
+4. CI に `book` ジョブを足し、GitHub Pages への配置は別ワークフローにする
+5. 第 1 章（所有権と move）と `book/code/ch01`
+6. **GitHub Pages へ 1 回配置して経路を通す**（Confirmation 4）。
+   **Pages はまだ有効になっていない**
+
+**`docs/curriculum.md` と `docs/stage-log.md` は凍結する。**
+段階を足さない。本の素材として読む。
 
 ## クレートの構造
 
@@ -286,6 +294,14 @@
     **`LICENSE` が 8 段階にわたって無かった。**
     `missing_docs` も `check-docs.sh` も「書いたか」しか見ない。
     **足すなら、何と何を突き合わせるかを列挙する必要がある**
+
+18. **本の journal と検査 4 が衝突する**（2026-10-31、[ADR-0013](adr/0013-book-phase.md) 論点 8）。
+    `scripts/check-docs.sh` の検査 4 は「journal に出た rustc のエラーコードは
+    `learning-log.md` にもある」ことを要求する。
+    **一方 ADR-0013 は、Rust 言語の学びを `learning-log.md` に足さないと決めた。**
+    **本を書く過程の journal がエラーコードに触れた時点で CI が落ちる。**
+    **落ちてから決める** — 検査を `book/` 由来の journal に当てないか、
+    例外的に `learning-log.md` へ足すか
 
 CI の稼働状況はここに書かない（腐るため）。
 GitHub Actions の実行履歴を見ること。
