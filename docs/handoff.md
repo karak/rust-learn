@@ -144,6 +144,11 @@
 - **`missing_docs` が有効。** `pub` を足したら doc コメントが要る
 - **文書にも検査がある。** `scripts/check-docs.sh`（CI で回る）。
   `curriculum.md` に進捗を書く、テスト名を転記する、リンクを切る、で落ちる
+- **`scripts/check-docs.sh` は追跡済みのファイルしか見ない。**
+  一部の検査が `git ls-files '*.md'` で対象を集めるので、
+  **新しく作った文書は `git add` するまで検査を素通りする。**
+  2026-10-31 に ADR-0013 でこれに引っかかった（手元は OK、CI で落ちた）。
+  **新規文書を書いたら、`git add` してから検査を回す**
 - **rustdoc の警告は `cargo lint` では出ない。**
   `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps` が別に要る
   （CI には入っている）。**公開項目から非公開項目へのリンク**はここでしか拾えない
