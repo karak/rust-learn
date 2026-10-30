@@ -67,8 +67,12 @@ docs/learning-log.md            技術的な学び。他言語との差分
 docs/adr/                       アーキテクチャ意思決定記録（不変。新しい決定は新規 ADR）
 docs/journal/                   進め方の振り返り（KPT、日付ごと）
 docs/handoff.md                 現在地・再開手順・未決事項
+book/                           人間向けのハンズオン（Docusaurus）。**正本ではない**
+book/code/chNN/                 章ごとの独立したクレート。ワークスペースのメンバ
 .claude/skills/                 このリポジトリ固有のスキル
+.docscheckignore                検査から外す場所。両方の検査スクリプトが読む
 scripts/check-docs.sh           文書の書き分けの機械的検査（CI で回る）
+scripts/ignore.sh               .docscheckignore を読む共通部品
 scripts/setup-git-secrets.sh    秘密情報スキャンのパターンとフック（追跡される唯一の正本）
 ```
 
@@ -93,6 +97,7 @@ scripts/setup-git-secrets.sh    秘密情報スキャンのパターンとフッ
 | 進め方の振り返り | `docs/journal/` |
 | 現在地・再開手順・未決事項 | `docs/handoff.md` |
 | セットアップとコマンド | `README.md` |
+| **人間の読者に向けた解説（ハンズオン）** | **`book/`** |
 
 ### 書く前に問う
 
@@ -114,6 +119,9 @@ scripts/setup-git-secrets.sh    秘密情報スキャンのパターンとフッ
    （**実だけ。** 段階の定義は書かない。**現在地も書かない**）
 9. **他言語との差分を含む知見か** → `docs/learning-log.md`
 10. **進め方の反省か** → `docs/journal/`
+11. **このリポジトリの外にいる読者への解説か** → `book/`
+    （**正本ではない。** 上の 1 から 10 のどれかが正本を持っている。
+    本はそれを読者向けに書き直したものである）
 
 **9 と 10 の境界は「言語の性質」と「自分の動き方」。** 迷ったらこう問う —
 **その記述は Rust を書く別の人にも価値があるか**（→ 9）、
@@ -126,6 +134,28 @@ scripts/setup-git-secrets.sh    秘密情報スキャンのパターンとフッ
 **7 と 8 の境界は「予」と「実」。** 迷ったらこう問う —
 **その記述は、この段階をこれから始める人に必要か**（→ 7）、
 **それとも終えた人にしか書けないか**（→ 8）。
+
+### 本（`book/`）は正本ではない
+
+**`book/` は、上の 1 から 10 が持っている内容を読者向けに書き直したものである。**
+本と `docs/` が食い違ったら、**`docs/` が正しい。**
+判断の過程は [ADR-0013](docs/adr/0013-book-phase.md)。
+
+**本に書かないもの**（3 つのうち 2 つは `scripts/check-docs.sh` が検査する）:
+
+| 書かないもの | 正本 | 検査 |
+| --- | --- | --- |
+| `tally` の現在の実装状態 | コードと `git log` | **無い**（文字列で見分けられない） |
+| 却下した設計案とその理由 | `docs/adr/` | 有り |
+| リポジトリの運用（ブランチ・CI・引き継ぎ） | この `CLAUDE.md`、`docs/handoff.md` | 有り |
+
+**本から `docs/adr/` を指すときは GitHub の URL を使う。**
+相対リンクは Docusaurus がサイト内の経路として解決しようとして、ビルドが落ちる
+（ADR-0013 論点 7）。
+
+**逆に、`docs/` 向けの検査は本に当てない。** 本は別の規律で書かれるため、
+そのまま当てると誤検知になる。除外は `.docscheckignore` に 1 箇所だけ書き、
+`scripts/check-docs.sh` と `scripts/check-module-deps.sh` の両方が読む。
 
 ### 「記録」と「転記」は別物
 
@@ -187,6 +217,9 @@ scripts/setup-git-secrets.sh    秘密情報スキャンのパターンとフッ
 | `stage-log.md` に現在地・次の作業の節が無い | 状態は `handoff.md` の 1 箇所 |
 | **journal に出た rustc のエラーコードが `learning-log.md` にもある** | 言語の性質は学びの側。journal は参照するだけ |
 | md の相対リンクが切れていない | 上の 3 の再発防止 |
+| **`book/` がリポジトリの運用に触れない** | 読者のリポジトリの話ではない（ADR-0013 論点 6） |
+| **`book/` が却下した設計案に触れない** | 検討の過程は `docs/adr/` が正本 |
+| **`book/` から `docs/adr/` への相対リンクが無い** | サイトのビルドが落ちる（ADR-0013 論点 7） |
 
 検査は **3 層で走る。**
 
@@ -218,6 +251,8 @@ scripts/setup-git-secrets.sh    秘密情報スキャンのパターンとフッ
 | 依存検査 | `cargo deny check` |
 | 依存の向きの確認 | `cargo tree -p tally-core`（`clap` / `anyhow` が出ないこと） |
 | **文書の書き分けの検査** | `scripts/check-docs.sh` |
+| **本のビルド** | `cd book && npm ci && npm run build` |
+| 本の下書きを見る | `cd book && npm start` |
 | **モジュール間の依存規則の検査** | `scripts/check-module-deps.sh` |
 | 秘密情報スキャンの設定（冪等） | `scripts/setup-git-secrets.sh` |
 | 秘密情報のスキャン | `git secrets --scan` / `git secrets --scan-history` |

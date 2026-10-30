@@ -1,0 +1,59 @@
+# 本を GitHub Pages に配置する。
+#
+# **CI（ci.yml）の book ジョブとは役割が違う。**
+# あちらは全ブランチで「壊れていないこと」を見る。こちらは main だけを公開する。
+# 分けてあるのは、**配置の権限（pages: write）を全ブランチに与えないため。**
+#
+# main には `--ff-only` でしか載らないので、ここに来る SHA は
+# すでに ci.yml を通っている。ビルドが二重になるのは承知のうえ。
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "book/**"
+      - ".github/workflows/pages.yml"
+  # 文面を直さずに配置だけやり直したいときのため。
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 配置は 1 本ずつ。走っているものは止めない（途中で止めると公開が壊れる）。
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: book/package-lock.json
+      - name: install
+        run: npm ci
+        working-directory: book
+      - name: build
+        run: npm run build
+        working-directory: book
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: book/build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

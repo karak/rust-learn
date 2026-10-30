@@ -1,6 +1,9 @@
 [workspace]
 resolver = "3"
-members = ["crates/*"]
+# 本の章ごとのクレートも入れる。**既存の `cargo c` と `cargo t` が全章を検査する**
+# （[ADR-0013](docs/adr/0013-book-phase.md) 論点 5）。
+# 検査に乗せないと、動かないコードが教材として残る。
+members = ["crates/*", "book/code/*"]
 
 [workspace.package]
 edition = "2024"
