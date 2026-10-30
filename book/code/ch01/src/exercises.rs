@@ -1,9 +1,7 @@
 //! 1 章の演習の答え。
 //!
-//! `cargo t -p book-ch01` で確かめられる。
+//! `cargo test -p book-ch01` で確かめられる。
 //! テストからしか呼ばないので、モジュールごと `#[cfg(test)]` に置いてある。
-
-use std::collections::HashMap;
 
 use super::Tally;
 
@@ -43,17 +41,20 @@ impl Labeled {
 ///
 /// 借りて受け取る版。`other` は呼び出し後も生きている。
 /// 代わりにキーごとに `String` を作り直す必要がある。
-/// 本体の `merge` はこの複製をしていない。
-fn merge_borrowed(into: &mut HashMap<String, u64>, other: &HashMap<String, u64>) {
-    for (key, count) in other {
-        *into.entry(key.clone()).or_insert(0) += count;
+/// 値で受け取る `merge` はこの複製をしていない。
+impl Tally {
+    fn merge_borrowed(&mut self, other: &Tally) {
+        for (key, count) in &other.counts {
+            *self.counts.entry(key.clone()).or_insert(0) += count;
+        }
+        self.total += other.total;
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Labeled, merge_borrowed};
-    use std::collections::HashMap;
+    use super::Labeled;
+    use crate::Tally;
 
     #[test]
     fn 値で受け取るビルダはつなげて書ける() {
@@ -64,14 +65,18 @@ mod tests {
 
     #[test]
     fn 借りて受け取ると元のカウンタが残る() {
-        let mut left = HashMap::from([("info".to_owned(), 2_u64)]);
-        let right = HashMap::from([("info".to_owned(), 1_u64), ("error".to_owned(), 1)]);
+        let mut left = Tally::new();
+        left.push("info");
+        left.push("info");
 
-        merge_borrowed(&mut left, &right);
+        let mut right = Tally::new();
+        right.push("info");
+        right.push("error");
 
-        assert_eq!(left.get("info"), Some(&3));
-        assert_eq!(left.get("error"), Some(&1));
+        left.merge_borrowed(&right);
+
+        assert_eq!(left.sorted(), vec![("info", 3), ("error", 1)]);
         // 借りただけなので right は生きている。値で受け取る merge ではこう書けない。
-        assert_eq!(right.len(), 2);
+        assert_eq!(right.total, 2);
     }
 }
