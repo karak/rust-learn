@@ -13,6 +13,10 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
+# 除外設定（.docscheckignore）を読む。本は docs/ の規律では検査しない。
+# shellcheck source=scripts/ignore.sh
+. "$(dirname "$0")/ignore.sh"
+
 fail=0
 
 # 違反を報告する。$1 = 説明、$2 = 正しい置き場所、以降 = grep の出力
@@ -70,7 +74,8 @@ hits=$(grep -nE 'handoff' docs/curriculum.md | grep -vE '^[0-9]+:\|' || true)
 
 # 識別子が前置されているものだけを拾う。`::tests::` 単体（この検査自身の
 # 説明が CLAUDE.md にある）を誤検知しないため。
-hits=$(git ls-files '*.md' | xargs grep -nE '[[:alnum:]_]::tests::[^`]' 2>/dev/null || true)
+# shellcheck disable=SC2046  # pathspec を複数の引数として渡す
+hits=$(git ls-files '*.md' $(ignore_pathspec) | xargs grep -nE '[[:alnum:]_]::tests::[^`]' 2>/dev/null || true)
 [ -n "$hits" ] && report \
     '文書にテストのフルパスが転記されている' \
     'cargo nextest list が答える。文書には書かない' \
@@ -107,7 +112,8 @@ done
 # --- 5. 相対リンクの切れ ------------------------------------------------
 
 broken=$(
-    git ls-files '*.md' | while read -r f; do
+    # shellcheck disable=SC2046  # pathspec を複数の引数として渡す
+    git ls-files '*.md' $(ignore_pathspec) | while read -r f; do
         dir=$(dirname "$f")
         grep -oE '\]\([^)#:]+\.md' "$f" 2>/dev/null | sed 's/^](//' | while read -r link; do
             [ -e "$dir/$link" ] || echo "$f -> $link"
@@ -118,6 +124,40 @@ broken=$(
     'md の相対リンクが切れている' \
     'リンク先を直すか、節を移動したなら参照も直す' \
     "$broken"
+
+# --- 6. 本に書かないもの ------------------------------------------------
+#
+# 本は正本ではない（docs/adr/0013-book-phase.md 論点 6）。
+# **3 つのうち 2 つは機械的に見える。**
+# 残る 1 つ（tally の現在の実装状態）は文字列で見分けられないので検査していない。
+# 理由は ADR-0013 論点 6 に書いてある。
+#
+# **ここだけは book/ を対象にする。** 除外設定は docs/ 向けの検査のためにあり、
+# 本には本の検査が要る。
+
+book_md=$(git ls-files 'book/*.md' 'book/*.mdx' || true)
+
+if [ -n "$book_md" ]; then
+    hits=$(printf '%s\n' "$book_md" | xargs grep -nE 'ff-only|force-with-lease|handoff|git switch|git rebase' 2>/dev/null || true)
+    [ -n "$hits" ] && report \
+        '本がリポジトリの運用に触れている' \
+        '読者のリポジトリの話ではない。運用は CLAUDE.md と docs/handoff.md' \
+        "$hits"
+
+    hits=$(printf '%s\n' "$book_md" | xargs grep -nE '却下|代替案|検討した案' 2>/dev/null || true)
+    [ -n "$hits" ] && report \
+        '本が却下した設計案に触れている' \
+        '検討の過程は docs/adr/ が正本。本には結論と、それが使う言語機能だけを書く' \
+        "$hits"
+
+    # ADR-0013 論点 7。本から docs/adr を指すときは GitHub の URL を使う。
+    # 相対リンクは下の検査 5 では拾えない（book/ を除外しているため）。
+    hits=$(printf '%s\n' "$book_md" | xargs grep -nE '\]\([^)]*\.\./[^)]*docs/adr' 2>/dev/null || true)
+    [ -n "$hits" ] && report \
+        '本から docs/adr へ相対リンクを張っている' \
+        'GitHub の URL で指す（ADR-0013 論点 7）。相対リンクはサイトのビルドが落ちる' \
+        "$hits"
+fi
 
 # --- 結果 ---------------------------------------------------------------
 

@@ -20,6 +20,13 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
+# 除外設定（.docscheckignore）を読む。check-docs.sh と共通。
+# **今日の設定（book/）はこの検査には掛からない** — 下の対象が
+# crates/ 固定のためである。**それでも読むのは、除外の正本を 1 つにするため。**
+# 対象が増えたときに、片方だけ除外を知らない状態を作らない。
+# shellcheck source=scripts/ignore.sh
+. "$(dirname "$0")/ignore.sh"
+
 fail=0
 
 report() {
@@ -41,6 +48,7 @@ code_lines() {
 deny() {
     local file="$1" pattern="$2" name="$3" why="$4"
     [ -f "$file" ] || return 0
+    is_ignored "$file" && return 0
     local hits
     hits=$(code_lines "$file" | grep -E "$pattern" || true)
     [ -n "$hits" ] && report "$file" "$name" "$why" "$hits"
