@@ -73,6 +73,28 @@ jobs:
       - name: check-module-deps
         run: ./scripts/check-module-deps.sh
 
+  # 本（book/）のビルド。Rust のビルドが要らないので独立させる。
+  # **配置は別のワークフロー**（.github/workflows/pages.yml）。
+  # ここは「壊れていないこと」だけを見る。
+  book:
+    name: book
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: book/package-lock.json
+      - name: install
+        run: npm ci
+        working-directory: book
+      - name: build
+        # docusaurus.config.ts が onBrokenLinks: 'throw' なので、
+        # サイト内のリンク切れはここで落ちる。
+        run: npm run build
+        working-directory: book
+
   deny:
     name: cargo-deny
     runs-on: ubuntu-latest

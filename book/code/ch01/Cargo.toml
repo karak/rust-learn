@@ -1,0 +1,12 @@
+[package]
+name = "book-ch01"
+version = "0.0.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# 本のコードも本体と同じ lint で検査する。
+# 読者が読むコードが clippy の警告を踏んでいるのは、教材として都合が悪い。
+[lints]
+workspace = true
