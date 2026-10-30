@@ -82,6 +82,11 @@
 - **[ADR-0013](adr/0013-book-phase.md) を `proposed` で立てた**（2026-10-31）。
   **学ぶフェーズを終え、学びを人間向けのハンズオンの本にするフェーズに入る。**
   本は `book/` に置き、`tally` を題材にする。**本は正本ではない**
+- **本の骨組みと第 1 章を置き、GitHub Pages に配置した**（2026-10-31）。
+  公開先は <https://karak.github.io/rust-learn/>。
+  **ワークスペースのメンバが 4 つになった** — `book/code/ch01` が加わった。
+  **CI のジョブは 5 つになり、配置は別ワークフロー**（`pages.yml`）にある。
+  ADR-0013 の Confirmation は 8 件中 6 件済み
 - 公開済み: <https://github.com/karak/rust-learn>（public）
 
 `docs/learning-log.md` は節ごとに対象ファイルを明記してある（「読み方」の表）。
@@ -101,26 +106,22 @@
 
 セットアップとコマンドは `README.md` を参照。
 
-## 次の作業: 本を作る
+## 次の作業: 第 2 章から第 12 章
 
-**Rust を学ぶフェーズは終わった**（2026-10-28、終了基準は `docs/curriculum.md` の末尾）。
-**次は [ADR-0013](adr/0013-book-phase.md) の本のフェーズ。**
+**最初の 1 単位は終わった**（2026-10-31）。骨組み、第 1 章、検査の除外、
+CI のジョブ、Pages への配置まで通した。
 
-**ADR-0013 は `proposed`。** 8 論点とも案で、Confirmation は 1 件も済んでいない。
-**実装しながら確かめ、確かめ終えてから `accepted` にする**（ADR-0012 と同じ進め方）。
+**次は第 2 章（借用）。** 章の並びは
+[ADR-0013](adr/0013-book-phase.md) 論点 4 の表が正本。
+**1 章 = 1 ブランチ**にする。本文と `book/code/chNN` を同じ単位で載せる。
 
-最初の 1 単位:
+残る Confirmation は 2 件。
 
-1. `book/` に Docusaurus の骨組みを置く
-2. `.docscheckignore` を作り、`scripts/check-docs.sh` と
-   `scripts/check-module-deps.sh` の両方に読ませる（Confirmation 2）
-3. `CLAUDE.md`「文書の書き分け」の表に `book/` の行を足す
-4. CI に `book` ジョブを足し、GitHub Pages への配置は別ワークフローにする
-5. 第 1 章（所有権と move）と `book/code/ch01`
-6. **GitHub Pages へ 1 回配置して経路を通す**（Confirmation 4）。
-   **Pages はまだ有効になっていない**
+- **7**: 10 章までライフタイム注釈を 1 つも書かずに通ること。
+  **書き進めないと確かめられない。** 破れたら論点 4c の却下根拠が崩れる
+- **8**: VO のピアとの日次同期が回っていること
 
-**`docs/curriculum.md` と `docs/stage-log.md` は凍結する。**
+**`docs/curriculum.md` と `docs/stage-log.md` は凍結している。**
 段階を足さない。本の素材として読む。
 
 ## クレートの構造
