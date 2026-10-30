@@ -58,7 +58,7 @@ left.merge(right);   // right の所有権が merge に移る
 ## move したあとに何が残るか
 
 C++ の move では、移動元のオブジェクトは「有効だが未規定の状態」になる。
-標準ライブラリの型なら空になることが多いが、規格が保証するのは「デストラクタを呼んでも安全」ということだけである。
+標準ライブラリの型なら空になることが多いが、規格が保証するのは、前提条件を持たない操作（代入、`clear()`、`size()` など）なら呼んでよい、ということまでである。
 だから移動元を再利用するコードは、何が入っているかを確かめてから書くことになる。
 
 Rust には、この「移動後の状態」という概念がない。
@@ -144,7 +144,7 @@ Rust は逆で、複製は `Copy` か `Clone` を実装した型にだけ許さ�
 ## 演習
 
 答えは [`book/code/ch01/src/exercises.rs`](https://github.com/karak/rust-learn/blob/main/book/code/ch01/src/exercises.rs) にある。
-`cargo t -p book-ch01` で確かめられる。
+`cargo test -p book-ch01` で確かめられる。
 
 **演習 1**
 
