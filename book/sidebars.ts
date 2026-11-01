@@ -17,7 +17,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'I 値',
       collapsed: false,
-      items: ['part1/ownership'],
+      items: ['part1/ownership', 'part1/borrowing'],
     },
   ],
 };
