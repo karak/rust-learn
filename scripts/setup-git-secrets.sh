@@ -61,6 +61,12 @@ git secrets --add -- 'xox[abprs]-[0-9A-Za-z-]{10,}'               # Slack
 # pre-commit / commit-msg / prepare-commit-msg の 3 本。-f で上書きする（冪等）。
 git secrets --install -f >/dev/null
 
+# commit-msg に、リポジトリに入れない語の検査を書き足す。
+# このフックは上の -f が毎回作り直すので、別のスクリプトで入れると、
+# このスクリプトを走らせ直したときに黙って消える。書き足すのは作り直した直後のここに置く。
+printf '%s\n' '"$(git rev-parse --show-toplevel)/scripts/check-commit-msgs.sh" "$1"' \
+    >> "$(git rev-parse --git-path hooks)/commit-msg"
+
 # **入れただけでは動作の証拠にならない。** 両方向を見る。
 probe=$(mktemp)
 trap 'rm -f "$probe"' EXIT

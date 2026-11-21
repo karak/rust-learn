@@ -212,6 +212,7 @@ scripts/setup-git-secrets.sh    秘密情報スキャンのパターンとフッ
 | 依存検査 | `cargo deny check` |
 | 依存の向きの確認 | `cargo tree -p tally-core`（`clap` / `anyhow` が出ないこと） |
 | **文書の書き分けの検査** | `scripts/check-docs.sh` |
+| コミットのメッセージの検査（`commit-msg` フックと CI でも走る） | `scripts/check-commit-msgs.sh` |
 | **本のビルド** | `cd book && npm ci && npm run build` |
 | 本の下書きを見る | `cd book && npm start` |
 | **モジュール間の依存規則の検査** | `scripts/check-module-deps.sh` |
