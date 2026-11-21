@@ -204,6 +204,20 @@ if [ -n "$book_md" ]; then
         "$hits"
 fi
 
+# 7. リポジトリに入れない語
+#
+# 連携先のピアを指す名前は、リポジトリのどこにも書かない（2026-11-21、学習者の指示）。
+# 文書だけでなく、コードと設定も含めた全ファイルを見る。
+# lockfile は除く。ハッシュの英数字の並びに偶然現れる。
+#
+# パターンは、この行そのものに当たらない書き方にしてある（文字クラスで 1 文字ずつ包む）。
+banned_re='(^|[^[:alnum:]])[Vv][Oo]([^[:alnum:]]|$)|[Vv][Ii][Rr][Tt][Uu][Aa][Ll][-_ ]?[Oo][Ff][Ff][Ii][Cc][Ee]'
+hits=$(ls_md . ':!*.lock' ':!**/package-lock.json' | grep_each -nIE "$banned_re" 2>/dev/null || true)
+[ -n "$hits" ] && report \
+    'リポジトリに入れないと決めた語がある' \
+    '「連携先」と言い換える。理由は scripts/check-docs.sh の検査 7 のコメント' \
+    "$hits"
+
 if [ "$fail" -eq 0 ]; then
     echo "文書の書き分け: OK"
 else
