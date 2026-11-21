@@ -72,7 +72,7 @@ hits=$(grep -nE '^#+ .*(実装の記録|証跡|実績)' docs/curriculum.md || tr
 # 「段階 6 の積み残し 2 件をここで片付ける」「未決事項は handoff」を書いた。
 # **どちらも「次に何をするか」で、handoff の領分である。**
 # カリキュラム（予）に持ち越しを書くと、**段階を始める人が
-# 「自分の課題」と読む**（CLAUDE.md 失敗事例 4 と同じ形）。
+# 「自分の課題」と読む**（docs/doc-rules-history.md の 4 と同じ形）。
 #
 # **handoff を指すこと自体が「状態を指している」の安い代理変数になる。**
 # 上の（済）やチェックボックスと違い、**言い換えで逃げられない** —
@@ -91,7 +91,7 @@ hits=$(grep -nE 'handoff' docs/curriculum.md | grep -vE '^[0-9]+:\|' || true)
 # 段階 5 のクレート分割で、実際に curriculum.md の表が全件腐った。
 
 # 識別子が前置されているものだけを拾う。`::tests::` 単体（この検査自身の
-# 説明が CLAUDE.md にある）を誤検知しないため。
+# 説明が docs/doc-checks.md にある）を誤検知しないため。
 # shellcheck disable=SC2046  # pathspec を複数の引数として渡す
 hits=$(ls_md '*.md' $(ignore_pathspec) | grep_each -nE '[[:alnum:]_]::tests::[^`]' 2>/dev/null || true)
 [ -n "$hits" ] && report \
