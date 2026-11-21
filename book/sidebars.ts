@@ -23,7 +23,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'II 型で表す',
       collapsed: false,
-      items: ['part2/enums', 'part2/result'],
+      items: ['part2/enums', 'part2/result', 'part2/structs'],
     },
     'glossary',
   ],

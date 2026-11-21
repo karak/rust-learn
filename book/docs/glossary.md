@@ -26,7 +26,7 @@ Rust の値には必ず一人の所有者がいて、所有者がスコープを
 値の所有権を別の変数や関数へ移すこと。
 移したあとの元の変数は、コンパイラが使わせない。
 
-出てくる章: [1](part1/ownership.md)、[4](part2/enums.md)
+出てくる章: [1](part1/ownership.md)、[4](part2/enums.md)、[6](part2/structs.md)
 
 ### 部分 move（partial move） {/* #partial-move */}
 
@@ -54,7 +54,7 @@ move された変数については走らない（値が移った先で 1 回だ
 
 値を所有したまま、参照を作って貸すこと。
 
-出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)
+出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[6](part2/structs.md)
 
 ### 共有参照と可変参照（shared reference / mutable reference） {/* #references */}
 
@@ -62,14 +62,14 @@ move された変数については走らない（値が移った先で 1 回だ
 共有参照は同時にいくつでも作れるが、可変参照は同時に一つだけで、そのあいだは共有参照も作れない。
 この性質から、可変参照は排他参照（exclusive reference）とも呼ばれる。
 
-出てくる章: [2](part1/borrowing.md)
+出てくる章: [2](part1/borrowing.md)、[6](part2/structs.md)
 
 ### 内部可変性（interior mutability） {/* #interior-mutability */}
 
 共有参照 `&T` しか持っていなくても中身を書き換えられるようにする仕組み。
 書き換えが重ならないことは、型の側が受け持つ。
 
-出てくる章: [2](part1/borrowing.md)
+出てくる章: [2](part1/borrowing.md)、[6](part2/structs.md)
 
 ### 寿命（lifetime） {/* #lifetime */}
 
@@ -200,20 +200,51 @@ main スレッドで起きれば、プログラム全体が終わる。
 
 型が持つ操作や性質をまとめて宣言するもの。
 
-出てくる章: [はじめに](intro.md)、[5](part2/result.md)、3、4（エラーメッセージの中）
+出てくる章: [はじめに](intro.md)、[5](part2/result.md)、[6](part2/structs.md)、3、4（エラーメッセージの中）
 
 ### クレート（crate） {/* #crate */}
 
 Rust のコンパイルの単位。
 ライブラリ一つ、または実行ファイル一つに当たる。
 
-出てくる章: [4](part2/enums.md)
+出てくる章: [4](part2/enums.md)、[6](part2/structs.md)
 
 ### 属性（attribute） {/* #attribute */}
 
 `#[...]` の形で項目に付ける、コンパイラへの指示や注記。
 
-出てくる章: [4](part2/enums.md)
+出てくる章: [4](part2/enums.md)、[6](part2/structs.md)
+
+### 構造体（struct） {/* #struct */}
+
+名前の付いたフィールドを並べた型。
+値を作るときにフィールドを書き漏らすと、コンパイルが通らない。
+フィールドに名前を付けず位置で並べる形（タプル構造体）もあり、中身は `.0`、`.1` で読む。
+
+出てくる章: [6](part2/structs.md)
+
+### メソッドと関連関数（method / associated function） {/* #method */}
+
+`impl` の中に書く関数。
+第 1 引数に `self`、`&self`、`&mut self` のどれかを取るものをメソッドと呼び、`値.名前(...)` で呼ぶ。
+`self` を取らないものを関連関数と呼び、`型::名前(...)` で呼ぶ。C++ の static メンバ関数に当たる。
+
+出てくる章: [6](part2/structs.md)
+
+### モジュール（module） {/* #module */}
+
+名前をまとめる入れ物で、可視性の単位。
+非公開の項目は、定義したモジュールとその子孫からだけ見える。
+`mod 名前;` と書くと、別のファイル（たとえば `src/名前.rs`）の中身がそのモジュールになる。
+
+出てくる章: [6](part2/structs.md)
+
+### newtype {/* #newtype */}
+
+既存の型を、フィールド 1 つのタプル構造体で包んで作る新しい型。
+フィールドを非公開にして、作る関数で条件を確かめれば、モジュールの外では条件を満たす値しか作れなくなる。
+
+出てくる章: [6](part2/structs.md)
 
 ### エラーコード（error code） {/* #error-code */}
 
@@ -468,10 +499,23 @@ C++17 で入った、決めておいた型のどれか一つの値を持つ型�
 C++17 で入った、値が有るか無いかを表す型。
 空のまま `*` や `->` で中身を読むと未定義動作になる。
 
-出てくる章: [5](part2/result.md)
+出てくる章: [5](part2/result.md)、[6](part2/structs.md)
 
 ### `std::expected` {/* #std-expected */}
 
 C++23 で入った、成功の値か失敗の値のどちらかを持つ型。
 
-出てくる章: [5](part2/result.md)
+出てくる章: [5](part2/result.md)、[6](part2/structs.md)
+
+### `friend` {/* #friend */}
+
+クラスの中で宣言して、外の関数やクラスに `private` のメンバを見せる仕組み。
+
+出てくる章: [6](part2/structs.md)
+
+### 参照修飾子（ref-qualifier） {/* #ref-qualifier */}
+
+メンバ関数の後ろに付ける `&` や `&&`。
+`&&` を付けたメンバ関数は、右辺値（`std::move` した値や一時オブジェクト）に対してだけ呼べる。
+
+出てくる章: [6](part2/structs.md)
