@@ -26,7 +26,7 @@ Rust の値には必ず一人の所有者がいて、所有者がスコープを
 値の所有権を別の変数や関数へ移すこと。
 移したあとの元の変数は、コンパイラが使わせない。
 
-出てくる章: [1](part1/ownership.md)
+出てくる章: [1](part1/ownership.md)、[4](part2/enums.md)
 
 ### 部分 move（partial move） {/* #partial-move */}
 
@@ -54,7 +54,7 @@ move された変数については走らない（値が移った先で 1 回だ
 
 値を所有したまま、参照を作って貸すこと。
 
-出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)
+出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)
 
 ### 共有参照と可変参照（shared reference / mutable reference） {/* #references */}
 
@@ -125,7 +125,7 @@ C++ の `std::unordered_map` に当たる。
 値が有るか無いかを表す型。
 有れば `Some(値)`、無ければ `None` になる。
 
-出てくる章: [3](part1/strings.md)
+出てくる章: [3](part1/strings.md)、[4](part2/enums.md)
 
 ### `Result` {/* #result */}
 
@@ -133,6 +133,27 @@ C++ の `std::unordered_map` に当たる。
 成功なら `Ok(値)`、失敗なら `Err(エラー)` になる。
 
 出てくる章: [2](part1/borrowing.md)
+
+### enum {/* #enum */}
+
+取りうる場合（バリアント）を並べて定義する型。
+バリアントごとに別の値を持たせられる。
+
+出てくる章: [4](part2/enums.md)
+
+### パターン（pattern） {/* #pattern */}
+
+値の形を書いて照らし合わせるための記法。
+`match` の腕の左辺に書き、合ったときに中身へ名前を付けられる。
+
+出てくる章: [4](part2/enums.md)
+
+### 網羅性検査（exhaustiveness checking） {/* #exhaustiveness */}
+
+`match` がすべての場合を扱っているかを、コンパイラが確かめること。
+漏れがあればコンパイルエラーになる。
+
+出てくる章: [4](part2/enums.md)
 
 ### 型強制（coercion） {/* #coercion */}
 
@@ -160,13 +181,26 @@ main スレッドで起きれば、プログラム全体が終わる。
 
 コンパイラが安全性を確かめられない操作を、書く人の責任で許すための印。
 
-出てくる章: [3](part1/strings.md)
+出てくる章: [3](part1/strings.md)、[4](part2/enums.md)
 
 ### trait {/* #trait */}
 
 型が持つ操作や性質をまとめて宣言するもの。
 
 出てくる章: [はじめに](intro.md)、3（エラーメッセージの中）
+
+### クレート（crate） {/* #crate */}
+
+Rust のコンパイルの単位。
+ライブラリ一つ、または実行ファイル一つに当たる。
+
+出てくる章: [4](part2/enums.md)
+
+### 属性（attribute） {/* #attribute */}
+
+`#[...]` の形で項目に付ける、コンパイラへの指示や注記。
+
+出てくる章: [4](part2/enums.md)
 
 ### エラーコード（error code） {/* #error-code */}
 
@@ -196,7 +230,7 @@ Rust のコンパイラ。
 Rust の lint（コードの書き方の点検）を行う道具。
 `cargo clippy` で走らせる。
 
-出てくる章: [3](part1/strings.md)
+出てくる章: [3](part1/strings.md)、[4](part2/enums.md)
 
 ### rustup {/* #rustup */}
 
@@ -245,7 +279,7 @@ wide pointer とも呼ばれる。
 言語の規格が結果を何も定めていない動作。
 動いているように見えても、何が起きても文句は言えない。
 
-出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)
+出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)
 
 ### データ競合（data race） {/* #data-race */}
 
@@ -387,3 +421,17 @@ C++17 で入った、文字列を所有せずに眺める型。
 Rust にも、`let` の右辺で直接 `&` を付けた一時的な値について似た規則がある。
 
 出てくる章: [3](part1/strings.md)
+
+### `enum class`（scoped enumeration） {/* #enum-class */}
+
+C++11 で入った、名前が外に漏れず、整数へ暗黙に変換されない列挙型。
+基底型の値なら、列挙子に無い値も持てる。
+
+出てくる章: [4](part2/enums.md)
+
+### `std::variant` {/* #std-variant */}
+
+C++17 で入った、決めておいた型のどれか一つの値を持つ型。
+どの型の値を持っているかを覚えていて、`std::visit` で場合分けできる。
+
+出てくる章: [4](part2/enums.md)

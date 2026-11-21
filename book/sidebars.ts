@@ -19,6 +19,12 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: ['part1/ownership', 'part1/borrowing', 'part1/strings'],
     },
+    {
+      type: 'category',
+      label: 'II 型で表す',
+      collapsed: false,
+      items: ['part2/enums'],
+    },
     'glossary',
   ],
 };
