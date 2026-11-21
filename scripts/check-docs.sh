@@ -218,6 +218,25 @@ hits=$(ls_md . ':!*.lock' ':!**/package-lock.json' | grep_each -nIE "$banned_re"
     '「連携先」と言い換える。理由は scripts/check-docs.sh の検査 7 のコメント' \
     "$hits"
 
+# 8. docs/learnings/ の件のファイル名
+#
+# 件の id はファイル名（拡張子を除く）なので、形を揃える。
+# 日付が取り決めの開始日（2026-11-22）より前の件は書かない（docs/learnings/README.md）。
+hits=$(
+    ls_md 'docs/learnings/*' ':!docs/learnings/README.md' | while read -r f; do
+        name=${f#docs/learnings/}
+        if ! printf '%s\n' "$name" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9]+(-[a-z0-9]+)*\.md$'; then
+            echo "$f: 名前が YYYY-MM-DD-<kebab-case>.md でない"
+        elif [[ "${name:0:10}" < "2026-11-22" ]]; then
+            echo "$f: 日付が 2026-11-22 より前"
+        fi
+    done
+)
+[ -n "$hits" ] && report \
+    'docs/learnings/ の件の名前が取り決めと違う' \
+    'docs/learnings/README.md の「このリポジトリでの書き方」' \
+    "$hits"
+
 if [ "$fail" -eq 0 ]; then
     echo "文書の書き分け: OK"
 else
