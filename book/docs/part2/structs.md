@@ -60,7 +60,7 @@ error[E0063]: missing field `lines` in initializer of `Tally`
    |         ^^^^ missing `lines`
 ```
 
-C++ で同じ形の集成体（aggregate）を `Tally t{"level", true};` のように初期化すると、書かなかったフィールドは黙って初期化される（既定の初期化子が無ければ 0 になる）。
+C++ で同じ形の集成体（aggregate）を `Tally t{"level", true};` のように初期化すると、書かなかったフィールドは黙って初期化される（既定の初期化子が無ければ、数値は 0 に、文字列やマップは空になる）。
 手元の clang では、この位置で並べる形について、`-Wall` では何も言わず、`-Wextra` を付けたときだけ `-Wmissing-field-initializers` の警告が出た。
 `.field = "level"` のように名前を指定する形では、`-Wextra` でも警告は出なかった。
 
