@@ -42,5 +42,4 @@ description: Use when writing or reviewing a chapter of the book under book/ —
 
 **用語集**: [ADR-0013](../../../docs/adr/0013-book-phase.md) 論点 9 の決まりに沿っているか。
 
-- 項目が章より強いことを言っていないか、章と食い違っていないか
-- リンクは説明している箇所（無ければ初出）にあるか
+- 論点 9 の決まり（リンクを張る箇所、項目の書き方）を、差分に出たリンクと用語集の項目の 1 つずつに当てる

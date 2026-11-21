@@ -95,7 +95,7 @@
   **章のコードは I/O を使わない**（`str::lines()` で割る）。
   `read_line` は `io::Result` と `?` を連れてくるので、5 章より前に出さない
 - **本の末尾に用語集を置いた**（2026-11-21、[ADR-0013](adr/0013-book-phase.md) 論点 9）。
-  各章は用語を説明している箇所（無ければ初出）から `book/docs/glossary.md` の項目へリンクする。
+  リンクを張る箇所と項目の書き方は論点 9 が正本。
   **アンカー切れでビルドが落ちる**（`onBrokenAnchors: 'throw'`）
 - 公開済み: <https://github.com/karak/rust-learn>（public）
 
