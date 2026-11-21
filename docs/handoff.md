@@ -331,6 +331,18 @@ Pages への配置は第 1 章の単位で通してある。
     **本を書く過程の journal がエラーコードに触れた時点で CI が落ちる。**
     **落ちてから決める** — 検査を `book/` 由来の journal に当てないか、
     例外的に `learning-log.md` へ足すか
+19. **コメントのレビューで見つかった、コードの側の問題が 4 件ある**（2026-11-21）。
+    どれも未着手。**コメントは直したが、コードは変えていない。**
+    - **`Counter::push_line`（`crates/tally-core/src/count.rs`）は、既に数えたキーでも
+      1 行ごとに `String` を確保する**（`entry(extracted.into_owned())`）。
+      `Cow` で借りた意味が、マップに入れる手前で消えている。
+      `get_mut` で探してから無ければ `insert` する形にすれば避けられる（本の第 3 章の演習 1 と同じ形）。
+      **速さが変わるかは測っていない。** 直すなら前後を `hyperfine` で測る
+    - **`Key::extract`（`select.rs`）の JSON の 2 つの腕が、エラーの種類を除いて同じ**
+    - **`hint_for`（`crates/tally/src/error.rs`）の `_ => None` が、新しい種類を黙って素通しする。**
+      `LineErrorKind` の `#[non_exhaustive]` のためだが、ワークスペースは `publish = false` なので
+      守る外部の利用者がいない。**ADR-0004 が選んだ形なので、変えるなら新しい ADR**
+    - **`tally-core` のテスト用の `chain` が、`tally` の `one_line` と同じことをしている**
 
 CI の稼働状況はここに書かない（腐るため）。
 GitHub Actions の実行履歴を見ること。
