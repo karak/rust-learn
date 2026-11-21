@@ -432,8 +432,6 @@ mod tests {
         shown.join(": ")
     }
 
-    // --- 抜粋の切り詰め ---
-
     #[test]
     fn 抜粋は先頭_40_文字に切り詰められる() {
         // 長さだけ見ると「別の 40 文字」を取る実装（`skip(1).take(40)` 等）も
@@ -462,8 +460,6 @@ mod tests {
         let line = "x".repeat(SNIPPET_CHARS);
         assert_eq!(snippet(&line).as_ref(), line);
     }
-
-    // --- Display と source() の合成規則 ---
 
     #[test]
     fn line_error_の表示は行番号と原因と抜粋で自己完結する() {
@@ -602,8 +598,6 @@ mod tests {
         .into();
         assert!(matches!(err, TallyError::Line(_)));
     }
-
-    // --- JsonError の表示 ---
 
     #[test]
     fn serde_json_の文言は_at_line_で終わる() {

@@ -31,8 +31,6 @@ MSG
     exit 1
 fi
 
-# --- パターン -----------------------------------------------------------
-#
 # **冪等にするため、まず消してから入れ直す。** `git secrets --add` は
 # 重複を検査しないので、2 回走らせると同じパターンが 2 つ並ぶ。
 #
@@ -60,13 +58,9 @@ git secrets --add -- 'sk-ant-[0-9A-Za-z_-]{20,}'                  # Anthropic
 git secrets --add -- 'sk-proj-[0-9A-Za-z_-]{20,}'                 # OpenAI
 git secrets --add -- 'xox[abprs]-[0-9A-Za-z-]{10,}'               # Slack
 
-# --- フック -------------------------------------------------------------
-#
 # pre-commit / commit-msg / prepare-commit-msg の 3 本。-f で上書きする（冪等）。
 git secrets --install -f >/dev/null
 
-# --- 自己検査 -----------------------------------------------------------
-#
 # **入れただけでは動作の証拠にならない。** 両方向を見る。
 probe=$(mktemp)
 trap 'rm -f "$probe"' EXIT

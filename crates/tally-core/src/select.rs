@@ -360,8 +360,6 @@ impl<'de> Visitor<'de> for PickField<'_> {
         Ok(found)
     }
 
-    // --- オブジェクト以外は「フィールドが無い」と同じ扱い ---
-
     fn visit_bool<E>(self, _value: bool) -> Result<Self::Value, E> {
         Ok(Picked::Missing)
     }
@@ -504,8 +502,6 @@ impl<'de> Visitor<'de> for PickPath<'_> {
         }
         Ok(found)
     }
-
-    // --- 走査できない形は「その値が無い」と同じ扱い（`PickField` に揃える）---
 
     fn visit_bool<E>(self, _value: bool) -> Result<Self::Value, E> {
         Ok(Picked::Missing)
@@ -848,8 +844,6 @@ mod tests {
         Selector::new(Key::JsonField(field.to_owned()))
     }
 
-    // --- 構築 ---
-
     #[test]
     fn 既定は大小を区別する() {
         let selector = Selector::new(Key::WholeLine);
@@ -871,8 +865,6 @@ mod tests {
         let selector = json("lvl");
         assert_eq!(selector.key(), &Key::JsonField("lvl".to_owned()));
     }
-
-    // --- 抽出 ---
 
     #[test]
     fn whole_line_は前後の空白を落とす() {
@@ -1053,8 +1045,6 @@ mod tests {
         }
     }
 
-    // --- 正規化 ---
-
     #[test]
     fn 小文字化で変化しない値は借用のまま返る() {
         // to_lowercase() を無条件に呼ぶ実装にすると、
@@ -1114,8 +1104,6 @@ mod tests {
         );
     }
 
-    // --- JSON Pointer の検証（ADR-0010 論点 2）---
-
     fn pointer(raw: &str) -> Selector {
         Selector::new(Key::JsonPointer(
             JsonPointer::new(raw).expect("正しいポインタのはず"),
@@ -1156,8 +1144,6 @@ mod tests {
         assert_eq!(p.as_str(), "/a~1b");
         assert_eq!(p.to_string(), "/a~1b");
     }
-
-    // --- JSON Pointer の抽出（ADR-0010 論点 1 と論点 3）---
 
     #[test]
     fn 入れ子のフィールドを取り出せる() {

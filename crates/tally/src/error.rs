@@ -348,8 +348,6 @@ mod tests {
         })
     }
 
-    // --- 終了コード ---
-    //
     // **プロセスを起動せずに網羅する。** これが CLI 固有のエラー型を
     // 持った目的（ADR-0004 論点 5）。統合テストは配線の確認だけに残す。
 
@@ -419,8 +417,6 @@ mod tests {
         assert_eq!(err.exit_code(), EXIT_OK);
     }
 
-    // --- hint ---
-
     #[test]
     fn 欠損フィールドには_strict_の示唆が付く() {
         let hint = hint_for(&missing_field()).expect("示唆があるはず");
@@ -447,8 +443,6 @@ mod tests {
     fn hint_は既定で無い() {
         assert_eq!(write_err(io::ErrorKind::StorageFull).hint(), None);
     }
-
-    // --- 表示 ---
 
     #[test]
     fn 表示に_hint_は混ざらない() {

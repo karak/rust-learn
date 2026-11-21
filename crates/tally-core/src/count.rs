@@ -383,8 +383,6 @@ mod tests {
         Ok(counter.report(None))
     }
 
-    // --- マージ（ADR-0007 論点 1） ---
-
     #[test]
     fn マージは度数を足し合わせる() {
         let selector = Selector::new(Key::WholeLine);
@@ -462,8 +460,6 @@ mod tests {
             .push_line(&selector, "{\"other\":1}", 1)
             .expect_err("self の strict が残っているはず");
     }
-
-    // --- 集計 ---
 
     #[test]
     fn 行全体をキーにして度数を数える() {
@@ -568,8 +564,6 @@ mod tests {
         assert_eq!(report.entries.len(), 2, "実際: {:?}", report.entries);
     }
 
-    // --- strict ---
-
     #[test]
     fn 既定はキーを取り出せない行をスキップする() {
         let report = tally_str("{\"lvl\":\"info\"}\n{\"other\":1}\n", &json("lvl"));
@@ -642,8 +636,6 @@ mod tests {
         assert!(tally_strict(input, &selector).is_err());
     }
 
-    // --- 述語（フィルタ） ---
-
     #[test]
     fn 述語で落ちた行は集計にも総数にも入らない() {
         // フィルタは集計の上流にある。落ちた行は「読まなかった」のと同じ扱いで、
@@ -686,8 +678,6 @@ mod tests {
         assert!(matches!(err, TallyError::Line(line) if line.line_no == 3));
     }
 
-    // --- I/O 失敗の合流 ---
-
     #[test]
     fn 不正な_utf8_は読み取り失敗になる() {
         // `read_line` は InvalidData を返す。行の失敗（LineError）とは別の枝に入る。
@@ -702,8 +692,6 @@ mod tests {
 
         assert!(matches!(err, TallyError::Read(_)), "実際: {err:?}");
     }
-
-    // --- カウンタの再利用 ---
 
     #[test]
     fn 同じカウンタに複数回押し込める() {

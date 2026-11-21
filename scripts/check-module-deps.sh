@@ -52,8 +52,6 @@ deny() {
     return 0
 }
 
-# --- 層 2: aggregate は「並列化ポリシー」だけを持つ ----------------------
-#
 # **切り出せる状態を保つことが目的。** ファイルも引数も整形も知らない。
 
 AGG=crates/tally/src/aggregate.rs
@@ -66,8 +64,6 @@ deny "$AGG" 'std::fs|File::open|\bBufReader\b' 'ファイルを開く操作' \
 deny "$AGG" 'crate::cli|crate::format|super::cli|super::format' '上位の層' \
     '層 2 は層 3 を知らない。知ると tally から切り出せなくなる'
 
-# --- 層 1: error は他の tally モジュールを知らない ------------------------
-
 ERR=crates/tally/src/error.rs
 deny "$ERR" '\bclap\b' 'clap' \
     '終了コードと hint の決定に引数解釈は要らない'
@@ -76,8 +72,6 @@ deny "$ERR" '\brayon\b' 'rayon' \
 deny "$ERR" 'crate::(cli|format|aggregate)|super::(cli|format|aggregate)' '上位の層' \
     '層 1 は最下層。上を知ると依存が循環する'
 
-# --- 層 3: input は I/O の境界。引数と並列化は知らない -------------------
-#
 # **ファイルを開いてよい唯一の lib モジュール。** 逆に、引数の形（clap）と
 # 実行戦略（rayon）からは独立している。ベンチとテストから呼ぶために lib にある。
 
@@ -89,8 +83,6 @@ deny "$IN" '\brayon\b|crate::aggregate' '並列化' \
 deny "$IN" 'crate::cli|crate::format' '上位の層' \
     '層 3 は層 3 を横断しない。Cli 型ではなく素の引数を受ける'
 
-# --- 層 3: cli / format はファイルを開かず、並列化も知らない --------------
-
 for f in crates/tally/src/cli.rs crates/tally/src/format.rs; do
     deny "$f" 'std::fs|File::open' 'ファイルを開く操作' \
         'I/O を開くのは main.rs（layout.md のファイルの配置）'
@@ -98,8 +90,6 @@ for f in crates/tally/src/cli.rs crates/tally/src/format.rs; do
         '整形と引数解釈は実行戦略を知らない'
 done
 
-# --- 層 0: tally-core は CLI とも並列化とも無縁 ---------------------------
-#
 # クレート単位の依存は cargo deny と cargo tree が見るが、
 # **「まだ Cargo.toml に無い依存を書こうとした」段階で落としたい。**
 
@@ -110,8 +100,6 @@ for f in crates/tally-core/src/*.rs; do
         'このクレートはファイルを開かない。BufRead を受け取るのが唯一の I/O 境界'
 done
 
-# --- 生成器（xtask）は一方向にしか依存しない -----------------------------
-#
 # **xtask は `tally` の `Cli` を見てよい。逆は禁じる**（ADR-0009 論点 2）。
 # 逆を許すと、**集計しかしない利用者のビルドに生成器が乗る。**
 
@@ -124,8 +112,6 @@ done
 XT=crates/xtask/src/main.rs
 deny "$XT" '\btally_core\b|\brayon\b' '集計の中身と実行戦略' \
     '生成器は引数の形だけを見る。集計も並列化も知らない'
-
-# --- 結果 ---------------------------------------------------------------
 
 if [ "$fail" -eq 0 ]; then
     echo "モジュール間の依存: OK"
