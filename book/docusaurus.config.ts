@@ -21,6 +21,11 @@ const config: Config = {
   // (ADR-0013 論点 7)。相対リンクを書くとここで落ちる。
   onBrokenLinks: 'throw',
 
+  // **アンカーの切れも落とす。** 既定は警告だけで、ビルドは通ってしまう。
+  // 用語集は見出しのアンカーで引くので、項目名を変えたときに参照側が
+  // 古いまま残ると、警告を誰も読まないまま公開される。
+  onBrokenAnchors: 'throw',
+
   i18n: {
     defaultLocale: 'ja',
     locales: ['ja'],

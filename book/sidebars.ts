@@ -19,6 +19,7 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: ['part1/ownership', 'part1/borrowing', 'part1/strings'],
     },
+    'glossary',
   ],
 };
 
