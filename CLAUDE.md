@@ -70,6 +70,7 @@ docs/handoff.md                 現在地・再開手順・未決事項
 docs/doc-rules-history.md       文書の書き分け規則が生まれた経緯（失敗の記録）
 docs/doc-checks.md              文書の検査の一覧と走る場所（実体は scripts/check-docs.sh）
 docs/container-git.md           コンテナと git の運用の詳細（push の分担、git-secrets）
+docs/teaching.md                Claude が学習者に説明するときの教え方
 book/                           人間向けのハンズオン（Docusaurus）。**正本ではない**
 book/code/chNN/                 章ごとの独立したクレート。ワークスペースのメンバ
 .claude/skills/                 このリポジトリ固有のスキル
@@ -350,15 +351,12 @@ devcontainer では `postCreateCommand` が自動で走る。ホスト直実行�
 
 ### 教え方
 
-- **答えのコードを出す前に、まず設計上の選択肢とトレードオフを示す。**
-  「なぜ `Cow` なのか」「なぜ `&str` ではなく `impl AsRef<str>` なのか」を言語化する。
-- **借用チェッカのエラーは、直し方だけでなく「コンパイラが何を守ろうとしたか」を説明する。**
-  詳細は `.claude/skills/rust-ownership-coach/`。
-- 他言語での等価な書き方を引き合いに出してよい。ただし **差分と、その差分が生じる理由** に集中する。
-- 「動くコード」で止めない。**`clippy --pedantic` を通る形まで持っていく。**
+**答えのコードを出す前、借用チェッカのエラーを説明するとき、他言語と比べるとき** →
+[docs/teaching.md](docs/teaching.md)
 
 ### 作業の進め方
 
+- 「動くコード」で止めない。**`clippy --pedantic` を通る形まで持っていく。**
 - **コードを書いたら必ず `cargo lint` と `cargo t` を実行し、結果を報告する。**
   通っていないものを「できた」と言わない。
 - 新しいクレートを依存に足すときは、`.claude/skills/rust-crate-selection/` の
