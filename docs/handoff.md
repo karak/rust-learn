@@ -264,7 +264,7 @@ Pages への配置は第 1 章の単位で通してある。
    `CLAUDE.md` は「コミット履歴・SHA は `git log` が答える。文書に書かない」と
    定めているが、`scripts/check-docs.sh` はこれを見ていない。
    **2026-08-19 に handoff へ SHA を 4 件書きかけた**（commit 前に気づいて消した）。
-   これは失敗事例 1（`progress.md` の SHA 4 件が全部無効になった）と同じ形。
+   これは [doc-rules-history.md](doc-rules-history.md) の 1（`progress.md` の SHA 4 件が全部無効になった）と同じ形。
    **検査に足すなら、`docs/adr/` の日付つき観測**
    （「変更前の値は `<sha>` を取り出して測った」）を誤検知しない形にする必要がある
 8. **解決済み（2026-09-29）。** 「`--ff-only` の rebase 強制の経路を通っていない」件は、

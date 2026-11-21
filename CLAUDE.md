@@ -70,7 +70,6 @@ docs/handoff.md                 現在地・再開手順・未決事項
 docs/doc-rules-history.md       文書の書き分け規則が生まれた経緯（失敗の記録）
 docs/doc-checks.md              文書の検査の一覧と走る場所（実体は scripts/check-docs.sh）
 docs/container-git.md           コンテナと git の運用の詳細（push の分担、git-secrets）
-docs/teaching.md                Claude が学習者に説明するときの教え方
 book/                           人間向けのハンズオン（Docusaurus）。**正本ではない**
 book/code/chNN/                 章ごとの独立したクレート。ワークスペースのメンバ
 .claude/skills/                 このリポジトリ固有のスキル
@@ -84,7 +83,7 @@ scripts/setup-git-secrets.sh    秘密情報スキャンのパターンとフッ
 
 **同じ事実を 2 箇所に書かない。** 複製は必ず腐る。
 **この節の規則が破られた実例を知りたいとき、規則を緩めたくなったとき** →
-[docs/doc-rules-history.md](docs/doc-rules-history.md)（この規則がある理由）
+[docs/doc-rules-history.md](docs/doc-rules-history.md)（この規則がある理由。ADR や handoff が「失敗事例 N」と呼ぶもの）
 
 ### 正本の割り当て
 
@@ -186,7 +185,9 @@ scripts/setup-git-secrets.sh    秘密情報スキャンのパターンとフッ
 **[経緯](docs/doc-rules-history.md) 4 の教訓。** 「書かない」という規約は守り忘れられ、
 **破られたことに誰も気づかない**（テスト名の表は数日腐っていた）。
 
-`scripts/check-docs.sh` が書き分けを機械的に検査する（実行は「コマンド」の節）。
+`scripts/check-docs.sh` が書き分けを機械的に検査する。
+**Claude のフック（文書を書き換えた直後）と CI で自動で走る。**
+**規則は `.claude/rules/` に置かない。** 自動で読まれず、置いても効かない。自動で読まれるのは `CLAUDE.md` である。
 **検査の一覧と走る場所を知りたいとき、検査に落ちたとき、検査を足すとき** →
 [docs/doc-checks.md](docs/doc-checks.md)
 
@@ -351,8 +352,11 @@ devcontainer では `postCreateCommand` が自動で走る。ホスト直実行�
 
 ### 教え方
 
-**答えのコードを出す前、借用チェッカのエラーを説明するとき、他言語と比べるとき** →
-[docs/teaching.md](docs/teaching.md)
+- **答えのコードを出す前に、まず設計上の選択肢とトレードオフを示す。**
+  「なぜ `Cow` なのか」「なぜ `&str` ではなく `impl AsRef<str>` なのか」を言語化する。
+- **借用チェッカのエラーは、直し方だけでなく「コンパイラが何を守ろうとしたか」を説明する。**
+  詳細は `.claude/skills/rust-ownership-coach/`。
+- 他言語での等価な書き方を引き合いに出してよい。ただし **差分と、その差分が生じる理由** に集中する。
 
 ### 作業の進め方
 

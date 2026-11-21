@@ -39,9 +39,6 @@
 | 層 | いつ | 設定場所 |
 | --- | --- | --- |
 | **Claude のフック** | 文書を書き換えた直後 | `.claude/settings.json` の `PostToolUse`（`Write` / `Edit`） |
-| 手で実行 | コミット前 | `scripts/check-docs.sh` |
+| 手で実行 | コミット前 | `CLAUDE.md`「コマンド」 |
 | CI | push のたび | `.github/workflows/ci.yml` の `docs` ジョブ |
 
-**`.claude/rules/` には置いていない。** そのパスは自動で読み込まれないため、
-規則を置いても効かない。**自動で読まれるのは `CLAUDE.md`**、
-自動で走るのは上のフックと CI である。
