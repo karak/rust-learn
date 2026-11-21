@@ -503,6 +503,7 @@ impl<'de> Visitor<'de> for PickPath<'_> {
         Ok(found)
     }
 
+    // 走査できない形は「その値が無い」と同じ扱い（`PickField` に揃える）。
     fn visit_bool<E>(self, _value: bool) -> Result<Self::Value, E> {
         Ok(Picked::Missing)
     }
