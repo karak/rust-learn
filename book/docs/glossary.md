@@ -97,7 +97,7 @@ Rust では、参照が指す先より長く生きないことをコンパイラ
 先頭へのポインタと長さを持つ。
 `&str` は文字列のスライスである。
 
-出てくる章: [3](part1/strings.md)
+出てくる章: [3](part1/strings.md)、[5](part2/result.md)
 
 ### 文字の境界（char boundary） {/* #char-boundary */}
 
@@ -146,14 +146,14 @@ C++ の `std::unordered_map` に当たる。
 値の形を書いて照らし合わせるための記法。
 `match` の腕の左辺に書き、合ったときに中身へ名前を付けられる。
 
-出てくる章: [4](part2/enums.md)
+出てくる章: [4](part2/enums.md)、[5](part2/result.md)
 
 ### 網羅性検査（exhaustiveness checking） {/* #exhaustiveness */}
 
 `match` がすべての場合を扱っているかを、コンパイラが確かめること。
 漏れがあればコンパイルエラーになる。
 
-出てくる章: [4](part2/enums.md)
+出てくる章: [4](part2/enums.md)、[5](part2/result.md)
 
 ### `?` 演算子（question mark operator） {/* #question-mark */}
 

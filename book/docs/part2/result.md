@@ -11,7 +11,7 @@ sidebar_position: 5
 
 同じ「フィールドが無い」が、あるときは飛ばすだけの行で、あるときは失敗になる。
 Rust は、この二つを別の型で表す。
-「無い」は [`Option`](../glossary.md#option)、「失敗」は [`Result`](../glossary.md#result) である。
+「無い」は `Option`、「失敗」は `Result` である。
 この章では、二つの型の違いと、失敗を呼び手へ渡す `?` を扱う。
 
 ## 「無い」は `Option` で表す
@@ -25,7 +25,7 @@ enum Picked {
 }
 ```
 
-標準ライブラリの `Option` は、これと同じ形をしている。
+標準ライブラリの [`Option`](../glossary.md#option) は、これと同じ形をしている。
 
 ```rust
 enum Option<T> {
@@ -61,18 +61,20 @@ C++ にも、値が有るか無いかを表す [`std::optional`](../glossary.md#
 `std::optional` は、空のまま `*` や `->` で中身を読むと[未定義動作](../glossary.md#undefined-behavior)になる。
 
 ```cpp
-std::optional<std::string> o = find(false);   // 空
+std::optional<std::string> o = find(argc > 5);   // 引数が 5 個以下なら空
 std::printf("size=%zu\n", o->size());
 ```
 
-手元の clang（Apple clang 21、libc++）でこれを動かすと、最適化なしでは `size=0`、`-O2` では `size=4` と出た。
+手元の clang（Apple clang 21、libc++）でこれを引数なしで動かすと、最適化なしでは `size=0`、`-O2` では `size=4` と出た。
 どちらも何も言わずに動き続けた。
+（`find(false)` のように空であることがコンパイル時に分かる形では、`-O2` でも `size=0` だった。）
 libc++ の検査（`_LIBCPP_HARDENING_MODE`）を有効にしてビルドすると、ここで止まった。
-検査は、ビルドするときに自分で有効にするものである。
+手元の環境では、この検査は既定で無効だった。
 `o.value()` と書けば、空のときに例外 `std::bad_optional_access` が投げられる。
 
-Rust の `Option` は、中身を取り出す道を `match` のようなパターンに限っている。
-`Some` の腕でしか中身に名前が付かないので、空のまま中身を読む書き方ができない。
+Rust の `Option` には、空のまま中身を読む書き方が無い。
+`match` で取り出すなら、中身に名前が付くのは `Some` の[パターン](../glossary.md#pattern)の腕だけである。
+このあと見る `unwrap_or` や `unwrap` のようなメソッドも、空のときに何をするか（代わりの値を返す、止まる）が決まっている。
 
 ```rust
 match find_field(line, "level") {
@@ -88,7 +90,7 @@ match find_field(line, "level") {
 
 ## 「失敗」は `Result` で表す
 
-`Result` も enum である。
+[`Result`](../glossary.md#result) も enum である。
 
 ```rust
 enum Result<T, E> {
@@ -111,6 +113,17 @@ enum CountError {
 
 入力を読めなかった場合と、`--strict` でフィールドの無い行に当たった場合である。
 `io::Error` は標準ライブラリの型で、入出力の失敗を表す。
+
+カウンタは、探すフィールドの名前と、`--strict` が付いているかを持つ。
+
+```rust
+struct Tally {
+    field: String,
+    strict: bool,
+    counts: HashMap<String, u64>,
+    skipped: usize,
+}
+```
 
 1 行ぶん数えるメソッドは、`Result` を返す。
 
@@ -135,13 +148,15 @@ C++23 の [`std::expected`](../glossary.md#std-expected) は、成功の値か�
 
 Java の[検査例外](../glossary.md#checked-exception)は、投げうる例外を `throws` として宣言に書かせる。
 手元の Java 21 では、宣言した例外を受け止めも宣言もせずに呼ぶとコンパイルエラーになった。
-ラムダ式の中から呼んだときも同じエラーになった。
+`stream().map(...)` に渡すラムダ式の中から呼んだときも同じエラーになった。
+`map` が受け取る `Function` は、例外を `throws` に宣言していないからである。
 Rust の `Result` は、失敗を戻り値の型そのものに書く。
 宣言を見れば失敗しうることが分かる点は検査例外と同じで、失敗は投げられるのではなく、値として返ってくる。
 
 ## 戻り値の `Result` を捨てると警告が出る
 
 `Result` を返す関数を呼んで、戻り値を使わずに捨てると、コンパイラが警告を出す。
+次の `parse` は、文字列を数に変える `fn parse(s: &str) -> Result<u64, ParseIntError>` という関数である。
 
 ```rust
 parse("1");
@@ -157,12 +172,11 @@ warning: unused `Result` that must be used
    = note: this `Result` may be an `Err` variant, which should be handled
 ```
 
-`Result` という型そのものに「捨てると警告する」という印が付いているので、`Result` を返すどの関数にもこの警告が効く。
+`Result` という型そのものに「捨てると警告する」という印が付いているので、関数ごとに何かを書かなくても、`Result` を返す関数にはこの警告が効く。
 わざと捨てるときは `let _ = parse("1");` と書いて、捨てることを明示する。
 
-C++ では、同じことを関数ごとに `[[nodiscard]]` と書いて頼む。
-手元の libc++ では、`std::expected` や `std::optional` を返す関数の戻り値を捨てても、警告は出なかった。
-自分で `[[nodiscard]]` を付けた関数でだけ出た。
+C++ でも、型か関数に `[[nodiscard]]` を付ければ同じ警告が出る。
+ただし手元の libc++ では、`std::expected` や `std::optional` には付いておらず、それらを返す関数の戻り値を捨てても警告は出なかった。
 
 ## `?` は失敗をそのまま呼び手へ返す
 
@@ -198,7 +212,7 @@ match tally.push_line(line.trim_end(), line_no) {
 C++ の例外が呼び出しの階段を自動で上っていくのに対し、Rust では階段を一段上がるたびに `?` を書く。
 失敗が通る道が、コードの上で `?` として見える。
 
-`input` は `&[u8]`（バイト列のスライス）で、`read_line` で 1 行ずつ読むと、読んだぶんだけ先頭が進む。
+`input` は `&[u8]`（バイト列の[スライス](../glossary.md#slice)）で、`read_line` で 1 行ずつ読むと、読んだぶんだけ先頭が進む。
 だから `mut` が要る。
 `read_line` は `BufRead` という [trait](../glossary.md#trait) のメソッドで、`use std::io::BufRead;` と書いて取り込んでから呼ぶ。
 trait は 9 章で扱う。
@@ -266,7 +280,7 @@ match find_field(line, &self.field) {
 `find_field` が最初から `Result` を返していたら、`--strict` でないときに、失敗をわざわざ捨てることになる。
 
 4 章のガード（`if self.strict`）がここで役に立っている。
-ガードの付いた腕は網羅性に数えないので、最後の `None =>` の腕が無いとエラーになる。
+ガードの付いた腕は[網羅性](../glossary.md#exhaustiveness)に数えないので、最後の `None =>` の腕が無いとエラーになる。
 
 `ok_or` を使えば、`match` を書かずに変換できる。
 `find_field(line, &self.field).ok_or(CountError::MissingField { line_no })?` は、見つからなければ `MissingField` を返して抜ける。
@@ -291,7 +305,7 @@ called `Option::unwrap()` on a `None` value
 
 panic は、3 章で文字列を文字の途中で切ったときと同じ止まり方である。
 そのスレッドを終え、main スレッドならプログラム全体が終わる。
-panic は戻り値に現れないので、呼び手がふつうのコードで受け取って対処する道は無い。
+panic は戻り値に現れないので、同じスレッドの呼び手がふつうのコードで受け取って対処する道は無い（別のスレッドで起きた panic は、そのスレッドの終わりを待つ側に失敗として返る。並列化は 12 章で扱う）。
 （`std::panic::catch_unwind` という特別な手段はあるが、標準ライブラリの説明は、これを一般的な例外処理のように使うことを勧めていない。）
 
 使い分けは、その失敗が起きうるかどうかで決める。
@@ -300,7 +314,8 @@ panic は戻り値に現れないので、呼び手がふつうのコードで�
 起きたらプログラムの誤りだと言えること、たとえば直前に確かめたばかりの条件が破れていることには、panic が向いている。
 テストの中で、失敗したらそこで止まってほしいときにも `unwrap` や `expect` を使う。
 
-[clippy](../glossary.md#clippy) の pedantic という厳しめの設定は、`Result` の値に `unwrap` を呼んでも何も言わなかった。
+[clippy](../glossary.md#clippy) の pedantic という厳しめの設定は、`Result` の値に `unwrap` を呼ぶこと自体は指摘しなかった。
+（公開する関数の中で呼ぶと、panic しうることを文書に書けという指摘は出た。）
 `clippy::unwrap_used` という lint を自分で有効にすると、`unwrap` を呼んだ箇所をすべて指摘させられる。
 
 ## 本物ではどうなっているか
@@ -325,7 +340,9 @@ Ok(())
 `else` の中は、`return` などで必ず抜けなければならない。
 `match` で書くと腕が二つになるところを、合わなかったときの処理を先に片づけて、本筋を字下げせずに書ける。
 
-`on_missing` は、`--strict` が付いていれば失敗を返し、そうでなければ飛ばした行として数える。
+取り出したキーを `String` にしてマップに入れているのが `extracted.into_owned()` で、ここでは 3 章の `to_owned()` と同じ役目だと読めばよい。
+
+`--strict` が付いていれば失敗を返し、そうでなければ飛ばした行として数えるのが `on_missing` である。
 この章のコードの `push_line` で、`match` の三つの腕が分担していたことと同じである。
 
 3 章で見た、入力を読むループの `reader.read_line(&mut line)?` も、ここまでの話で読める。

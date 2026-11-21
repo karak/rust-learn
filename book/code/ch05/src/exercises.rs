@@ -18,7 +18,8 @@ fn level_and_user(line: &str) -> Option<(String, String)> {
 
 /// 演習 2 の答え。本文の `count_all` を、`?` を使わずに書いたもの。
 ///
-/// `?` 1 つが、`match` 1 つと早期の `return` に当たる。
+/// `?` 1 つが、`match` 1 つと早期の `return` に当たる。`rustfmt` で整えると 4 行になる
+/// （`match` の行、`Ok` の腕、`Err` の腕、閉じ括弧）。
 fn count_all_without_question(mut input: &[u8], tally: &mut Tally) -> Result<(), CountError> {
     let mut line = String::new();
     let mut line_no = 0;
