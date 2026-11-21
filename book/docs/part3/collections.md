@@ -66,7 +66,7 @@ C++ で同じことを試すと、結果が違う。
 規格は反復の順序を約束していないので、これは手元の libc++ での振る舞いである。
 
 Rust の `HashMap` が既定で使うハッシュ関数は、乱数の種を混ぜる。
-種はマップを作るたびに変わる。
+種は `HashMap::new()` でマップを作るたびに変わる（`clone` で複製したマップは種を引き継ぐ）。
 手元では、この 6 つのキーを同じ順に入れたマップを 1 つのプログラムの中で 2 つ作っても、反復の順序が食い違った。
 
 ```text
@@ -89,6 +89,7 @@ assert_eq!(count(&["a", "b", "a"]), count(&["b", "a", "a"]));
 ## 同数の並びまで決めないと、順序が漏れる
 
 3 行目の `ranked_by_count_only` は、件数の降順に並べている。
+コードに出てくる `Vec::with_capacity` と `&n` は、次の節で説明する。
 それでも、同数の `info` と `warn`、`debug` と `error` の並びが実行ごとに入れ替わった。
 
 ```rust
@@ -152,7 +153,7 @@ C++ の `std::tuple` や `std::pair` の `operator<` と同じ規則である。
 フィールドが公開されているので、`for (Reverse(n), key) in keyed` のように[パターン](../glossary.md#pattern)で中身を取り出せる。
 
 `for (key, &n) in counts` の `&n` もパターンである。
-[借りた](../glossary.md#borrow) `HashMap` を反復すると `(&String, &u64)` の組が得られ、`&n` と書くと `&u64` の[参照](../glossary.md#references)を外した `u64` が `n` に入る。
+[借りた](../glossary.md#borrow) `HashMap` を反復すると `(&String, &u64)` の組が得られ、`&n` と書くと `&u64` の[参照](../glossary.md#references)を[外した](../glossary.md#dereference) `u64` が `n` に入る。
 `u64` は[複製](../glossary.md#copy-clone)できる型なので、取り出しても `counts` は変わらない。
 
 `Vec::with_capacity` で作ると、要素数ぶんの領域をあらかじめ確保した空の `Vec` になる。
@@ -162,13 +163,21 @@ C++ の `reserve` に当たる。
 等しい要素が無ければ、安定な `sort` でも、安定でない `sort_unstable` でも、結果は同じになる。
 
 キーの昇順は、文字列をバイト列として比べた順序である。
-大文字は小文字より前に来るので、`Warn` は `error` より前に並ぶ。
+ASCII の大文字は小文字より前に来るので、`Warn` は `error` より前に並ぶ。
 言語や地域の慣習に合わせた並べ方ではない。
 
 ## 並べられない型は、コンパイルの時点で断られる
 
 `f64` の `Vec` は `sort` できない。
-この章のコードに一時的に `levels.sort()` を置くと、こうなる。
+この章のコードの `main` に、一時的に次の 2 行を置いてみる。
+
+```rust
+let mut levels = vec![0.5_f64, -1.0];
+levels.sort();
+```
+
+コンパイラはこう断る。
+この節から先のエラーと panic は、どれも同じように一時的に置いて出したもので、引用はその一部を抜き出した。
 
 ```text
 error[E0277]: the trait bound `f64: Ord` is not satisfied
@@ -183,7 +192,11 @@ error[E0277]: the trait bound `f64: Ord` is not satisfied
 trait と、それを要求する書き方は 9 章で扱う。
 
 C++ の `std::sort` は、`double` の配列をそのまま受け取る。
-規格は比べ方が[狭義の弱順序](../glossary.md#strict-weak-ordering)であることを要求していて、NaN を含む `<` はこれを満たさないので、動作は未定義になる。
+規格は、比べ方が[狭義の弱順序](../glossary.md#strict-weak-ordering)であることを要求している。
+その条件の 1 つは、`a < b` でも `b < a` でもない 2 つを「等しい」とみなしたとき、その関係が推移的であることである。
+NaN は 1 とも 2 とも「等しい」ことになるが、1 と 2 は等しくないので、条件が崩れる。
+満たさない比べ方を渡したときの動作を、規格は定めていない。
+つまり[未定義動作](../glossary.md#undefined-behavior)になる。
 手元（Apple clang 21、libc++）で `{3, NaN, 1, 2, NaN, 0.5, 5, 4}` を並べると、次のように出た。
 
 ```text
@@ -191,10 +204,11 @@ C++ の `std::sort` は、`double` の配列をそのまま受け取る。
 ```
 
 `3` が `1` より前に残っている。
-それでいて、同じ配列に `std::is_sorted` を当てると真が返った。
-`-O0` でも `-O2` でも、要素を 500 個にしても、並んでいないのに `is_sorted` は真だった。
+それでいて、同じ配列に `std::is_sorted` を当てると、`-O0` でも `-O2` でも真が返った。
+要素を 500 個に増やした別の入力では、並び損ねたうえに `is_sorted` も偽になった。
+同じ比べ方でも、入力によって振る舞いが変わる。
 
-Rust で `f64` を並べたいときは、全順序で比べる関数 `f64::total_cmp` を `sort_by` に渡す。
+Rust で `f64` を並べたいときは、どの 2 つの値にも前後を決める（全順序の）比べ方をする関数 `f64::total_cmp` を、`sort_by` に渡す。
 
 ```rust
 v.sort_by(f64::total_cmp);
@@ -206,7 +220,8 @@ NaN は符号で両端に分かれ、負の NaN が先頭に、正の NaN が末
 
 `HashMap` のキーにも、`f64` は使えない。
 キーには `Eq`（等しいかどうかが必ず決まる）と `Hash`（ハッシュ値を計算できる）が要り、`f64` はどちらも持たない。
-`insert` を呼ぶと、同じ[エラーコード](../glossary.md#error-code) `E0277` が 2 つ出る。
+型を書かずに `HashMap::new()` で作って `insert(0.5_f64, 1)` を呼ぶと、同じ[エラーコード](../glossary.md#error-code) `E0277` が `Eq` と `Hash` について 1 つずつ出る。
+`HashMap<f64, u64>` と型を書いておくと、エラーは `E0599` が 1 つになり、満たしていない条件として `Eq` と `Hash` が挙がる。
 
 ## キーの順が欲しいなら BTreeMap を使う
 
@@ -229,7 +244,7 @@ fn by_key(counts: &HashMap<String, u64>) -> BTreeMap<&str, u64> {
 
 ただし `BTreeMap` が保つのはキーの順序で、件数の順序ではない。
 `tally` の出力の順序は、どちらの表に入れても最後に並べ直すことになる。
-標準ライブラリの説明によれば、1 回の探索や挿入にかかる手間は、`HashMap` が期待値で要素数によらず一定、`BTreeMap` が要素数の対数に比例する。
+標準ライブラリの説明によれば、1 回の探索にかかる手間は、`HashMap` が期待値で要素数によらず一定、`BTreeMap` が要素数の対数に比例する（`HashMap` の挿入は、ならしたうえでの一定である）。
 `tally` は数えるあいだは `HashMap` を使い、出す直前に 1 回だけ並べる。
 
 集合の `HashSet` と `BTreeSet` も、同じ関係にある。
@@ -238,13 +253,15 @@ fn by_key(counts: &HashMap<String, u64>) -> BTreeMap<&str, u64> {
 ## 添字は、無ければ止まる。マップの添字には書き込めない
 
 `Vec` の添字が範囲の外なら、プログラムはその場で [panic](../glossary.md#panic) する。
-C++ の `std::vector::operator[]` で範囲の外を読むと[未定義動作](../glossary.md#undefined-behavior)になり、範囲を確かめる `at()` は[例外](../glossary.md#exception)を投げる。
+C++ の `std::vector::operator[]` で範囲の外を読むと未定義動作になり、範囲を確かめる `at()` は[例外](../glossary.md#exception)を投げる。
 Rust の添字は、C++ の `at()` の側に倒してある。
 
 ```text
-thread 'main' panicked at src/main.rs:85:25:
+thread 'main' (15480587) panicked at src/main.rs:85:25:
 index out of bounds: the len is 4 but the index is 10
 ```
+
+括弧の中の数はスレッドの番号で、実行ごとに変わる。
 
 無いかもしれない位置を読むなら、`get` を使う。
 `get` は、要素への参照を 5 章の [`Option`](../glossary.md#option) に包んで返し、無ければ `None` を返す。
@@ -253,7 +270,7 @@ index out of bounds: the len is 4 but the index is 10
 キーが無ければ、これも panic する。
 
 ```text
-thread 'main' panicked at src/main.rs:84:26:
+thread 'main' (15480107) panicked at src/main.rs:84:26:
 no entry found for key
 ```
 
@@ -262,6 +279,7 @@ C++ の `std::unordered_map::operator[]` は、キーが無ければ値を既定
 `const` なマップには `operator[]` が無く、コンパイルが通らない。
 
 Rust では、マップの添字で書き換えることもできない。
+`let mut counts = counts;` に続けて `counts["warn"] += 1;` と書くと、こうなる。
 
 ```text
 error[E0594]: cannot assign to data in an index of `HashMap<String, u64>`
@@ -274,9 +292,7 @@ error[E0594]: cannot assign to data in an index of `HashMap<String, u64>`
    = help: to modify a `HashMap<String, u64>`, use `.get_mut()`, `.insert()` or the entry API
 ```
 
-（上のエラーは、この章のコードに一時的に置いて出したものから、エラーの部分を抜き出した。）
-
-読むのは添字か `get`、書くのは `entry` か `insert`、と道が分かれている。
+読むのは添字か `get`、書くのは `get_mut` か `entry` か `insert`、と道が分かれている。
 
 ### entry は「あった」と「無かった」を enum で返す
 
@@ -315,7 +331,7 @@ Rust の `insert` に当たるのは、C++ の `insert_or_assign` である。
 
 ## 本物ではどうなっているか
 
-`tally-core` の `Counter` は、数えるあいだ `HashMap` に入れ、`report` で `Vec` に移して並べる。
+`tally-core` の `Counter` は、数えるあいだ `HashMap` に入れ、`report` で `Vec` に写して並べる。
 
 ```rust
 /// 上位 `limit` 件を返す。`None` なら全件。
@@ -352,9 +368,10 @@ pub fn report(&self, limit: Option<usize>) -> Report {
 `sort_by` に渡す比べ方を、名前を付けずにその場で書いている。
 `then_with` は、前の比較が `Equal` のときだけ次の比較を使う。
 件数で比べ、同数ならキーで比べるという順序は、この章の `ranked` と同じである。
-抜粋では、doc コメントの中の使用例を省いた。
-`.iter().map(...).collect()` は、この章で `for` と `push` で書いた詰め替えを 1 つの式にしたもので、これも 8 章で扱う。
+`.iter().map(...).collect()` は、この章で `for` と `push` で書いた詰め替えを 1 つの式にしたもので、クロージャと同じく 8 章で扱う。
+`if let Some(limit) = limit` は、パターンに合ったときだけ中を実行する書き方で、`match` の腕が 1 つで足りるときに使う。
 `truncate` は、`Vec` を先頭から指定した数だけ残して切り詰める。
+抜粋では、`///` で始まる説明の中の使用例を省いた。
 
 この順序は、利用者への約束として[出力の仕様](https://github.com/karak/rust-learn/blob/main/crates/tally/docs/output-format.md)に書いてある。
 
@@ -372,7 +389,8 @@ fn 同数のときはキーの昇順で安定する() {
 }
 ```
 
-コメントが「いずれ落ちる」と書いているのは、この章の 3 行目で見たとおり、`HashMap` の順序がたまたま揃う実行もあるからである。
+テストの中の `tally_str` は、文字列を 1 つ集計して `Report` を返す補助関数である。
+コメントが「いずれ落ちる」と書いているのは、出力例の「件数だけ」の行で見たとおり、同数の組がたまたま正しい順に並ぶ実行もあるからである。
 
 ## 演習
 
