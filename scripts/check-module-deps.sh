@@ -21,9 +21,6 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 
 # 除外設定（.docscheckignore）を読む。check-docs.sh と共通。
-# **今日の設定（book/）はこの検査には掛からない** — 下の対象が
-# crates/ 固定のためである。**それでも読むのは、除外の正本を 1 つにするため。**
-# 対象が増えたときに、片方だけ除外を知らない状態を作らない。
 # shellcheck source=scripts/ignore.sh
 . "$(dirname "$0")/ignore.sh"
 
@@ -117,8 +114,6 @@ done
 #
 # **xtask は `tally` の `Cli` を見てよい。逆は禁じる**（ADR-0009 論点 2）。
 # 逆を許すと、**集計しかしない利用者のビルドに生成器が乗る。**
-# クレート単位の依存は cargo tree が答えるが、
-# **「まだ Cargo.toml に無い依存を書こうとした」段階で落としたい。**
 
 for f in crates/tally/src/*.rs crates/tally-core/src/*.rs; do
     deny "$f" '\bxtask\b|\bclap_complete\b|\bclap_mangen\b' '生成器とその依存' \

@@ -270,8 +270,7 @@ pub fn hint_for(err: &TallyError) -> Option<&'static str> {
         // 読めないのは利用者の操作で直せるが、
         // **`tally` の使い方を変えて直るものではない。** パスや権限の話なので、
         // メッセージ本体（入力の名前を含む）以上に言えることが無い。
-        // **開けなかった場合は `CliErrorKind::Open` になり、ここを通らない**
-        // （ADR-0007 論点 3 で `OpenInput` を CLI へ移した）。
+        // **開けなかった場合は `CliErrorKind::Open` になり、ここを通らない。**
         TallyError::Read(_) => None,
         TallyError::Line(line) => match &line.kind {
             LineErrorKind::MissingField { .. } | LineErrorKind::MissingPointer { .. } => {
@@ -290,8 +289,7 @@ pub fn hint_for(err: &TallyError) -> Option<&'static str> {
 
 /// エラーチェーンを 1 行に連結する。`anyhow` の `{:#}` 相当。
 ///
-/// **`anyhow` を落としたので手で書いている。** `anyhow::Error::chain()` は
-/// [`Error::source`] を辿るだけの糖衣で、型が決まっていれば依存なしに書ける。
+/// [`Error::source`] を辿り、各段の表示を `": "` で連結する。
 #[must_use]
 pub fn one_line(err: &(dyn Error + 'static)) -> String {
     let mut shown = Vec::new();
@@ -440,8 +438,7 @@ mod tests {
 
     #[test]
     fn 読み取りの失敗には示唆を付けない() {
-        // 開けない失敗は `CliErrorKind::Open` になり、`hint_for` を通らない
-        // （ADR-0007 論点 3 で `OpenInput` を CLI へ移した）。
+        // 開けない失敗は `CliErrorKind::Open` になり、`hint_for` を通らない。
         let err = TallyError::Read(io::Error::from(io::ErrorKind::InvalidData));
         assert_eq!(hint_for(&err), None);
     }
@@ -481,9 +478,6 @@ mod tests {
 
     #[test]
     fn one_line_は集計の失敗に入力の名前を前置する() {
-        // 段階 5 では `#[error(transparent)]` で何も被せなかった。
-        // 複数入力では **どの入力の何行目かが言えなくなる**ので、
-        // 名前を前置する形に変えた（ADR-0007 論点 3）。
         let inner = missing_field();
         let expected = inner.to_string();
         let err = CliError::new(

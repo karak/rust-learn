@@ -233,7 +233,7 @@ mod tests {
 
     #[test]
     fn 集計の失敗には開いた入力の名前が乗る() {
-        // **名前は `Input::name` から来る。** 統合前は関数ごとに直書きしていた。
+        // **名前は `Input::name` から来る。**
         let (_dir, path) = 一時ファイル("{\"other\":1}\n");
         let selector = Selector::new(Key::JsonField("lvl".to_owned()));
 

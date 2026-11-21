@@ -243,7 +243,7 @@ impl Key {
                 // **`serde_json::Value` を作らない**（段階 7 の改善 2）。
                 // `Value` は行の全フィールドを `BTreeMap<String, Value>` に積むので、
                 // 1 つしか要らないのに残りも確保し、行ごとに捨てることになる。
-                // 実測では構築 31.5% + 破棄 15.8% で、この関数の費用の大半だった。
+                // 実測では、その構築と破棄がこの関数の費用の大半だった。
                 let mut de = serde_json::Deserializer::from_str(line);
                 let picked = PickField { field }
                     .deserialize(&mut de)
@@ -256,7 +256,6 @@ impl Key {
 
                 match picked {
                     // 引用符の中にエスケープが無ければ、**入力を借用したまま返る。**
-                    // 以前は `Value::String` から必ず `clone()` していた。
                     Picked::Borrowed(found) => Ok(Some(Cow::Borrowed(found))),
                     Picked::Owned(found) => Ok(Some(Cow::Owned(found))),
                     // **`serde_json::Number` を経由する。** `f64` に落として
@@ -329,8 +328,8 @@ impl<'de> DeserializeSeed<'de> for PickField<'_> {
         D: serde::Deserializer<'de>,
     {
         // **`deserialize_map` ではなく `deserialize_any`。** 行がオブジェクトでない
-        // 場合（`[1,2]` や `"文字列"`）は、以前の実装では `Value::get` が `None` を
-        // 返してスキップされていた。エラーにすると振る舞いが変わる。
+        // 場合（`[1,2]` や `"文字列"`）も、エラーにせず
+        // フィールドが無い行（`Picked::Missing`）として扱う。
         deserializer.deserialize_any(self)
     }
 }
