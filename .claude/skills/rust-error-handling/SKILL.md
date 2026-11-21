@@ -117,6 +117,7 @@ while let Some(err) = current {
 
 **`iter::successors(Some(err), |e| e.source())` と書きたくなるが通らない** —
 クロージャの引数が `&&dyn Error` になり、戻り値の寿命が借用に縛られる。
+`|&e| e.source()` と剥がせば通る。
 
 `kind()` で分岐すること。**`io::Error` を文字列比較しない** — OS とロケールで変わる。
 
