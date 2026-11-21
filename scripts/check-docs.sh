@@ -19,6 +19,24 @@ cd "$(dirname "$0")/.."
 
 fail=0
 
+# 検査する文書を列挙する。引数は git ls-files の pathspec。
+#
+# **追跡済みだけでなく、まだ git add していない新しいファイルも含める。**
+# 2026-11-21 に、書いたばかりの章が add する前は検査されず、
+# 何も言わずに OK になることが分かった（.gitignore にあるものは含めない）。
+#
+# 名前に空白や非 ASCII を含むファイルも 1 行 1 件で出す（quotePath を切る）。
+# 受け取る側は xargs ではなく grep_each を使う。xargs は空白で割り、
+# grep の失敗は 2>/dev/null で消えるので、そのファイルが何も言わずに検査から外れる。
+ls_md() {
+    git -c core.quotePath=false ls-files --cached --others --exclude-standard -- "$@"
+}
+
+# 標準入力の 1 行を 1 ファイルとして grep に渡す。-H でファイルが 1 つでも名前を出す。
+grep_each() {
+    tr '\n' '\0' | xargs -0 grep -H "$@"
+}
+
 # 違反を報告する。$1 = 説明、$2 = 正しい置き場所、以降 = grep の出力
 report() {
     local what="$1" where="$2"
@@ -75,7 +93,7 @@ hits=$(grep -nE 'handoff' docs/curriculum.md | grep -vE '^[0-9]+:\|' || true)
 # 識別子が前置されているものだけを拾う。`::tests::` 単体（この検査自身の
 # 説明が CLAUDE.md にある）を誤検知しないため。
 # shellcheck disable=SC2046  # pathspec を複数の引数として渡す
-hits=$(git ls-files '*.md' $(ignore_pathspec) | xargs grep -nE '[[:alnum:]_]::tests::[^`]' 2>/dev/null || true)
+hits=$(ls_md '*.md' $(ignore_pathspec) | grep_each -nE '[[:alnum:]_]::tests::[^`]' 2>/dev/null || true)
 [ -n "$hits" ] && report \
     '文書にテストのフルパスが転記されている' \
     'cargo nextest list が答える。文書には書かない' \
@@ -113,7 +131,7 @@ done
 
 broken=$(
     # shellcheck disable=SC2046  # pathspec を複数の引数として渡す
-    git ls-files '*.md' $(ignore_pathspec) | while read -r f; do
+    ls_md '*.md' $(ignore_pathspec) | while read -r f; do
         dir=$(dirname "$f")
         grep -oE '\]\([^)#:]+\.md' "$f" 2>/dev/null | sed 's/^](//' | while read -r link; do
             [ -e "$dir/$link" ] || echo "$f -> $link"
@@ -135,16 +153,16 @@ broken=$(
 # **ここだけは book/ を対象にする。** 除外設定は docs/ 向けの検査のためにあり、
 # 本には本の検査が要る。
 
-book_md=$(git ls-files 'book/*.md' 'book/*.mdx' || true)
+book_md=$(ls_md 'book/*.md' 'book/*.mdx' || true)
 
 if [ -n "$book_md" ]; then
-    hits=$(printf '%s\n' "$book_md" | xargs grep -nE 'ff-only|force-with-lease|handoff|git switch|git rebase' 2>/dev/null || true)
+    hits=$(printf '%s\n' "$book_md" | grep_each -nE 'ff-only|force-with-lease|handoff|git switch|git rebase' 2>/dev/null || true)
     [ -n "$hits" ] && report \
         '本がリポジトリの運用に触れている' \
         '読者のリポジトリの話ではない。運用は CLAUDE.md と docs/handoff.md' \
         "$hits"
 
-    hits=$(printf '%s\n' "$book_md" | xargs grep -nE '却下|代替案|検討した案' 2>/dev/null || true)
+    hits=$(printf '%s\n' "$book_md" | grep_each -nE '却下|代替案|検討した案' 2>/dev/null || true)
     [ -n "$hits" ] && report \
         '本が却下した設計案に触れている' \
         '検討の過程は docs/adr/ が正本。本には結論と、それが使う言語機能だけを書く' \
@@ -152,10 +170,48 @@ if [ -n "$book_md" ]; then
 
     # ADR-0013 論点 7。本から docs/adr を指すときは GitHub の URL を使う。
     # 相対リンクは下の検査 5 では拾えない（book/ を除外しているため）。
-    hits=$(printf '%s\n' "$book_md" | xargs grep -nE '\]\([^)]*\.\./[^)]*docs/adr' 2>/dev/null || true)
+    hits=$(printf '%s\n' "$book_md" | grep_each -nE '\]\([^)]*\.\./[^)]*docs/adr' 2>/dev/null || true)
     [ -n "$hits" ] && report \
         '本から docs/adr へ相対リンクを張っている' \
         'GitHub の URL で指す（ADR-0013 論点 7）。相対リンクはサイトのビルドが落ちる' \
+        "$hits"
+    # 太字はリンクの内側に書く（[**語**](…)）。
+    # 外側（**[語](…)** や **語は[x](y)**）だと、和文に接したところで
+    # CommonMark の強調にならない。リンクの直後から太字を始める書き方も拾うので、
+    # そのときは間に語を挟む。
+    # **ビルドは通るので、生成された HTML を見ないと気づけない**（2026-11-21）。
+    hits=$(printf '%s\n' "$book_md" | grep_each -nE '\*\*\[|\]\([^)]*\)\*\*' 2>/dev/null || true)
+    [ -n "$hits" ] && report \
+        '本で太字がリンクの外側にある' \
+        '[**語**](…) の形にする。和文に接すると **[語](…)** は強調にならない' \
+        "$hits"
+
+    # ADR-0013 論点 4c。9 章までのコードは、ライフタイム注釈を 1 つも書かずに通す
+    # （注釈は 10 章で、省略が効かない例に当たってから出す）。
+    # Confirmation 7 の「10 章まで」は、その 10 章で初めて出すという意味で読む。
+    #
+    # 見るのはコードだけである。章のクレートの .rs と、本文の rust のコードブロック。
+    # 言語の無いブロック（コンパイラの出力）は見ない。rustc の help が `'static` を出すため。
+    # 本文の地の文で「10 章で扱う」と名前に触れるのは妨げない。
+    # 章の番号は front matter の title の先頭から取る（引用符で囲んだ title も読む）。
+    # 文字リテラル（'a' や , 'b'）を拾わないよう、名前の直後の ' を除く。
+    # 文字列の中の「, 'word」「: 'word」は誤検知しうる。そのときは書き方を変える。
+    lifetime_re="'static|'_([^']|\$)|(&|<|,|\+|:)[[:space:]]*'[a-z][a-z0-9_]*([^a-z0-9_']|\$)|^[[:space:]]*'[a-z][a-z0-9_]*,"
+    early_md=$(printf '%s\n' "$book_md" | grep_each -lE "^title: [\"']?[1-9] " 2>/dev/null || true)
+    early_rs=$(ls_md 'book/code/ch0[1-9]/*.rs' || true)
+    hits=$(
+        printf '%s\n' "$early_rs" | grep . | grep_each -nE "$lifetime_re" 2>/dev/null
+        # コードブロックの中の行だけを「ファイル:行:中身」で出してから絞る。
+        printf '%s\n' "$early_md" | grep . | while IFS= read -r f; do
+            awk -v f="$f" '
+                /^[[:space:]]*```/ { if (inside) inside = 0; else { inside = 1; rust = ($0 ~ /```(rust|rs)/) }; next }
+                inside && rust { print f ":" FNR ":" $0 }' "$f"
+        done | grep -E ":[0-9]+:.*($lifetime_re)"
+        true
+    )
+    [ -n "$hits" ] && report \
+        '9 章までのコードにライフタイム注釈がある' \
+        '注釈なしで通る形に直す。通らないなら ADR-0013 論点 4 の前提が崩れたので、章の順序を見直す' \
         "$hits"
 fi
 
