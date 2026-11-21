@@ -227,6 +227,11 @@ CI（`.github/workflows/ci.yml`）は同じ内容を実行する。
 **rustdoc の警告は `cargo lint` では出ない。** 壊れた intra-doc link と、
 公開項目から非公開項目へのリンク（外部の読み手が辿れない）はそちらでしか拾えない。
 
+**`cargo lint` の後ろにフラグを足さない。** 別名は `-- -D warnings` で終わるので、
+`cargo lint -q` の `-q` は `--` の後ろに付き、clippy-driver に渡って
+`Unrecognized option: 'q'` で落ちる（2026-11-21 に 2 回踏んだ）。
+フラグが要るときは `cargo clippy -q --workspace --all-targets -- -D warnings` と `--` の前に書く。
+
 ## ブランチ運用
 
 **`main` に直接コミットしない。作業は常にブランチで行う。**
