@@ -69,6 +69,7 @@ docs/journal/                   進め方の振り返り（KPT、日付ごと）
 docs/handoff.md                 現在地・再開手順・未決事項
 docs/doc-rules-history.md       文書の書き分け規則が生まれた経緯（失敗の記録）
 docs/doc-checks.md              文書の検査の一覧と走る場所（実体は scripts/check-docs.sh）
+docs/container-git.md           コンテナと git の運用の詳細（push の分担、git-secrets）
 book/                           人間向けのハンズオン（Docusaurus）。**正本ではない**
 book/code/chNN/                 章ごとの独立したクレート。ワークスペースのメンバ
 .claude/skills/                 このリポジトリ固有のスキル
@@ -299,51 +300,15 @@ devcontainer（`.devcontainer/`）とホスト直実行の両方に対応する�
 **コンテナへ資格情報を渡さない。commit はコンテナで、push はホストから行う。**
 検討した代替案と却下理由は
 [ADR-0008](docs/adr/0008-container-push-credentials.md) が正本。
-
-**成立するのは `.git` がホストと共有されているため。**
-`/workspaces/rust-learn` は bind マウントで、
-コンテナで作ったコミットはホストからそのまま見える。
-
-| やること | どこで |
-| --- | --- |
-| 実装・テスト・commit | コンテナ |
-| push と CI の確認 | ホスト（`gh` はホストに入っている） |
-
-**`fetch` はコンテナでも通る**（public リポジトリの匿名読み取り）。
-
-**push を試みても静かには壊れない。** 資格情報が無いので、
-**端末が無ければ終了コード 128 で落ち、端末があれば `Username for` を聞いて止まる。**
-**git-secrets とはここが違う** — あちらは「入っているのに何も検査しない」状態に
-なりうるので、`postCreateCommand` で落とす。
-
-**コンテナで commit できるのは、`.git/config` にリポジトリ固有の
-`user.name` / `user.email` があるため。** これは bind マウント経由で共有されるが、
-**git の追跡外なので clone には付いてこない。** 無いと `Author identity unknown` で
-止まる（静かには壊れないので、入れ直しの仕組みは置いていない）。
-
-**この方針を覆したくなる条件を先に書いておく** —
-**コンテナが CI や自動化の実行場所になったとき。**
-「人間がホスト側のターミナルを持っている」という前提がそこで崩れる。
-覆すなら新規 ADR を書く。
+**コンテナで push や commit が失敗したとき、この方針を覆したくなったとき** →
+[docs/container-git.md](docs/container-git.md)
 
 ### 秘密情報スキャン（git-secrets）
 
 **バイナリは Dockerfile、パターンとフックは `scripts/setup-git-secrets.sh`。**
 devcontainer では `postCreateCommand` が自動で走る。ホスト直実行なら手で 1 回叩く。
-
-**分かれているのは、後者が git の追跡外にあるため。**
-`.git/hooks/` と `.git/config` は clone に付いてこない。
-**しかもフックだけは残ることがあり、「入っているのに何も検査しない」状態になりうる**
-（2026-08-19 に実際にその状態を発見した。パターンが 0 件だった）。
-
-**誤検知の許可は `.gitallowed`（リポジトリ直下、追跡される）に書く。**
-`git config secrets.allowed` は追跡されないので使わない。
-**許可はファイル名で範囲を絞ること** — 広い正規表現は本物の秘密を通す。
-
-**カバーしていない経路が 1 つある。** `git commit --no-verify` はフックを飛ばす。
-CI では走らせていない — pin（コミット SHA と sha256）が Dockerfile と CI の
-2 箇所になるためで、**ツールチェーンの版が 2 箇所にある問題を増やしたくない。**
-必要になったら、pin を 1 箇所に寄せる方法とセットで検討する。
+**誤検知を許可するとき、スキャンが効いていないと疑うとき** →
+[docs/container-git.md](docs/container-git.md)
 
 ## このリポジトリでのコーディング方針
 
