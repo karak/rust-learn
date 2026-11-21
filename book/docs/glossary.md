@@ -125,21 +125,21 @@ C++ の `std::unordered_map` に当たる。
 値が有るか無いかを表す型。
 有れば `Some(値)`、無ければ `None` になる。
 
-出てくる章: [3](part1/strings.md)、[4](part2/enums.md)
+出てくる章: [3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)
 
 ### `Result` {/* #result */}
 
 成功の値か失敗の値のどちらかを持つ型。
 成功なら `Ok(値)`、失敗なら `Err(エラー)` になる。
 
-出てくる章: [2](part1/borrowing.md)
+出てくる章: [2](part1/borrowing.md)、[5](part2/result.md)
 
 ### enum {/* #enum */}
 
 取りうる場合（バリアント）を並べて定義する型。
 バリアントごとに別の値を持たせられる。
 
-出てくる章: [4](part2/enums.md)
+出てくる章: [4](part2/enums.md)、[5](part2/result.md)
 
 ### パターン（pattern） {/* #pattern */}
 
@@ -154,6 +154,19 @@ C++ の `std::unordered_map` に当たる。
 漏れがあればコンパイルエラーになる。
 
 出てくる章: [4](part2/enums.md)
+
+### `?` 演算子（question mark operator） {/* #question-mark */}
+
+`Result` や `Option` の後ろに付け、成功なら中身を取り出し、失敗や `None` ならその場で呼び手へ返す演算子。
+
+出てくる章: [5](part2/result.md)
+
+### ユニット型（unit type） {/* #unit-type */}
+
+`()` と書く、値を一つしか持たない型。
+返すものが無いことを表す。
+
+出てくる章: [5](part2/result.md)
 
 ### 型強制（coercion） {/* #coercion */}
 
@@ -175,7 +188,7 @@ Rust では起きる場所と種類が限られている。
 既定では、スタックを巻き戻しながら値の後始末を走らせ、そのスレッドを終える。
 main スレッドで起きれば、プログラム全体が終わる。
 
-出てくる章: [3](part1/strings.md)
+出てくる章: [3](part1/strings.md)、[5](part2/result.md)
 
 ### `unsafe` {/* #unsafe */}
 
@@ -187,7 +200,7 @@ main スレッドで起きれば、プログラム全体が終わる。
 
 型が持つ操作や性質をまとめて宣言するもの。
 
-出てくる章: [はじめに](intro.md)、3、4（エラーメッセージの中）
+出てくる章: [はじめに](intro.md)、[5](part2/result.md)、3、4（エラーメッセージの中）
 
 ### クレート（crate） {/* #crate */}
 
@@ -230,7 +243,7 @@ Rust のコンパイラ。
 Rust の lint（コードの書き方の点検）を行う道具。
 `cargo clippy` で走らせる。
 
-出てくる章: [3](part1/strings.md)、[4](part2/enums.md)
+出てくる章: [3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)
 
 ### rustup {/* #rustup */}
 
@@ -239,6 +252,20 @@ Rust のツールチェーン（コンパイラや `cargo` の版）を入れて
 出てくる章: [はじめに](intro.md)
 
 ## プログラミング言語の用語
+
+### 例外（exception） {/* #exception */}
+
+失敗を戻り値とは別の道で伝え、受け止める場所まで呼び出しをさかのぼらせる仕組み。
+C++、Java、C# などが持つ。
+
+出てくる章: [5](part2/result.md)
+
+### 検査例外（checked exception） {/* #checked-exception */}
+
+Java で、投げうることを `throws` として宣言に書かなければならない例外。
+受け止めも宣言もせずに呼ぶとコンパイルエラーになる。
+
+出てくる章: [5](part2/result.md)
 
 ### 参照外し（dereference） {/* #dereference */}
 
@@ -279,7 +306,7 @@ wide pointer とも呼ばれる。
 言語の規格が結果を何も定めていない動作。
 動いているように見えても、何が起きても文句は言えない。
 
-出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)
+出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)
 
 ### データ競合（data race） {/* #data-race */}
 
@@ -435,3 +462,16 @@ C++17 で入った、決めておいた型のどれか一つの値を持つ型�
 どの型の値を持っているかを覚えていて、`std::visit` で場合分けできる。
 
 出てくる章: [4](part2/enums.md)
+
+### `std::optional` {/* #std-optional */}
+
+C++17 で入った、値が有るか無いかを表す型。
+空のまま `*` や `->` で中身を読むと未定義動作になる。
+
+出てくる章: [5](part2/result.md)
+
+### `std::expected` {/* #std-expected */}
+
+C++23 で入った、成功の値か失敗の値のどちらかを持つ型。
+
+出てくる章: [5](part2/result.md)
