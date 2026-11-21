@@ -83,7 +83,7 @@ scripts/setup-git-secrets.sh    秘密情報スキャンのパターンとフッ
 
 **同じ事実を 2 箇所に書かない。** 複製は必ず腐る。
 **この節の規則が破られた実例を知りたいとき、規則を緩めたくなったとき** →
-[docs/doc-rules-history.md](docs/doc-rules-history.md)（この規則がある理由。ADR や handoff が「失敗事例 N」と呼ぶもの）
+[docs/doc-rules-history.md](docs/doc-rules-history.md)（この規則がある理由。ADR や journal が「失敗事例 N」と呼ぶもの）
 
 ### 正本の割り当て
 
@@ -299,7 +299,7 @@ devcontainer（`.devcontainer/`）とホスト直実行の両方に対応する�
 
 ### コンテナから push しない
 
-**コンテナへ資格情報を渡さない。commit はコンテナで、push はホストから行う。**
+**コンテナへ資格情報を渡さない。実装・テスト・commit はコンテナで、push はホストから行う。**
 検討した代替案と却下理由は
 [ADR-0008](docs/adr/0008-container-push-credentials.md) が正本。
 **コンテナで push や commit が失敗したとき、この方針を覆したくなったとき** →
