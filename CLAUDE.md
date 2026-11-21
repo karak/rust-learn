@@ -68,6 +68,7 @@ docs/adr/                       アーキテクチャ意思決定記録（不変
 docs/journal/                   進め方の振り返り（KPT、日付ごと）
 docs/handoff.md                 現在地・再開手順・未決事項
 docs/doc-rules-history.md       文書の書き分け規則が生まれた経緯（失敗の記録）
+docs/doc-checks.md              文書の検査の一覧と走る場所（実体は scripts/check-docs.sh）
 book/                           人間向けのハンズオン（Docusaurus）。**正本ではない**
 book/code/chNN/                 章ごとの独立したクレート。ワークスペースのメンバ
 .claude/skills/                 このリポジトリ固有のスキル
@@ -183,37 +184,9 @@ scripts/setup-git-secrets.sh    秘密情報スキャンのパターンとフッ
 **[経緯](docs/doc-rules-history.md) 4 の教訓。** 「書かない」という規約は守り忘れられ、
 **破られたことに誰も気づかない**（テスト名の表は数日腐っていた）。
 
-`scripts/check-docs.sh` が次を機械的に検査し、**CI で回る**。
-
-| 検査 | 根拠 |
-| --- | --- |
-| `curriculum.md` の見出しに（済）が無い | 完了状況は `stage-log.md` |
-| `curriculum.md` にチェックボックスが無い | 状態を持たせると予実管理メモに戻る |
-| `curriculum.md` に実績の節が無い | 「実」は `stage-log.md` |
-| **`curriculum.md` が `docs/handoff.md` を指さない** | 持ち越し・未決事項は handoff の側だけが持つ。予に書くと「自分の課題」と読まれる |
-| **どの文書にもテストのフルパス（`::tests::`）が無い** | `cargo nextest list` が答える |
-| **`aggregate` が `clap` / `regex` / ファイル操作に触れない** | 並列化ポリシーを切り出せる状態に保つ（ADR-0007 論点 5） |
-| `stage-log.md` に現在地・次の作業の節が無い | 状態は `handoff.md` の 1 箇所 |
-| **journal に出た rustc のエラーコードが `learning-log.md` にもある** | 言語の性質は学びの側。journal は参照するだけ |
-| md の相対リンクが切れていない | 上の 3 の再発防止 |
-| **`book/` がリポジトリの運用に触れない** | 読者のリポジトリの話ではない（ADR-0013 論点 6） |
-| **`book/` が却下した設計案に触れない** | 検討の過程は `docs/adr/` が正本 |
-| **`book/` から `docs/adr/` への相対リンクが無い** | サイトのビルドが落ちる（ADR-0013 論点 7） |
-| `book/` で太字がリンクの外側に無い | 和文に接すると強調にならず、ビルドは通る（2026-11-21 に起きた） |
-| 9 章までのコード（章のクレートと本文のコードブロック）にライフタイム注釈が無い | 注釈は 10 章で出す（ADR-0013 論点 4c） |
-| **まだ `git add` していない文書も、名前に空白や非 ASCII を含む文書も検査する** | どちらも、何も言わずに検査から外れていた |
-
-検査は **3 層で走る。**
-
-| 層 | いつ | 設定場所 |
-| --- | --- | --- |
-| **Claude のフック** | 文書を書き換えた直後 | `.claude/settings.json` の `PostToolUse`（`Write` / `Edit`） |
-| 手で実行 | コミット前 | `scripts/check-docs.sh` |
-| CI | push のたび | `.github/workflows/ci.yml` の `docs` ジョブ |
-
-**`.claude/rules/` には置いていない。** そのパスは自動で読み込まれないため、
-規則を置いても効かない。**自動で読まれるのは `CLAUDE.md`**、
-自動で走るのは上のフックと CI である。
+`scripts/check-docs.sh` が書き分けを機械的に検査する（実行は「コマンド」の節）。
+**検査の一覧と走る場所を知りたいとき、検査に落ちたとき、検査を足すとき** →
+[docs/doc-checks.md](docs/doc-checks.md)
 
 **新しい「書かないもの」を決めたら、検査に足せるかを問う。**
 足せるなら足す。足せないなら、なぜ足せないかを書く。
