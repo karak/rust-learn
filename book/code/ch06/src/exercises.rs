@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 /// 演習 1: 0 から 100 までの値だけを持つ型。
 ///
-/// フィールドを公開しないので、このモジュールの外では `Percent(150)` と書けない。
+/// フィールドを公開しないので、このモジュールとその子孫の外では `Percent(150)` と書けない。
 /// 作る道は `Percent::new` だけで、そこで範囲を確かめる。
 #[derive(Debug, PartialEq, Eq)]
 struct Percent(u8);

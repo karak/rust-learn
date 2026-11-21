@@ -132,21 +132,21 @@ C++ の `std::unordered_map` に当たる。
 成功の値か失敗の値のどちらかを持つ型。
 成功なら `Ok(値)`、失敗なら `Err(エラー)` になる。
 
-出てくる章: [2](part1/borrowing.md)、[5](part2/result.md)
+出てくる章: [2](part1/borrowing.md)、[5](part2/result.md)、[6](part2/structs.md)
 
 ### enum {/* #enum */}
 
 取りうる場合（バリアント）を並べて定義する型。
 バリアントごとに別の値を持たせられる。
 
-出てくる章: [4](part2/enums.md)、[5](part2/result.md)
+出てくる章: [4](part2/enums.md)、[5](part2/result.md)、[6](part2/structs.md)
 
 ### パターン（pattern） {/* #pattern */}
 
 値の形を書いて照らし合わせるための記法。
 `match` の腕の左辺に書き、合ったときに中身へ名前を付けられる。
 
-出てくる章: [4](part2/enums.md)、[5](part2/result.md)
+出てくる章: [4](part2/enums.md)、[5](part2/result.md)、[6](part2/structs.md)
 
 ### 網羅性検査（exhaustiveness checking） {/* #exhaustiveness */}
 
@@ -225,9 +225,8 @@ Rust のコンパイルの単位。
 
 ### メソッドと関連関数（method / associated function） {/* #method */}
 
-`impl` の中に書く関数。
-第 1 引数に `self`、`&self`、`&mut self` のどれかを取るものをメソッドと呼び、`値.名前(...)` で呼ぶ。
-`self` を取らないものを関連関数と呼び、`型::名前(...)` で呼ぶ。C++ の static メンバ関数に当たる。
+`impl` の中に書く関数のうち、第 1 引数に `self`、`&self`、`&mut self` のどれかを取り、`値.名前(...)` で呼ぶもの。
+`self` を取らず `型::名前(...)` で呼ぶものは関連関数と呼び、C++ の static メンバ関数に当たる。
 
 出てくる章: [6](part2/structs.md)
 
@@ -274,7 +273,7 @@ Rust のコンパイラ。
 Rust の lint（コードの書き方の点検）を行う道具。
 `cargo clippy` で走らせる。
 
-出てくる章: [3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)
+出てくる章: [3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)、[6](part2/structs.md)
 
 ### rustup {/* #rustup */}
 
@@ -289,7 +288,7 @@ Rust のツールチェーン（コンパイラや `cargo` の版）を入れて
 失敗を戻り値とは別の道で伝え、受け止める場所まで呼び出しをさかのぼらせる仕組み。
 C++、Java、C# などが持つ。
 
-出てくる章: [5](part2/result.md)
+出てくる章: [5](part2/result.md)、[6](part2/structs.md)
 
 ### 検査例外（checked exception） {/* #checked-exception */}
 
@@ -423,7 +422,7 @@ Rust にはこれに当たるものが無い。
 壊れてはいないが、中身が何であるかは規格が定めていない。
 型ごとに別の定めがある場合はそれに従う（`std::unique_ptr` は `nullptr` になる）。
 
-出てくる章: [1](part1/ownership.md)
+出てくる章: [1](part1/ownership.md)、[6](part2/structs.md)
 
 ### `= delete`（deleted function） {/* #deleted-function */}
 

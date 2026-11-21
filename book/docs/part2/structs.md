@@ -49,18 +49,20 @@ pub struct Tally {
 構造体の値は、型の名前に続けて、全部のフィールドに値を書いて作る。
 1 つでも書き忘れるとコンパイルが通らない。
 次は、あとで見る `new` の中で `lines` を書き忘れたときのエラーである。
+この章のエラーは、どれも示したコードを `main.rs` や `tally.rs` に一時的に置いて出したもので、行番号はそのときの位置である。
 （別の値から残りのフィールドを写す `..` という書き方もあるが、そのときも写し元を `..other` のように書く。）
 
 ```
 error[E0063]: missing field `lines` in initializer of `Tally`
-  --> book/code/ch06/src/tally.rs:86:9
+  --> src/tally.rs:86:9
    |
 86 |         Self {
    |         ^^^^ missing `lines`
 ```
 
-C++ で同じ形の集成体（aggregate）を `Tally t{"level", true};` のように初期化すると、書かなかったフィールドは黙って 0 で埋まる。
-手元の clang では、`-Wall` では何も言わず、`-Wextra` を付けたときだけ `-Wmissing-field-initializers` の警告が出た。
+C++ で同じ形の集成体（aggregate）を `Tally t{"level", true};` のように初期化すると、書かなかったフィールドは黙って初期化される（既定の初期化子が無ければ 0 になる）。
+手元の clang では、この位置で並べる形について、`-Wall` では何も言わず、`-Wextra` を付けたときだけ `-Wmissing-field-initializers` の警告が出た。
+`.field = "level"` のように名前を指定する形では、`-Wextra` でも警告は出なかった。
 
 Rust には、C++ のようなコンストラクタも無い。
 値を作る手続きは、`impl` の中に書く普通の関数である。
@@ -108,18 +110,18 @@ impl Tally {
 | --- | --- | --- |
 | `&self` | 読むだけ | `const` メンバ関数 |
 | `&mut self` | 書き換える | `const` の付かないメンバ関数 |
-| `self` | 値ごと受け取る。呼んだあとの値は使えない | `&&` 修飾のメンバ関数 |
+| `self` | 値ごと受け取る。呼んだあとの値は使えない（`Copy` な型を除く） | `&&` 修飾のメンバ関数 |
 
 `&self` と `&mut self` は、2 章の[共有参照と可変参照](../glossary.md#references)そのものである。
 `const` メンバ関数でも `mutable` を付けたメンバは書き換えられるが、`&self` のメソッドはフィールドを書き換えられない。
 例外は、2 章で見た[内部可変性](../glossary.md#interior-mutability)を持つ型だけである。
 
 `tally.push_line(line)` と `.` で呼ぶと、コンパイラが `&mut tally` を作って渡す。
-呼ぶ側で `&mut` を書かなくてよい代わりに、`tally` が `let mut` で宣言されていなければ通らない。
+呼ぶ側で `&mut` を書かなくてよい代わりに、値を持つ変数 `tally` が `let mut` で宣言されていなければ通らない。
 
 ```
 error[E0596]: cannot borrow `tally` as mutable, as it is not declared as mutable
- --> book/code/ch06/src/main.rs:7:5
+ --> src/main.rs:7:5
   |
 7 |     tally.push_line("level=warn").unwrap();
   |     ^^^^^ cannot borrow as mutable
@@ -149,7 +151,7 @@ pub fn finish(self) -> Report {
 
 ```
 error[E0382]: borrow of moved value: `tally`
-   --> book/code/ch06/src/main.rs:9:20
+   --> src/main.rs:9:20
     |
   6 |     let tally = Tally::new(field);
     |         ----- move occurs because `tally` has type `Tally`, which does not implement the `Copy` trait
@@ -166,8 +168,9 @@ C++ でも、[`&&` 修飾](../glossary.md#ref-qualifier)のメンバ関数 `Repo
 `t.finish()` と左辺値のまま呼べばコンパイルエラーになり、`std::move(t).finish()` と書かせるところまでは同じである。
 違いはそのあとに出る。
 手元の clang では、`std::move(t).finish()` のあとで `t.count_of("warn")` を呼んでも、`-Wall -Wextra` で何も言わずにコンパイルが通り、`0` を返した。
-move されたあとの `std::map` は「有効だが未規定」の状態で、`0` が返ったのは libc++ でたまたまそうだったにすぎない。
+move されたあとの `std::map` は[「有効だが未規定」](../glossary.md#valid-but-unspecified)の状態で、`0` が返ったのは libc++ でたまたまそうだったにすぎない。
 clang の静的解析（`--analyze`）を回したときだけ、move されたあとのオブジェクトを使ったという警告が出た。
+ただし、`count_of` の中身を少し変えると、静的解析でも出なくなることがあった。
 
 ### 設定は `self` を受け取って返すメソッドで足す
 
@@ -195,7 +198,7 @@ let mut tally = Tally::new(field).strict(true);
 元の `tally` も `strict` に move されているので、もう使えない。
 この属性があれば `` unused return value of `Tally::strict` that must be used `` と警告が出る。
 属性を外した版で同じ 1 行を試すと、何も言わずにコンパイルが通った。
-このリポジトリが有効にしている clippy の pedantic は、`Self` を返す公開メソッドにこの属性が無いと警告する（`return_self_not_must_use`）。
+このリポジトリが有効にしている [clippy](../glossary.md#clippy) の pedantic は、`Self` を返す公開メソッドにこの属性が無いと警告する（`return_self_not_must_use`）。
 
 ## 参照を返すメソッドは `self` 全体を借りる
 
@@ -225,7 +228,7 @@ fn note(&mut self) {
 
 ```
 error[E0502]: cannot borrow `self.counts` as mutable because it is also borrowed as immutable
-   --> book/code/ch06/src/tally.rs:120:9
+   --> src/tally.rs:120:9
     |
 119 |         let name = self.field();
     |                    ---- immutable borrow occurs here
@@ -250,7 +253,7 @@ Rust では、型の中のコードはフィールドを直接触り、参照を
 ここまでのコードでは `pub` が付いたり付かなかったりしていた。
 Rust の項目（型、関数、フィールド、メソッド）は、何も付けなければ非公開で、`pub` を付けたものだけが外から見える。
 フィールドとメソッドにも 1 つずつ付ける。
-例外は enum のバリアントで、enum に `pub` を付ければバリアントも全部公開される。
+例外の 1 つは [enum](../glossary.md#enum) のバリアントで、enum に `pub` を付ければバリアントも全部公開される。
 
 非公開の項目が見える範囲は、型ではなく、それを定義した[モジュール](../glossary.md#module)で決まる。
 モジュールは、名前をまとめる入れ物である。
@@ -299,8 +302,8 @@ mod tests {
 ほかの言語では、`private` の単位は型である。
 
 - **C++** は、クラスが単位になる。外の関数に見せたければ、クラスの中で [`friend`](../glossary.md#friend) と宣言する
-- **Java** の `private` は、いちばん外側のクラスが単位になる。入れ子のクラスからは見えるが、同じファイルの別のクラスからは見えない。修飾子を書かなければ、同じパッケージ全体から見える
-- **C#** の `private` は、型が単位になる。入れ子の型からは見える。修飾子を書かなければ `private` になる
+- **Java** の `private` は、いちばん外側のクラスが単位になる。入れ子のクラスからは見えるが、同じファイルの別のクラスからは見えない。メンバに修飾子を書かなければ、同じパッケージ全体から見える
+- **C#** の `private` は、型が単位になる。入れ子の型からは見える。メンバに修飾子を書かなければ `private` になる
 
 Rust で C++ の `friend` に当たることをしたければ、同じモジュールに置く。
 型ごとに境界を引きたければ、型ごとにモジュールを分ける。
@@ -312,12 +315,12 @@ Rust で C++ の `friend` に当たることをしたければ、同じモジュ
 ### `pub` を付けただけでは外に出ない
 
 `tally` モジュールの中の `Tally` には `pub` が付いている。
-それでも、`main.rs` から `book_ch06::tally::Tally` とは書けない。
+それでも、`main.rs` から `book_ch06::tally::FieldName` や `book_ch06::tally::Tally` とは書けない。
 `mod tally;` に `pub` が付いていないので、モジュールそのものが外から見えないからである。
 
 ```
 error[E0603]: module `tally` is private
-  --> book/code/ch06/src/main.rs:3:28
+  --> src/main.rs:3:28
    |
  3 |     let field = book_ch06::tally::FieldName::new("level");
    |                            ^^^^^  --------- struct `FieldName` is not publicly re-exported
@@ -336,12 +339,13 @@ pub use tally::{FieldName, FieldNameError, MissingField, Report, Tally};
 クレートの外から見た公開の範囲は、この 1 行を読めば全部分かる。
 
 `pub` を付けたのに `pub use` し忘れた項目は、外からはたどり着けない。
-既定では何も言われないが、このリポジトリでは有効にしている `unreachable_pub` の lint が `` unreachable `pub` item `` と警告し、`pub(crate)` に絞るよう勧める。
+クレートの中で使っていれば既定では何も言われないが、このリポジトリでは有効にしている `unreachable_pub` の lint が `` unreachable `pub` item `` と警告し、`pub(crate)` に絞るよう勧める。
 
 ## 隠したフィールドで、正しい値しか無いことを保証する
 
 数えるフィールドの名前には、守ってほしい条件がある。
-`tally` は行を空白で区切り、`名前=値` の最初の `=` で名前と値を分ける。
+この章のコードは、4 章と同じく、空白で区切った `名前=値` の並びを行として読む。
+`find_field` は、語が名前で始まり、そのすぐ後ろが `=` なら、残りを値とみなす。
 空白を含む名前は、どの行とも一致しない。
 `=` を含む名前を許すと、`a=b=c` という語を「`a` の値が `b=c`」とも「`a=b` の値が `c`」とも読めてしまう。
 空の名前も困る。
@@ -374,19 +378,19 @@ impl FieldName {
 
 ```
 error[E0423]: cannot initialize a tuple struct which contains private fields
-  --> book/code/ch06/src/main.rs:5:16
+  --> src/main.rs:5:16
    |
  5 |     let name = FieldName(String::from("a b"));
    |                ^^^^^^^^^
    |
 note: constructor is not visible here due to private fields
-  --> book/code/ch06/src/tally.rs:13:22
+  --> src/tally.rs:13:22
    |
 13 | pub struct FieldName(String);
    |                      ^^^^^^ private field
 ```
 
-中身を `ok.0` で読むこと（`E0616`）も、`let FieldName(s) = ok;` とパターンで取り出すこと（`E0532`）もできない。
+中身を `ok.0` で読むこと（`E0616`）も、`let FieldName(s) = ok;` と[パターン](../glossary.md#pattern)で取り出すこと（`E0532`）もできない。
 外から作る道は `FieldName::new` しか無く、そこで条件を確かめている。
 だから、モジュールの外にある `FieldName` は、どれも条件を満たしている。
 `main.rs` から受け取った名前を、`Tally` は確かめ直さなくてよい。
@@ -398,8 +402,8 @@ note: constructor is not visible here due to private fields
 
 C++ でも、メンバを `private` にして、コンストラクタで確かめれば、同じことが書ける。
 違うのは、失敗の伝え方である。
-C++ のコンストラクタは値を返せないので、確かめて駄目だったことを伝えるには、例外を投げるか、コンストラクタの外に作り方を用意して [`std::optional`](../glossary.md#std-optional) や [`std::expected`](../glossary.md#std-expected) を返すことになる。
-Rust の `new` はただの関数なので、5 章の `Result` をそのまま返せる。
+C++ のコンストラクタは値を返せないので、確かめて駄目だったことを伝えるには、[例外](../glossary.md#exception)を投げるか、コンストラクタの外に作り方を用意して [`std::optional`](../glossary.md#std-optional) や [`std::expected`](../glossary.md#std-expected) を返すことになる。
+Rust の `new` はただの関数なので、5 章の [`Result`](../glossary.md#result) をそのまま返せる。
 
 名前の付いたフィールドの構造体でも同じである。
 `Tally` のフィールドは 1 つも公開していないので、`main.rs` で構造体の値を直接書こうとすると、`E0451`（fields `field`, `strict`, `counts`, `skipped` and `lines` of struct `Tally` are private）で止まる。
@@ -432,7 +436,7 @@ pub struct Report {
 
 ```
 error[E0639]: cannot create non-exhaustive struct using struct expression
- --> book/code/ch06/src/main.rs:6:18
+ --> src/main.rs:6:18
   |
 6 |     let report = Report { counts: HashMap::new(), skipped: 0 };
   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -493,10 +497,13 @@ impl Counter {
 `FieldName` や `Tally` にも付けてある。
 仕組み（[trait](../glossary.md#trait)）は 9 章で扱う。
 `HashMap` の 3 つ目の型 `RandomState` は、キーからハッシュ値を計算するやり方を選んでいる。
+標準ライブラリにも同じ名前の型があるが、これは `foldhash` というクレートのもので、抜粋では `use` の行を省いた。
 
-`--pointer` に渡す JSON Pointer も、この章の `FieldName` と同じく、確かめてから作る型である。
+`tally` は、`--pointer` オプションで JSON の入れ子をたどる道筋を `/a/b` のように受け取る（JSON Pointer という記法）。
+これを持つ `JsonPointer` も、この章の `FieldName` と同じく、確かめてから作る型である。
 
 ```rust
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct JsonPointer {
     raw: Box<str>,
     first: Box<str>,
@@ -540,7 +547,8 @@ impl Percent {
 }
 ```
 
-書けたら、別のモジュールから `Percent(150)` と書けない理由を説明してほしい。
+書けたら、`Percent` を定義したモジュールの子孫でないモジュールから `Percent(150)` と書けない理由を説明してほしい。
+同じクレートの中なら、エラーは `E0603`（tuple struct constructor `Percent` is private）になる。
 
 **演習 2**
 
