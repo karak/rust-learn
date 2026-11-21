@@ -84,7 +84,7 @@ pub struct Counter {
     // **キーが利用者の入力そのもの**であるこのツールでは、衝突を事前計算されうる
     // （`HashMap` が O(n²) に退化する）。`foldhash` はインスタンスごとに
     // 乱数シードを持つので、その前提が崩れない。
-    // ADR-0005 論点 3 で `fancy-regex` を退けたのと同じ形の判断である。
+    // `docs/learning-log.md` 7-3 で `fancy-regex` を退けたのと同じ形の判断である。
     //
     // **`quality` ではなく `fast`。** `HashMap` のキーに使うだけで、
     // ハッシュ値そのものを外に出さない（分散やシャーディングに使わない）。
@@ -201,7 +201,7 @@ impl Counter {
     ///
     /// [ADR-0007]: ../../../docs/adr/0007-multi-input-aggregation.md
     pub fn merge(&mut self, other: Counter) {
-        // **`other` を消費して反復する。** `Counter` は `Clone` を持たないので、
+        // **`other` を消費して反復する。** `other` は値で受け取っているので、
         // キーの `String` を作り直さずにそのまま引き取れる。
         for (key, count) in other.counts {
             *self.counts.entry(key).or_insert(0) += count;
@@ -330,14 +330,10 @@ where
 
     loop {
         line.clear();
-        // `item?` は `io::Error` → `TallyError::Read`、
-        // `push_line?` は `LineError` → `TallyError::Line` と、
+        // `read_line(..)?` は `io::Error` → `TallyError::Read`、
+        // `push_line(..)?` は `LineError` → `TallyError::Line` と、
         // **別々の `From` 実装を経由して同じ型に合流する。**
         if reader.read_line(&mut line)? == 0 {
-            // **`collect::<Result<Vec<_>, _>>()` を使わない。** 短絡はするが、
-            // 短絡するまでの成功分をすべて `Vec` に確保する。入力は標準入力の
-            // ストリームでありうるので、入力サイズぶんのメモリを要求する形にしない。
-            // このループなら 1 行ずつ積み、最初のエラーで `?` が打ち切る。
             break;
         }
 
@@ -350,9 +346,6 @@ where
             rest.strip_suffix('\r').unwrap_or(rest)
         });
 
-        // **`Err` は必ず下流へ流す。** 述語で判定できないからと捨てると、
-        // I/O 失敗が「フィルタに合わなかった行」と区別できなくなり、
-        // 途中で読めなくなった入力が成功として集計される。
         if !keep(trimmed) {
             continue;
         }
@@ -680,7 +673,7 @@ mod tests {
     fn 述語で落ちた行も行番号に数える() {
         // 3 行目が壊れている。2 行目を落としても「3 行目」と言えなければ、
         // 利用者は入力ファイルの該当行を開けない。
-        // enumerate を filter より前に置くことでこれを保証する。
+        // `line_no` を述語（`keep`）より前に進めることでこれを保証する。
         let mut counter = Counter::new();
         let err = tally_reader(
             &mut counter,
@@ -697,7 +690,7 @@ mod tests {
 
     #[test]
     fn 不正な_utf8_は読み取り失敗になる() {
-        // `lines()` は InvalidData を返す。行の失敗（LineError）とは別の枝に入る。
+        // `read_line` は InvalidData を返す。行の失敗（LineError）とは別の枝に入る。
         let mut counter = Counter::new();
         let err = tally_reader(
             &mut counter,

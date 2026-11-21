@@ -421,9 +421,8 @@ mod tests {
     /// `std::error::Error::source()` を辿るだけの糖衣なので、
     /// 依存を足さずに同じものが書ける。
     fn chain(err: &(dyn Error + 'static)) -> String {
-        // `iter::successors(Some(err), |e| e.source())` と書きたくなるが通らない。
-        // クロージャの引数は `&&dyn Error` になり、戻り値の寿命が
-        // **借用そのものの寿命**に縛られる（E0521 相当）。素朴なループにする。
+        // `iter::successors(Some(err), |&e| e.source())` でも書けるが、
+        // 読みやすさを優先して素朴なループにする。
         let mut shown = Vec::new();
         let mut current = Some(err);
         while let Some(err) = current {

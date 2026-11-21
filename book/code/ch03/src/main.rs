@@ -28,8 +28,10 @@ impl Tally {
 
     /// 1 行ぶん数える。
     ///
-    /// キーは `&str` で借りて受け取り、マップに入れるときにだけ `String` を作る。
+    /// キーは `&str` で借りて受け取るが、`String` は呼ぶたびに作る。
+    /// `entry` は所有したキーを要求するからである。
     /// マップは呼び手より長く生きるので、借りたままでは入れられない。
+    /// 既に数えたキーで `String` を作らずに済ませる方法は、演習 1 で見る。
     fn push(&mut self, key: &str) {
         *self.counts.entry(key.to_owned()).or_insert(0) += 1;
         self.total += 1;

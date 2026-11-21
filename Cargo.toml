@@ -11,7 +11,7 @@ rust-version = "1.97"
 license = "MIT"
 publish = false
 
-# 依存はワークspace 側で一元管理する。
+# 依存はワークスペース側で一元管理する。
 # 各クレートは `foo.workspace = true` で参照し、バージョンの分岐を防ぐ。
 [workspace.dependencies]
 # ワークスペース内のクレート。tally → tally-core の一方向。
@@ -59,8 +59,11 @@ unreachable_pub = "warn"
 all = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
 # 実務で邪魔になりがちなものは明示的に外す（外した理由を残すのが重要）。
+# `error::TallyError` のように、型を単独で `use` しても意味が通る名前を優先するため。
 module_name_repetitions = "allow"
+# 失敗は具体的な列挙型で返しており、型とバリアントのドキュメントが `# Errors` の代わりになるため。
 missing_errors_doc = "allow"
+# 非テストコードの `unwrap` / `expect` は下の lint で別に警告されるため、`# Panics` 節の強制は重複する。
 missing_panics_doc = "allow"
 # ライブラリコードでの panic 系は落とす。テストは clippy.toml で許可済み。
 unwrap_used = "warn"
