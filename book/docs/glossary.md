@@ -40,7 +40,7 @@ Rust の値には必ず一人の所有者がいて、所有者がスコープを
 `Copy` は代入のときに暗黙に複製される型の性質で、`Clone` は `.clone()` と書いたときだけ複製できる型の性質。
 どちらも trait である。
 
-出てくる章: [1](part1/ownership.md)、[4](part2/enums.md)
+出てくる章: [1](part1/ownership.md)、[4](part2/enums.md)、[7](part3/collections.md)
 
 ### drop {/* #drop */}
 
@@ -54,7 +54,7 @@ move された変数については走らない（値が移った先で 1 回だ
 
 値を所有したまま、参照を作って貸すこと。
 
-出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[6](part2/structs.md)
+出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[6](part2/structs.md)、[7](part3/collections.md)
 
 ### 共有参照と可変参照（shared reference / mutable reference） {/* #references */}
 
@@ -62,7 +62,7 @@ move された変数については走らない（値が移った先で 1 回だ
 共有参照は同時にいくつでも作れるが、可変参照は同時に一つだけで、そのあいだは共有参照も作れない。
 この性質から、可変参照は排他参照（exclusive reference）とも呼ばれる。
 
-出てくる章: [2](part1/borrowing.md)、[6](part2/structs.md)
+出てくる章: [2](part1/borrowing.md)、[6](part2/structs.md)、[7](part3/collections.md)
 
 ### 内部可変性（interior mutability） {/* #interior-mutability */}
 
@@ -82,7 +82,7 @@ Rust では、参照が指す先より長く生きないことをコンパイラ
 
 `String` はヒープ上の UTF-8 のバイト列を所有する文字列で、`&str` はどこかにある UTF-8 のバイト列を眺める参照。
 
-出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)
+出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[7](part3/collections.md)
 
 ### 文字列リテラル（string literal） {/* #string-literal */}
 
@@ -111,21 +111,28 @@ UTF-8 のバイト列のうち、1 文字の先頭に当たる位置（と末尾
 要素をヒープ上に連続して並べる、長さを変えられる配列。
 C++ の `std::vector` に当たる。
 
-出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)
+出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[7](part3/collections.md)
 
 ### `HashMap` {/* #hashmap */}
 
 キーから値を引くハッシュ表。
 C++ の `std::unordered_map` に当たる。
 
-出てくる章: [1](part1/ownership.md)、[3](part1/strings.md)
+出てくる章: [1](part1/ownership.md)、[3](part1/strings.md)、[7](part3/collections.md)
+
+### `BTreeMap` {/* #btreemap */}
+
+キーの順序を保つ表。反復するとキーの昇順に出てくる。
+C++ の `std::map` に当たる。
+
+出てくる章: [7](part3/collections.md)
 
 ### `Option` {/* #option */}
 
 値が有るか無いかを表す型。
 有れば `Some(値)`、無ければ `None` になる。
 
-出てくる章: [3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)
+出てくる章: [3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)、[7](part3/collections.md)
 
 ### `Result` {/* #result */}
 
@@ -139,21 +146,21 @@ C++ の `std::unordered_map` に当たる。
 取りうる場合（バリアント）を並べて定義する型。
 バリアントごとに別の値を持たせられる。
 
-出てくる章: [4](part2/enums.md)、[5](part2/result.md)、[6](part2/structs.md)
+出てくる章: [4](part2/enums.md)、[5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)
 
 ### パターン（pattern） {/* #pattern */}
 
 値の形を書いて照らし合わせるための記法。
 `match` の腕の左辺に書き、合ったときに中身へ名前を付けられる。
 
-出てくる章: [4](part2/enums.md)、[5](part2/result.md)、[6](part2/structs.md)
+出てくる章: [4](part2/enums.md)、[5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)
 
 ### 網羅性検査（exhaustiveness checking） {/* #exhaustiveness */}
 
 `match` がすべての場合を扱っているかを、コンパイラが確かめること。
 漏れがあればコンパイルエラーになる。
 
-出てくる章: [4](part2/enums.md)、[5](part2/result.md)
+出てくる章: [4](part2/enums.md)、[5](part2/result.md)、[7](part3/collections.md)
 
 ### `?` 演算子（question mark operator） {/* #question-mark */}
 
@@ -188,7 +195,7 @@ Rust では起きる場所と種類が限られている。
 既定では、スタックを巻き戻しながら値の後始末を走らせ、そのスレッドを終える。
 main スレッドで起きれば、プログラム全体が終わる。
 
-出てくる章: [3](part1/strings.md)、[5](part2/result.md)
+出てくる章: [3](part1/strings.md)、[5](part2/result.md)、[7](part3/collections.md)
 
 ### `unsafe` {/* #unsafe */}
 
@@ -200,7 +207,7 @@ main スレッドで起きれば、プログラム全体が終わる。
 
 型が持つ操作や性質をまとめて宣言するもの。
 
-出てくる章: [はじめに](intro.md)、[5](part2/result.md)、[6](part2/structs.md)、3、4（エラーメッセージの中）
+出てくる章: [はじめに](intro.md)、[5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)、3、4（エラーメッセージの中）
 
 ### クレート（crate） {/* #crate */}
 
@@ -243,14 +250,14 @@ Rust のコンパイルの単位。
 既存の型を、フィールド 1 つのタプル構造体で包んで作る新しい型。
 フィールドを非公開にして、作る関数で条件を確かめれば、モジュールの外では条件を満たす値しか作れなくなる。
 
-出てくる章: [6](part2/structs.md)
+出てくる章: [6](part2/structs.md)、[7](part3/collections.md)
 
 ### エラーコード（error code） {/* #error-code */}
 
 コンパイルエラーに付く `E0382` のような番号。
 `rustc --explain E0382` で、そのエラーの説明と例を読める。
 
-出てくる章: 1、2、3、4（エラーメッセージの中）。[rustc](#rustc) も参照
+出てくる章: 1、2、3、4（エラーメッセージの中）、[7](part3/collections.md)。[rustc](#rustc) も参照
 
 ## ツール
 
@@ -288,7 +295,7 @@ Rust のツールチェーン（コンパイラや `cargo` の版）を入れて
 失敗を戻り値とは別の道で伝え、受け止める場所まで呼び出しをさかのぼらせる仕組み。
 C++、Java、C# などが持つ。
 
-出てくる章: [5](part2/result.md)、[6](part2/structs.md)
+出てくる章: [5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)
 
 ### 検査例外（checked exception） {/* #checked-exception */}
 
@@ -336,7 +343,13 @@ wide pointer とも呼ばれる。
 言語の規格が結果を何も定めていない動作。
 動いているように見えても、何が起きても文句は言えない。
 
-出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)
+出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)、[7](part3/collections.md)
+
+### 安定ソート（stable sort） {/* #stable-sort */}
+
+等しいと判定された要素どうしの前後を、並べる前のまま保つ並べ方。
+
+出てくる章: [7](part3/collections.md)
 
 ### データ競合（data race） {/* #data-race */}
 
@@ -518,3 +531,10 @@ C++23 で入った、成功の値か失敗の値のどちらかを持つ型。
 `&&` を付けたメンバ関数は、右辺値（`std::move` した値や一時オブジェクト）に対してだけ呼べる。
 
 出てくる章: [6](part2/structs.md)
+
+### 狭義の弱順序（strict weak ordering） {/* #strict-weak-ordering */}
+
+`std::sort` などが比べ方に要求する条件。
+等しいとみなす関係が推移的であることを含む。NaN を含む `double` の `<` はこれを満たさない。
+
+出てくる章: [7](part3/collections.md)

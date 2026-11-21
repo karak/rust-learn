@@ -25,6 +25,12 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: ['part2/enums', 'part2/result', 'part2/structs'],
     },
+    {
+      type: 'category',
+      label: 'III 抽象',
+      collapsed: false,
+      items: ['part3/collections'],
+    },
     'glossary',
   ],
 };
