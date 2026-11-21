@@ -66,6 +66,7 @@ docs/stage-log.md               段階の実績記録（実）。作ったもの
 docs/learning-log.md            技術的な学び。他言語との差分
 docs/adr/                       アーキテクチャ意思決定記録（不変。新しい決定は新規 ADR）
 docs/journal/                   進め方の振り返り（KPT、日付ごと）
+docs/learnings/                 連携先のピアに渡す学びと改善候補（1 件 1 ファイル、追記のみ）
 docs/handoff.md                 現在地・再開手順・未決事項
 docs/doc-rules-history.md       文書の書き分け規則が生まれた経緯（失敗の記録）
 docs/doc-checks.md              文書の検査の一覧と走る場所（実体は scripts/check-docs.sh）
@@ -100,6 +101,7 @@ scripts/setup-git-secrets.sh    秘密情報スキャンのパターンとフッ
 | 技術的な学び、他言語との差分 | `docs/learning-log.md` |
 | **設計判断の過程・検討した代替案・却下理由** | **`docs/adr/`**（不変。変更は新規 ADR で supersede） |
 | 進め方の振り返り | `docs/journal/` |
+| **連携先のピアに渡す学び・改善候補**（2026-11-22 から） | **`docs/learnings/`**（取り決めは同ディレクトリの `README.md`） |
 | 現在地・再開手順・未決事項 | `docs/handoff.md` |
 | セットアップとコマンド | `README.md` |
 | **人間の読者に向けた解説（ハンズオン）** | **`book/`** |
