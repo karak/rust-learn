@@ -61,7 +61,7 @@ C++ にも、値が有るか無いかを表す [`std::optional`](../glossary.md#
 `std::optional` は、空のまま `*` や `->` で中身を読むと[未定義動作](../glossary.md#undefined-behavior)になる。
 
 ```cpp
-std::optional<std::string> o = find(argc > 5);   // 引数が 5 個以下なら空
+std::optional<std::string> o = find(argc > 5);   // 引数を付けずに動かせば空
 std::printf("size=%zu\n", o->size());
 ```
 
@@ -72,7 +72,7 @@ libc++ の検査（`_LIBCPP_HARDENING_MODE`）を有効にしてビルドする�
 手元の環境では、この検査は既定で無効だった。
 `o.value()` と書けば、空のときに例外 `std::bad_optional_access` が投げられる。
 
-Rust の `Option` には、空のまま中身を読む書き方が無い。
+`unsafe` と印を付けたコードを使わない限り、Rust の `Option` には空のまま中身を読む書き方が無い。
 `match` で取り出すなら、中身に名前が付くのは `Some` の[パターン](../glossary.md#pattern)の腕だけである。
 このあと見る `unwrap_or` や `unwrap` のようなメソッドも、空のときに何をするか（代わりの値を返す、止まる）が決まっている。
 
