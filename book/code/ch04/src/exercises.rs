@@ -11,7 +11,7 @@ use super::Picked;
 /// ここでは型ごと書き直してある。
 ///
 /// 本文の `Key` に `Column` を足してビルドすると、`extract` の `match` が
-/// `Key::Column(_)` を扱っていないと言って止まる。直す場所はそこだけである。
+/// `&Key::Column(_)` を扱っていないと言って止まる。直す場所はそこだけである。
 enum Key {
     WholeLine,
     Field(String),

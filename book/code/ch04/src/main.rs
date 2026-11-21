@@ -146,6 +146,41 @@ mod tests {
     }
 
     #[test]
+    fn 値を持たないバリアントは整数にできる() {
+        assert_eq!(Format::Text as u8, 0);
+        assert_eq!(Format::Csv as u8, 2);
+    }
+
+    #[test]
+    fn 縦棒で複数のパターンを一つの腕にまとめられる() {
+        fn layout(format: &Format) -> &str {
+            match format {
+                Format::Text | Format::Csv => "行ごと",
+                Format::Json => "全体で一つ",
+            }
+        }
+
+        assert_eq!(layout(&Format::Text), "行ごと");
+        assert_eq!(layout(&Format::Csv), "行ごと");
+        assert_eq!(layout(&Format::Json), "全体で一つ");
+    }
+
+    #[test]
+    fn 下線のパターンは残りのバリアントをまとめて受ける() {
+        // 本文の例。`Format` にバリアントを足しても、ここはエラーにならない。
+        fn name_or_other(format: &Format) -> &str {
+            match format {
+                Format::Text => "text",
+                _ => "other",
+            }
+        }
+
+        assert_eq!(name_or_other(&Format::Text), "text");
+        assert_eq!(name_or_other(&Format::Json), "other");
+        assert_eq!(name_or_other(&Format::Csv), "other");
+    }
+
+    #[test]
     fn 行全体をキーにすると前後の空白を落とす() {
         assert_eq!(
             Key::WholeLine.extract("  warn  "),
