@@ -89,7 +89,6 @@ assert_eq!(count(&["a", "b", "a"]), count(&["b", "a", "a"]));
 ## 同数の並びまで決めないと、順序が漏れる
 
 3 行目の `ranked_by_count_only` は、件数の降順に並べている。
-コードに出てくる `Vec::with_capacity` と `&n` は、次の節で説明する。
 それでも、同数の `info` と `warn`、`debug` と `error` の並びが実行ごとに入れ替わった。
 
 ```rust
@@ -107,6 +106,7 @@ fn by_count_desc(a: &(&str, u64), b: &(&str, u64)) -> Ordering {
 }
 ```
 
+コードに出てくる `Vec::with_capacity` と `&n` は、次の節で説明する。
 `sort_by` に渡すのは、2 つの要素を比べる関数である。
 ここでは関数の名前 `by_count_desc` をそのまま渡した。
 その場で関数を書いて渡すこともでき、その書き方（クロージャ）は 8 章で扱う。
