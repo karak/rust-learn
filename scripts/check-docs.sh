@@ -40,6 +40,8 @@ report() {
     fail=1
 }
 
+# 1. curriculum.md に「実」を書かない
+
 hits=$(grep -nE '^#+ .*（済）' docs/curriculum.md || true)
 [ -n "$hits" ] && report \
     'curriculum.md の見出しに（済）がある' \
@@ -75,6 +77,8 @@ hits=$(grep -nE 'handoff' docs/curriculum.md | grep -vE '^[0-9]+:\|' || true)
     '持ち越し・未決事項・現在地は docs/handoff.md の側だけが持つ。予には書かない' \
     "$hits"
 
+# 2. テスト名・件数を文書に転記しない
+#
 # CLAUDE.md「テストが通るか・件数 → cargo t を実行する — 文書に書かない」。
 # 段階 5 のクレート分割で、実際に curriculum.md の表が全件腐った。
 
@@ -87,6 +91,8 @@ hits=$(ls_md '*.md' $(ignore_pathspec) | grep_each -nE '[[:alnum:]_]::tests::[^`
     'cargo nextest list が答える。文書には書かない' \
     "$hits"
 
+# 3. stage-log.md に「状態」を書かない
+#
 # stage-log.md は「完了した実績」だけを持ち、現在地は持たない。
 
 hits=$(grep -nE '^#+ .*(現在地|次の作業|再開)' docs/stage-log.md || true)
@@ -95,6 +101,8 @@ hits=$(grep -nE '^#+ .*(現在地|次の作業|再開)' docs/stage-log.md || tru
     'docs/handoff.md。状態を 2 箇所に置くと片方が腐る' \
     "$hits"
 
+# 4. 言語の学びを journal に閉じ込めない
+#
 # journal は進め方の反省、learning-log は技術的な学び（CLAUDE.md の 9 と 10）。
 # 境界を機械的に見る手がかりとして rustc のエラーコードを使う。
 # **journal がコードに触れるのは構わないが、その知識は learning-log にも要る。**
@@ -107,6 +115,8 @@ done
     'rustc のエラーコードが journal にしか無い' \
     'コードが示す言語の性質は docs/learning-log.md に書く。journal からは参照する' \
     "$missing"
+
+# 5. 相対リンクの切れ
 
 broken=$(
     # shellcheck disable=SC2046  # pathspec を複数の引数として渡す
@@ -122,6 +132,8 @@ broken=$(
     'リンク先を直すか、節を移動したなら参照も直す' \
     "$broken"
 
+# 6. 本に書かないもの
+#
 # 本は正本ではない（docs/adr/0013-book-phase.md 論点 6）。
 # **3 つのうち 2 つは機械的に見える。**
 # 残る 1 つ（tally の現在の実装状態）は文字列で見分けられないので検査していない。
