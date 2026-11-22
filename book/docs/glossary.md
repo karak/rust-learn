@@ -166,7 +166,7 @@ C++ の `std::map` に当たる。
 
 `Result` や `Option` の後ろに付け、成功なら中身を取り出し、失敗や `None` ならその場で呼び手へ返す演算子。
 
-出てくる章: [5](part2/result.md)
+出てくる章: [5](part2/result.md)、[9](part3/traits.md)
 
 ### ユニット型（unit type） {/* #unit-type */}
 
@@ -180,7 +180,7 @@ C++ の `std::map` に当たる。
 ある型の値を、コンパイラが暗黙に別の型として扱うこと。
 Rust では起きる場所と種類が限られている。
 
-出てくる章: [3](part1/strings.md)
+出てくる章: [3](part1/strings.md)、[9](part3/traits.md)
 
 ### 参照外し型強制（deref coercion） {/* #deref-coercion */}
 
@@ -195,7 +195,7 @@ Rust では起きる場所と種類が限られている。
 `map` や `filter` で包んでも、その処理は `next` が呼ばれたときに初めて走る。
 C++ の反復子と違い、終わりを自分で知っている。
 
-出てくる章: [8](part3/iterators.md)
+出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)
 
 ### クロージャ（closure） {/* #closure */}
 
@@ -203,14 +203,14 @@ C++ の反復子と違い、終わりを自分で知っている。
 変数（やそのフィールド）ごとに、共有で借りるか、可変で借りるか、値で受け取るかを、本体での使い方からコンパイラが決める。
 `move` を付けると、すべて値で受け取る。
 
-出てくる章: [8](part3/iterators.md)
+出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)
 
 ### `Fn` と `FnMut` と `FnOnce` {/* #fn-traits */}
 
 クロージャを、呼べる回数と条件で分けた 3 つの trait。
 `Fn` は共有のまま何度でも、`FnMut` は中身を書き換えながら何度でも、`FnOnce` は少なくとも 1 回呼べる。
 
-出てくる章: [8](part3/iterators.md)
+出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)
 
 ### panic {/* #panic */}
 
@@ -230,14 +230,65 @@ main スレッドで起きれば、プログラム全体が終わる。
 
 型が持つ操作や性質をまとめて宣言するもの。
 
-出てくる章: [はじめに](intro.md)、[5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)、3、4（エラーメッセージの中）
+出てくる章: [はじめに](intro.md)、[5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)、[9](part3/traits.md)、3、4（エラーメッセージの中）
+
+### 型引数（type parameter） {/* #type-parameter */}
+
+`fn tally<T>(...)` や `Option<T>` の `T` のように、関数や型があとから受け取る型。
+使われた型ごとに、別々のコードが作られる。
+
+出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)
+
+### 境界（trait bound） {/* #trait-bound */}
+
+型引数に入る型へ、実装していなければならない trait を求める条件。
+`T: Ord` や `where T: Ord` と書く。
+関数の本体で使える `T` の操作は、境界に書いた trait が持つものに限られる。
+
+出てくる章: [9](part3/traits.md)
+
+### 孤児ルール（orphan rule） {/* #orphan-rule */}
+
+trait を型に実装するとき、trait か型の少なくとも一方が、実装を書くクレートのものでなければならないという規則。
+同じ実装を 2 つ書くことを断る規則と合わせて、ある型にある trait の実装は、プログラム全体で多くても 1 つに決まる（コヒーレンス）。
+
+出てくる章: [9](part3/traits.md)
+
+### `impl Trait` {/* #impl-trait */}
+
+引数や戻り値の型の位置に書く、「その trait を実装した、ある 1 つの型」。
+クロージャのように名前の無い型を返すときに使う。
+`dyn` と違い、実際の型はコンパイル時に決まっている。
+
+出てくる章: [9](part3/traits.md)
+
+### `dyn`（trait object） {/* #dyn */}
+
+`&dyn Bucket` や `Box<dyn Bucket>` のように書き、trait を実装した何かの型の値を、型を消して扱う。
+メソッドの呼び先は、値と一緒に持つ表（vtable）から実行時に引く。
+`Self` を返すメソッドのように、表に載せられないメソッドを持つ trait は、そのままでは `dyn` にできない。
+
+出てくる章: [9](part3/traits.md)
+
+### derive {/* #derive */}
+
+`#[derive(Debug, Clone)]` のように書き、trait の実装をコンパイラやライブラリに書かせる属性。
+derive した実装は、フィールドの型の実装を使う。
+
+出てくる章: [6](part2/structs.md)、[9](part3/traits.md)
+
+### 関連型（associated type） {/* #associated-type */}
+
+trait の中で `type Reader;` のように宣言し、実装ごとに 1 つに決める型。
+
+出てくる章: [9](part3/traits.md)
 
 ### クレート（crate） {/* #crate */}
 
 Rust のコンパイルの単位。
 ライブラリ一つ、または実行ファイル一つに当たる。
 
-出てくる章: [4](part2/enums.md)、[6](part2/structs.md)
+出てくる章: [4](part2/enums.md)、[6](part2/structs.md)、[9](part3/traits.md)
 
 ### 属性（attribute） {/* #attribute */}
 
@@ -273,14 +324,14 @@ Rust のコンパイルの単位。
 既存の型を、フィールド 1 つのタプル構造体で包んで作る新しい型。
 フィールドを非公開にして、作る関数で条件を確かめれば、モジュールの外では条件を満たす値しか作れなくなる。
 
-出てくる章: [6](part2/structs.md)、[7](part3/collections.md)
+出てくる章: [6](part2/structs.md)、[7](part3/collections.md)、[9](part3/traits.md)
 
 ### エラーコード（error code） {/* #error-code */}
 
 コンパイルエラーに付く `E0382` のような番号。
 `rustc --explain E0382` で、そのエラーの説明と例を読める。
 
-出てくる章: 1、2、3、4（エラーメッセージの中）、[7](part3/collections.md)、[8](part3/iterators.md)。[rustc](#rustc) も参照
+出てくる章: 1、2、3、4（エラーメッセージの中）、[7](part3/collections.md)、[8](part3/iterators.md)、[9](part3/traits.md)。[rustc](#rustc) も参照
 
 ## ツール
 
@@ -352,7 +403,7 @@ Rust では、所有者の変数がスコープを抜けると値が解放され
 
 実行中に大きさを決めて確保し、使い終わったら解放するメモリの領域。
 
-出てくる章: [1](part1/ownership.md)、[3](part1/strings.md)、[8](part3/iterators.md)
+出てくる章: [1](part1/ownership.md)、[3](part1/strings.md)、[8](part3/iterators.md)、[9](part3/traits.md)
 
 ### ファットポインタ（fat pointer） {/* #fat-pointer */}
 
@@ -360,7 +411,7 @@ Rust では、所有者の変数がスコープを抜けると値が解放され
 wide pointer とも呼ばれる。
 3 章で「二語の値」と呼んだ `&str` やスライスがこれに当たる。
 
-出てくる章: [3](part1/strings.md)
+出てくる章: [3](part1/strings.md)、[9](part3/traits.md)
 
 ### スタックの巻き戻し（stack unwinding） {/* #stack-unwinding */}
 
@@ -385,7 +436,21 @@ wide pointer とも呼ばれる。
 
 型引数を持つ関数や型を、使われた型ごとに別々のコードとして生成すること。
 
-出てくる章: [8](part3/iterators.md)
+出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)
+
+### vtable {/* #vtable */}
+
+ある型が実装した trait のメソッドのアドレスを並べた表。
+Rust では、`dyn` を書いたときだけ、呼び出しがこの表を引く。
+
+出てくる章: [9](part3/traits.md)
+
+### 型消去（type erasure） {/* #type-erasure */}
+
+総称型の型引数を、コンパイルの後に消すこと。
+Java の総称型がこの形で、`List<String>` と `List<Integer>` は実行時には同じクラスになる。
+
+出てくる章: [9](part3/traits.md)
 
 ### データ競合（data race） {/* #data-race */}
 
