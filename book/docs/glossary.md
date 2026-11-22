@@ -26,7 +26,7 @@ Rust の値には必ず一人の所有者がいて、所有者がスコープを
 値の所有権を別の変数や関数へ移すこと。
 移したあとの元の変数は、コンパイラが使わせない。
 
-出てくる章: [1](part1/ownership.md)、[4](part2/enums.md)、[6](part2/structs.md)
+出てくる章: [1](part1/ownership.md)、[4](part2/enums.md)、[6](part2/structs.md)、[8](part3/iterators.md)
 
 ### 部分 move（partial move） {/* #partial-move */}
 
@@ -40,7 +40,7 @@ Rust の値には必ず一人の所有者がいて、所有者がスコープを
 `Copy` は代入のときに暗黙に複製される型の性質で、`Clone` は `.clone()` と書いたときだけ複製できる型の性質。
 どちらも trait である。
 
-出てくる章: [1](part1/ownership.md)、[4](part2/enums.md)、[7](part3/collections.md)
+出てくる章: [1](part1/ownership.md)、[4](part2/enums.md)、[7](part3/collections.md)、[8](part3/iterators.md)
 
 ### drop {/* #drop */}
 
@@ -54,7 +54,7 @@ move された変数については走らない（値が移った先で 1 回だ
 
 値を所有したまま、参照を作って貸すこと。
 
-出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[6](part2/structs.md)、[7](part3/collections.md)
+出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)
 
 ### 共有参照と可変参照（shared reference / mutable reference） {/* #references */}
 
@@ -62,7 +62,7 @@ move された変数については走らない（値が移った先で 1 回だ
 共有参照は同時にいくつでも作れるが、可変参照は同時に一つだけで、そのあいだは共有参照も作れない。
 この性質から、可変参照は排他参照（exclusive reference）とも呼ばれる。
 
-出てくる章: [2](part1/borrowing.md)、[6](part2/structs.md)、[7](part3/collections.md)
+出てくる章: [2](part1/borrowing.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)
 
 ### 内部可変性（interior mutability） {/* #interior-mutability */}
 
@@ -111,42 +111,42 @@ UTF-8 のバイト列のうち、1 文字の先頭に当たる位置（と末尾
 要素をヒープ上に連続して並べる、長さを変えられる配列。
 C++ の `std::vector` に当たる。
 
-出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[7](part3/collections.md)
+出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[7](part3/collections.md)、[8](part3/iterators.md)
 
 ### `HashMap` {/* #hashmap */}
 
 キーから値を引くハッシュ表。
 C++ の `std::unordered_map` に当たる。
 
-出てくる章: [1](part1/ownership.md)、[3](part1/strings.md)、[7](part3/collections.md)
+出てくる章: [1](part1/ownership.md)、[3](part1/strings.md)、[7](part3/collections.md)、[8](part3/iterators.md)
 
 ### `BTreeMap` {/* #btreemap */}
 
 キーの順序を保つ表。反復するとキーの昇順に出てくる。
 C++ の `std::map` に当たる。
 
-出てくる章: [7](part3/collections.md)
+出てくる章: [7](part3/collections.md)、[8](part3/iterators.md)
 
 ### `Option` {/* #option */}
 
 値が有るか無いかを表す型。
 有れば `Some(値)`、無ければ `None` になる。
 
-出てくる章: [3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)、[7](part3/collections.md)
+出てくる章: [3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)、[7](part3/collections.md)、[8](part3/iterators.md)
 
 ### `Result` {/* #result */}
 
 成功の値か失敗の値のどちらかを持つ型。
 成功なら `Ok(値)`、失敗なら `Err(エラー)` になる。
 
-出てくる章: [2](part1/borrowing.md)、[5](part2/result.md)、[6](part2/structs.md)
+出てくる章: [2](part1/borrowing.md)、[5](part2/result.md)、[6](part2/structs.md)、[8](part3/iterators.md)
 
 ### enum {/* #enum */}
 
 取りうる場合（バリアント）を並べて定義する型。
 バリアントごとに別の値を持たせられる。
 
-出てくる章: [4](part2/enums.md)、[5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)
+出てくる章: [4](part2/enums.md)、[5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)
 
 ### パターン（pattern） {/* #pattern */}
 
@@ -188,6 +188,29 @@ Rust では起きる場所と種類が限られている。
 `&String` を `&str` として渡せるように、行き先の型が決まっている場所でコンパイラが参照の型を変換すること。
 
 出てくる章: [3](part1/strings.md)
+
+### イテレータ（iterator） {/* #iterator */}
+
+`next` を呼ぶたびに次の要素を `Some` に包んで返し、尽きたら `None` を返す値。
+`map` や `filter` で包んでも、その処理は `next` が呼ばれたときに初めて走る。
+C++ の反復子と違い、終わりを自分で知っている。
+
+出てくる章: [8](part3/iterators.md)
+
+### クロージャ（closure） {/* #closure */}
+
+周りの変数を閉じ込めた、名前の無い関数。`|引数| 本体` と書く。
+変数（やそのフィールド）ごとに、共有で借りるか、可変で借りるか、値で受け取るかを、本体での使い方からコンパイラが決める。
+`move` を付けると、すべて値で受け取る。
+
+出てくる章: [8](part3/iterators.md)
+
+### `Fn` と `FnMut` と `FnOnce` {/* #fn-traits */}
+
+クロージャを、呼べる回数と条件で分けた 3 つの trait。
+`Fn` は共有のまま何度でも、`FnMut` は中身を書き換えながら何度でも、`FnOnce` は少なくとも 1 回呼べる。
+
+出てくる章: [8](part3/iterators.md)
 
 ### panic {/* #panic */}
 
@@ -257,7 +280,7 @@ Rust のコンパイルの単位。
 コンパイルエラーに付く `E0382` のような番号。
 `rustc --explain E0382` で、そのエラーの説明と例を読める。
 
-出てくる章: 1、2、3、4（エラーメッセージの中）、[7](part3/collections.md)。[rustc](#rustc) も参照
+出てくる章: 1、2、3、4（エラーメッセージの中）、[7](part3/collections.md)、[8](part3/iterators.md)。[rustc](#rustc) も参照
 
 ## ツール
 
@@ -281,6 +304,13 @@ Rust の lint（コードの書き方の点検）を行う道具。
 `cargo clippy` で走らせる。
 
 出てくる章: [3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)、[6](part2/structs.md)
+
+### AddressSanitizer {/* #asan */}
+
+C や C++ のプログラムに検査のコードを埋め込み、解放済みの領域やスコープを抜けた変数を読んだことを実行時に報告する道具。
+clang と gcc では `-fsanitize=address` で有効にする。
+
+出てくる章: [8](part3/iterators.md)
 
 ### rustup {/* #rustup */}
 
@@ -316,13 +346,13 @@ Rust でも `*` と書く。
 変数の名前が有効な範囲。
 Rust では、所有者の変数がスコープを抜けると値が解放される。
 
-出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)
+出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[8](part3/iterators.md)
 
 ### ヒープ（heap） {/* #heap */}
 
 実行中に大きさを決めて確保し、使い終わったら解放するメモリの領域。
 
-出てくる章: [1](part1/ownership.md)、[3](part1/strings.md)
+出てくる章: [1](part1/ownership.md)、[3](part1/strings.md)、[8](part3/iterators.md)
 
 ### ファットポインタ（fat pointer） {/* #fat-pointer */}
 
@@ -343,13 +373,19 @@ wide pointer とも呼ばれる。
 言語の規格が結果を何も定めていない動作。
 動いているように見えても、何が起きても文句は言えない。
 
-出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)、[7](part3/collections.md)
+出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)、[7](part3/collections.md)、[8](part3/iterators.md)
 
 ### 安定ソート（stable sort） {/* #stable-sort */}
 
 等しいと判定された要素どうしの前後を、並べる前のまま保つ並べ方。
 
 出てくる章: [7](part3/collections.md)
+
+### 単相化（monomorphization） {/* #monomorphization */}
+
+型引数を持つ関数や型を、使われた型ごとに別々のコードとして生成すること。
+
+出てくる章: [8](part3/iterators.md)
 
 ### データ競合（data race） {/* #data-race */}
 
@@ -463,7 +499,7 @@ Rust の `&T` と `&mut T` に対応するが、コンパイラが保証する�
 コンテナを書き換える操作のあとで、反復子や参照が使えなくなることを無効化と呼ぶ。
 どの操作で何が無効になるかは、コンテナと操作ごとに規格が定めている。
 
-出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)
+出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[8](part3/iterators.md)
 
 ### 再ハッシュ（rehash） {/* #rehash */}
 
@@ -539,3 +575,16 @@ C++23 で入った、成功の値か失敗の値のどちらかを持つ型。
 NaN を含む `double` の `<` はこれを満たさない。
 
 出てくる章: [7](part3/collections.md)
+
+### ラムダ式（lambda expression） {/* #cpp-lambda */}
+
+C++ で、その場で書く名前の無い関数。
+閉じ込める変数とその方法を、`[&]`・`[=]`・`[&x, y]` のようなキャプチャリストで書く。
+
+出てくる章: [8](part3/iterators.md)
+
+### `std::function` {/* #std-function */}
+
+呼び出せるものなら何でも、同じ型に包んで持てる C++ の型。
+
+出てくる章: [8](part3/iterators.md)

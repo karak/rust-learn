@@ -29,7 +29,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'III 抽象',
       collapsed: false,
-      items: ['part3/collections'],
+      items: ['part3/collections', 'part3/iterators'],
     },
     'glossary',
   ],
