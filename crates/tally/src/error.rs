@@ -303,9 +303,11 @@ pub fn one_line(err: &(dyn Error + 'static)) -> String {
 
 /// エラーチェーンのどこかに `BrokenPipe` があるか。
 ///
-/// 直接の `io::Error` だけを見ると足りない。`serde_json` を経由した書き出しでは
-/// `serde_json::Error` から `io::Error` に戻る経路があり、
-/// **包まれた状態で届きうる。**
+/// 直接の `io::Error` だけを見ると足りない。書き出しの途中の層が
+/// `io::Error::other` などで別の失敗に包むと、`BrokenPipe` は原因の側に回る。
+/// `serde_json` はこの経路に当たらない。`serde_json::Error` を `io::Error` に戻すと
+/// 元の `io::Error` がそのまま返るからである（1.0.151 で確かめた）。
+/// **辿るのは、包まれて届いても見落とさないための備えである。**
 fn is_broken_pipe(err: &(dyn Error + 'static)) -> bool {
     let mut current = Some(err);
     while let Some(err) = current {
