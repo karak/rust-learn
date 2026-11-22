@@ -54,7 +54,7 @@ move された変数については走らない（値が移った先で 1 回だ
 
 値を所有したまま、参照を作って貸すこと。
 
-出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)
+出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)
 
 ### 共有参照と可変参照（shared reference / mutable reference） {/* #references */}
 
@@ -76,7 +76,21 @@ move された変数については走らない（値が移った先で 1 回だ
 値や参照が有効でいられる期間。
 Rust では、参照が指す先より長く生きないことをコンパイラが確かめる。
 
-出てくる章: [3](part1/strings.md)
+出てくる章: [3](part1/strings.md)、[10](part3/lifetimes.md)
+
+### ライフタイム注釈（lifetime annotation） {/* #lifetime-annotation */}
+
+`'a` のように寿命に名前を付けて型に書き、引数と戻り値、構造体とそのフィールドが、どの寿命で結ばれているかを表す記法。
+値の寿命を延ばすものではない。
+
+出てくる章: [10](part3/lifetimes.md)
+
+### 省略規則（lifetime elision） {/* #lifetime-elision */}
+
+関数の引数と戻り値の寿命を、注釈を書かなくても決める規則。
+引数の参照が 1 つのときや、`&self` か `&mut self` を取るメソッドでは、戻り値の参照はそこから借りたものとみなされる。
+
+出てくる章: [10](part3/lifetimes.md)
 
 ### `String` と `&str` {/* #string-str */}
 
@@ -89,7 +103,7 @@ Rust では、参照が指す先より長く生きないことをコンパイラ
 `"warn"` のようにコードに直接書いた文字列。
 型は `&str` で、プログラムに埋め込まれたバイト列を指す。
 
-出てくる章: [3](part1/strings.md)
+出てくる章: [3](part1/strings.md)、[10](part3/lifetimes.md)
 
 ### スライス（slice） {/* #slice */}
 
@@ -97,7 +111,7 @@ Rust では、参照が指す先より長く生きないことをコンパイラ
 先頭へのポインタと長さを持つ。
 `&str` は文字列のスライスである。
 
-出てくる章: [3](part1/strings.md)、[5](part2/result.md)
+出てくる章: [3](part1/strings.md)、[5](part2/result.md)、[10](part3/lifetimes.md)
 
 ### 文字の境界（char boundary） {/* #char-boundary */}
 
@@ -111,7 +125,7 @@ UTF-8 のバイト列のうち、1 文字の先頭に当たる位置（と末尾
 要素をヒープ上に連続して並べる、長さを変えられる配列。
 C++ の `std::vector` に当たる。
 
-出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[7](part3/collections.md)、[8](part3/iterators.md)
+出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)
 
 ### `HashMap` {/* #hashmap */}
 
@@ -132,7 +146,7 @@ C++ の `std::map` に当たる。
 値が有るか無いかを表す型。
 有れば `Some(値)`、無ければ `None` になる。
 
-出てくる章: [3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)、[7](part3/collections.md)、[8](part3/iterators.md)
+出てくる章: [3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)
 
 ### `Result` {/* #result */}
 
@@ -146,7 +160,7 @@ C++ の `std::map` に当たる。
 取りうる場合（バリアント）を並べて定義する型。
 バリアントごとに別の値を持たせられる。
 
-出てくる章: [4](part2/enums.md)、[5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)
+出てくる章: [4](part2/enums.md)、[5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)
 
 ### パターン（pattern） {/* #pattern */}
 
@@ -195,7 +209,7 @@ Rust では起きる場所と種類が限られている。
 `map` や `filter` で包んでも、その処理は `next` が呼ばれたときに初めて走る。
 C++ の反復子と違い、終わりを自分で知っている。
 
-出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)
+出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)、[10](part3/lifetimes.md)
 
 ### クロージャ（closure） {/* #closure */}
 
@@ -203,7 +217,7 @@ C++ の反復子と違い、終わりを自分で知っている。
 変数（やそのフィールド）ごとに、共有で借りるか、可変で借りるか、値で受け取るかを、本体での使い方からコンパイラが決める。
 `move` を付けると、すべて値で受け取る。
 
-出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)
+出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)、[10](part3/lifetimes.md)
 
 ### `Fn` と `FnMut` と `FnOnce` {/* #fn-traits */}
 
@@ -224,7 +238,7 @@ main スレッドで起きれば、プログラム全体が終わる。
 
 コンパイラが安全性を確かめられない操作を、書く人の責任で許すための印。
 
-出てくる章: [3](part1/strings.md)、[4](part2/enums.md)
+出てくる章: [3](part1/strings.md)、[4](part2/enums.md)、[10](part3/lifetimes.md)
 
 ### trait {/* #trait */}
 
@@ -237,7 +251,7 @@ main スレッドで起きれば、プログラム全体が終わる。
 `fn tally<T>(...)` や `Option<T>` の `T` のように、関数や型があとから受け取る型。
 使われた型ごとに、別々のコードが作られる。
 
-出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)
+出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)、[10](part3/lifetimes.md)
 
 ### 境界（trait bound） {/* #trait-bound */}
 
@@ -245,7 +259,7 @@ main スレッドで起きれば、プログラム全体が終わる。
 `T: Ord` や `where T: Ord` と書く。
 関数の本体で使える `T` の操作は、境界に書いた trait が持つものに限られる。
 
-出てくる章: [9](part3/traits.md)
+出てくる章: [9](part3/traits.md)、[10](part3/lifetimes.md)
 
 ### 孤児ルール（orphan rule） {/* #orphan-rule */}
 
@@ -268,7 +282,7 @@ trait を型に実装するとき、trait か型の少なくとも一方が、�
 メソッドの呼び先は、値と一緒に持つ表（vtable）から実行時に引く。
 `Self` を返すメソッドのように、表に載せられないメソッドを持つ trait は、そのままでは `dyn` にできない。
 
-出てくる章: [9](part3/traits.md)
+出てくる章: [9](part3/traits.md)、[10](part3/lifetimes.md)
 
 ### derive {/* #derive */}
 
@@ -281,7 +295,7 @@ derive した実装は、フィールドの型の実装を使う。
 
 trait の中で `type Reader;` のように宣言し、実装ごとに 1 つに決める型。
 
-出てくる章: [9](part3/traits.md)
+出てくる章: [9](part3/traits.md)、[10](part3/lifetimes.md)
 
 ### クレート（crate） {/* #crate */}
 
@@ -294,7 +308,7 @@ Rust のコンパイルの単位。
 
 `#[...]` の形で項目に付ける、コンパイラへの指示や注記。
 
-出てくる章: [4](part2/enums.md)、[6](part2/structs.md)
+出てくる章: [4](part2/enums.md)、[6](part2/structs.md)、[10](part3/lifetimes.md)
 
 ### 構造体（struct） {/* #struct */}
 
@@ -302,14 +316,14 @@ Rust のコンパイルの単位。
 値を作るときにフィールドを書き漏らすと、コンパイルが通らない。
 フィールドに名前を付けず位置で並べる形（タプル構造体）もあり、中身は `.0`、`.1` で読む。
 
-出てくる章: [6](part2/structs.md)
+出てくる章: [6](part2/structs.md)、[10](part3/lifetimes.md)
 
 ### メソッドと関連関数（method / associated function） {/* #method */}
 
 `impl` の中に書く関数のうち、第 1 引数に `self`、`&self`、`&mut self` のどれかを取り、`値.名前(...)` で呼ぶもの。
 `self` を取らず `型::名前(...)` で呼ぶものは関連関数と呼び、C++ の static メンバ関数に当たる。
 
-出てくる章: [6](part2/structs.md)
+出てくる章: [6](part2/structs.md)、[10](part3/lifetimes.md)
 
 ### モジュール（module） {/* #module */}
 
@@ -452,6 +466,13 @@ Java の総称型がこの形で、`List<String>` と `List<Integer>` は実行�
 
 出てくる章: [9](part3/traits.md)
 
+### 変性（variance） {/* #variance */}
+
+型の中にある型や寿命を、別のもの（たとえば長い寿命から短い寿命）に読み替えたとき、外側の型も同じように読み替えてよいかを表す性質。
+Rust では書き手が宣言せず、コンパイラが型の構造から決める。
+
+出てくる章: [10](part3/lifetimes.md)
+
 ### データ競合（data race） {/* #data-race */}
 
 複数のスレッドが同じ場所に同時にアクセスし、少なくとも一方が書き込みで、間に同期が無い状態。
@@ -577,7 +598,7 @@ Rust の `&T` と `&mut T` に対応するが、コンパイラが保証する�
 C++17 で入った、文字列を所有せずに眺める型。
 指している先の寿命を知らない。
 
-出てくる章: [3](part1/strings.md)
+出てくる章: [3](part1/strings.md)、[10](part3/lifetimes.md)
 
 ### SSO（small string optimization） {/* #sso */}
 
