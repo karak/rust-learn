@@ -31,6 +31,12 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: ['part3/collections', 'part3/iterators', 'part3/traits', 'part3/lifetimes'],
     },
+    {
+      type: 'category',
+      label: 'IV 外へ',
+      collapsed: false,
+      items: ['part4/errors'],
+    },
     'glossary',
   ],
 };

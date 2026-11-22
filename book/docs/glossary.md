@@ -76,7 +76,7 @@ move された変数については走らない（値が移った先で 1 回だ
 値や参照が有効でいられる期間。
 Rust では、参照が指す先より長く生きないことをコンパイラが確かめる。
 
-出てくる章: [3](part1/strings.md)、[10](part3/lifetimes.md)
+出てくる章: [3](part1/strings.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)
 
 ### ライフタイム注釈（lifetime annotation） {/* #lifetime-annotation */}
 
@@ -90,7 +90,7 @@ Rust では、参照が指す先より長く生きないことをコンパイラ
 関数の引数と戻り値の寿命を、注釈を書かなくても決める規則。
 引数の参照が 1 つのときや、`&self` か `&mut self` を取るメソッドでは、戻り値の参照はそこから借りたものとみなされる。
 
-出てくる章: [10](part3/lifetimes.md)
+出てくる章: [10](part3/lifetimes.md)、[11](part4/errors.md)
 
 ### `String` と `&str` {/* #string-str */}
 
@@ -153,14 +153,14 @@ C++ の `std::map` に当たる。
 成功の値か失敗の値のどちらかを持つ型。
 成功なら `Ok(値)`、失敗なら `Err(エラー)` になる。
 
-出てくる章: [2](part1/borrowing.md)、[5](part2/result.md)、[6](part2/structs.md)、[8](part3/iterators.md)
+出てくる章: [2](part1/borrowing.md)、[5](part2/result.md)、[6](part2/structs.md)、[8](part3/iterators.md)、[11](part4/errors.md)
 
 ### enum {/* #enum */}
 
 取りうる場合（バリアント）を並べて定義する型。
 バリアントごとに別の値を持たせられる。
 
-出てくる章: [4](part2/enums.md)、[5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)
+出てくる章: [4](part2/enums.md)、[5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)
 
 ### パターン（pattern） {/* #pattern */}
 
@@ -174,13 +174,13 @@ C++ の `std::map` に当たる。
 `match` がすべての場合を扱っているかを、コンパイラが確かめること。
 漏れがあればコンパイルエラーになる。
 
-出てくる章: [4](part2/enums.md)、[5](part2/result.md)、[7](part3/collections.md)
+出てくる章: [4](part2/enums.md)、[5](part2/result.md)、[7](part3/collections.md)、[11](part4/errors.md)
 
 ### `?` 演算子（question mark operator） {/* #question-mark */}
 
 `Result` や `Option` の後ろに付け、成功なら中身を取り出し、失敗や `None` ならその場で呼び手へ返す演算子。
 
-出てくる章: [5](part2/result.md)、[9](part3/traits.md)
+出てくる章: [5](part2/result.md)、[9](part3/traits.md)、[11](part4/errors.md)
 
 ### ユニット型（unit type） {/* #unit-type */}
 
@@ -209,7 +209,7 @@ Rust では起きる場所と種類が限られている。
 `map` や `filter` で包んでも、その処理は `next` が呼ばれたときに初めて走る。
 C++ の反復子と違い、終わりを自分で知っている。
 
-出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)、[10](part3/lifetimes.md)
+出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)
 
 ### クロージャ（closure） {/* #closure */}
 
@@ -217,7 +217,7 @@ C++ の反復子と違い、終わりを自分で知っている。
 変数（やそのフィールド）ごとに、共有で借りるか、可変で借りるか、値で受け取るかを、本体での使い方からコンパイラが決める。
 `move` を付けると、すべて値で受け取る。
 
-出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)、[10](part3/lifetimes.md)
+出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)
 
 ### `Fn` と `FnMut` と `FnOnce` {/* #fn-traits */}
 
@@ -244,7 +244,7 @@ main スレッドで起きれば、プログラム全体が終わる。
 
 型が持つ操作や性質をまとめて宣言するもの。
 
-出てくる章: [はじめに](intro.md)、[5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)、[9](part3/traits.md)、3、4（エラーメッセージの中）
+出てくる章: [はじめに](intro.md)、[5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)、[9](part3/traits.md)、[11](part4/errors.md)、3、4（エラーメッセージの中）
 
 ### 型引数（type parameter） {/* #type-parameter */}
 
@@ -282,14 +282,28 @@ trait を型に実装するとき、trait か型の少なくとも一方が、�
 メソッドの呼び先は、値と一緒に持つ表（vtable）から実行時に引く。
 `Self` を返すメソッドのように、表に載せられないメソッドを持つ trait は、そのままでは `dyn` にできない。
 
-出てくる章: [9](part3/traits.md)、[10](part3/lifetimes.md)
+出てくる章: [9](part3/traits.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)
+
+### `Error` trait {/* #error-trait */}
+
+標準ライブラリの `std::error::Error` で、失敗を表す型が実装する trait。
+`Debug` と `Display` の実装を求め、原因の失敗を返す `source` メソッドを持つ。
+
+出てくる章: [11](part4/errors.md)
+
+### ダウンキャスト（downcast） {/* #downcast */}
+
+`dyn Error` のように型をまとめた値について、中身が特定の型かを確かめ、そうならその型として取り出すこと。
+`dyn Error` では `downcast_ref` などで行う。
+
+出てくる章: [11](part4/errors.md)
 
 ### derive {/* #derive */}
 
 `#[derive(Debug, Clone)]` のように書き、trait の実装をコンパイラやライブラリに書かせる属性。
 derive した実装は、フィールドの型の実装を使う。
 
-出てくる章: [6](part2/structs.md)、[9](part3/traits.md)
+出てくる章: [6](part2/structs.md)、[9](part3/traits.md)、[11](part4/errors.md)
 
 ### 関連型（associated type） {/* #associated-type */}
 
@@ -302,13 +316,13 @@ trait の中で `type Reader;` のように宣言し、実装ごとに 1 つに�
 Rust のコンパイルの単位。
 ライブラリ一つ、または実行ファイル一つに当たる。
 
-出てくる章: [4](part2/enums.md)、[6](part2/structs.md)、[9](part3/traits.md)
+出てくる章: [4](part2/enums.md)、[6](part2/structs.md)、[9](part3/traits.md)、[11](part4/errors.md)
 
 ### 属性（attribute） {/* #attribute */}
 
 `#[...]` の形で項目に付ける、コンパイラへの指示や注記。
 
-出てくる章: [4](part2/enums.md)、[6](part2/structs.md)、[10](part3/lifetimes.md)
+出てくる章: [4](part2/enums.md)、[6](part2/structs.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)
 
 ### 構造体（struct） {/* #struct */}
 
@@ -316,14 +330,14 @@ Rust のコンパイルの単位。
 値を作るときにフィールドを書き漏らすと、コンパイルが通らない。
 フィールドに名前を付けず位置で並べる形（タプル構造体）もあり、中身は `.0`、`.1` で読む。
 
-出てくる章: [6](part2/structs.md)、[10](part3/lifetimes.md)
+出てくる章: [6](part2/structs.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)
 
 ### メソッドと関連関数（method / associated function） {/* #method */}
 
 `impl` の中に書く関数のうち、第 1 引数に `self`、`&self`、`&mut self` のどれかを取り、`値.名前(...)` で呼ぶもの。
 `self` を取らず `型::名前(...)` で呼ぶものは関連関数と呼び、C++ の static メンバ関数に当たる。
 
-出てくる章: [6](part2/structs.md)、[10](part3/lifetimes.md)
+出てくる章: [6](part2/structs.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)
 
 ### モジュール（module） {/* #module */}
 
@@ -338,7 +352,7 @@ Rust のコンパイルの単位。
 既存の型を、フィールド 1 つのタプル構造体で包んで作る新しい型。
 フィールドを非公開にして、作る関数で条件を確かめれば、モジュールの外では条件を満たす値しか作れなくなる。
 
-出てくる章: [6](part2/structs.md)、[7](part3/collections.md)、[9](part3/traits.md)
+出てくる章: [6](part2/structs.md)、[7](part3/collections.md)、[9](part3/traits.md)、[11](part4/errors.md)
 
 ### エラーコード（error code） {/* #error-code */}
 
@@ -370,6 +384,13 @@ Rust の lint（コードの書き方の点検）を行う道具。
 
 出てくる章: [3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)、[6](part2/structs.md)
 
+### thiserror {/* #thiserror */}
+
+エラーの型の `Display`、`Error`、`From` の実装を、属性から書かせるクレート。
+`#[derive(thiserror::Error)]` と書いて使う。
+
+出てくる章: [11](part4/errors.md)
+
 ### AddressSanitizer {/* #asan */}
 
 C や C++ のプログラムに検査のコードを埋め込み、解放済みの領域やスコープを抜けた変数を読んだことを実行時に報告する道具。
@@ -390,7 +411,7 @@ Rust のツールチェーン（コンパイラや `cargo` の版）を入れて
 失敗を戻り値とは別の道で伝え、受け止める場所まで呼び出しをさかのぼらせる仕組み。
 C++、Java、C# などが持つ。
 
-出てくる章: [5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)
+出てくる章: [5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)、[11](part4/errors.md)
 
 ### 検査例外（checked exception） {/* #checked-exception */}
 
@@ -466,6 +487,13 @@ Java の総称型がこの形で、`List<String>` と `List<Integer>` は実行�
 
 出てくる章: [9](part3/traits.md)
 
+### 公開依存（public dependency） {/* #public-dependency */}
+
+ライブラリの公開 API に、依存先のクレートの型が現れること。
+依存先の互換性を壊すバージョンに移ると、ライブラリの側も互換性を壊すバージョンを出すことになる。
+
+出てくる章: [11](part4/errors.md)
+
 ### 変性（variance） {/* #variance */}
 
 型の中にある型や寿命を、別のもの（たとえば長い寿命から短い寿命）に読み替えたとき、外側の型も同じように読み替えてよいかを表す性質。
@@ -484,7 +512,7 @@ Rust では書き手が宣言せず、コンパイラが型の構造から決め
 Unicode の文字を 1 から 4 バイトの可変長で表す符号化方式。
 ASCII の文字は 1 バイトで、日本語の多くの文字は 3 バイトになる。
 
-出てくる章: [3](part1/strings.md)
+出てくる章: [3](part1/strings.md)、[11](part4/errors.md)
 
 ### 符号点（code point） {/* #code-point */}
 
