@@ -399,7 +399,7 @@ mod tests {
 
     #[test]
     fn 包まれた_broken_pipe_も成功扱い() {
-        // serde_json を経由した書き出しでは io::Error が包まれて届きうる。
+        // 書き出しの途中の層が io::Error::other で包むと、BrokenPipe は原因の側に回る。
         // 直接の kind() だけを見る実装ではここが落ちる。
         #[derive(Debug)]
         struct Wrapped(io::Error);
