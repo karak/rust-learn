@@ -11,7 +11,8 @@ sidebar_position: 12
 10 章の `'static` も、ここでもう一度出てくる。
 
 C++ の `std::thread` は、渡す関数オブジェクトが何を参照していても受け取る。
-`std::atomic` でない同じ変数を 2 つのスレッドが同期なしに書き換えれば[未定義動作](../glossary.md#undefined-behavior)だが、それを知らせるのは、実行時に検査を埋め込む [ThreadSanitizer](../glossary.md#tsan) のような道具である。
+`std::atomic` でない同じ変数を 2 つのスレッドが同期なしに書き換えれば、[未定義動作](../glossary.md#undefined-behavior)になる。
+それを知らせるのは、実行時に検査を埋め込む [ThreadSanitizer](../glossary.md#tsan) のような道具である。
 Java や C# でも、どのオブジェクトも別のスレッドに渡せて、同期を書くかどうかは書く側に任されている。
 Rust では、スレッドをまたいでよいかどうかを型が持ち、コンパイラがそれを確かめる。
 この章では、その仕組みと、それを前提にした並列化の書き方を見る。
@@ -19,7 +20,7 @@ Rust では、スレッドをまたいでよいかどうかを型が持ち、コ
 ## この章のコードは、状態コードの列をスレッドに分けて数える
 
 この章のコード（`book/code/ch12`）は、`200` や `404` のような状態コードの列を受け取り、コードごとの件数を数える。
-同じ答えを、スレッドへの分け方を変えた 3 つの関数で出す。
+1 本で数える `count` と同じ答えを、スレッドへの分け方を変えた 3 つの関数で出す。
 
 ```rust
 pub type Counts = BTreeMap<u16, u64>;
@@ -65,7 +66,7 @@ std::cout << count << '\n';
 手元の clang で `-Wall -Wextra` を付けても、警告は出なかった。
 最適化なしでビルドして 3 回走らせると、`1004541`、`1002233`、`975951` と毎回違う数が出た。
 `-O2` でビルドすると `2000000` が出た。
-正しく見えるのは、最適化がループを 1 回の加算にまとめたからで、競合が無くなったわけではない。
+最適化がループを 1 回の加算にまとめて競合の起きる窓が極端に狭くなり、たまたま正しく見えただけで、競合が無くなったわけではない。
 `-fsanitize=thread` を付けて走らせると、ThreadSanitizer が `WARNING: ThreadSanitizer: data race` を報告した。
 どれも、走らせて初めてわかることである。
 
@@ -141,7 +142,7 @@ error[E0373]: closure may outlive the current function, but it borrows `codes`, 
 
 （後ろに続く note と help は省いた。help は `move` を付けるよう勧める。）
 
-8 章の `move` を付ければ、クロージャは `codes` を奪い、スレッドに持っていく。
+8 章の [`move`](../glossary.md#move) を付ければ、クロージャは `codes` を奪い、スレッドに持っていく。
 代わりに、呼んだ側は `codes` をもう使えない。
 `let r = &codes;` で参照を作り、`move` で参照のほうを渡しても、参照が借りている先は関数の中にあるので、`E0597` で断られた。
 
@@ -172,7 +173,7 @@ pub fn count_spawned(codes: &Arc<[u16]>, threads: NonZeroUsize) -> Counts {
 }
 ```
 
-`Arc<[u16]>` は、指す先が[スライス](../glossary.md#slice)の `Arc` で、`Arc::from` で配列や `Vec` から作れる。
+`Arc<[u16]>` は、指す先が[スライス](../glossary.md#slice)の `Arc` で、`Arc::from` で配列や [`Vec`](../glossary.md#vec) から作れる。
 `chunk_len` は 1 本あたりの要素数を決める小さな関数、`merge` は表を足し合わせる関数で、どちらも `src/lib.rs` にある。
 `(0..codes.len()).step_by(size)` は、0 から `size` おきの数を順に返す。各スレッドの持ち分の先頭である。
 `Arc::clone(codes)` を外し、引数の `codes`（`&Arc` の参照）をそのままクロージャに渡すと、`E0521`（borrowed data escapes outside of function）で断られた。
@@ -245,7 +246,8 @@ Rust の `thread::scope` では、その結びつきが `'scope` という型の
 
 この 2 つは、ふつうは誰も実装を書かない。
 [構造体](../glossary.md#struct)や [enum](../glossary.md#enum) は、フィールドがすべて `Send` なら自動で `Send` になり、すべて `Sync` なら自動で `Sync` になる。
-`u16` も `Vec<u16>` も `BTreeMap<u16, u64>` も両方を満たすので、この章の `Counts` も両方を満たす。
+メソッドを持たず型の性質だけを表す印であり、こうして構造から自動で実装が決まる trait を、Rust では auto trait（自動トレイト）と呼ぶ。
+`u16` も `Vec<u16>` も [`BTreeMap`](../glossary.md#btreemap)`<u16, u64>` も両方を満たすので、この章の `Counts` も両方を満たす。
 逆に、自動で決まる型は、満たさない型を 1 つでも中に持てば、外側も満たさなくなる。
 自分で `Send` や `Sync` を名乗らせるには `unsafe impl` と書く必要があり、そこから先はコンパイラではなく書いた人が正しさを受け持つ（[`unsafe`](../glossary.md#unsafe)）。
 標準ライブラリの型には、そうして条件を自分で決めているものがある。後で見る `Mutex` がその例である。
@@ -343,7 +345,7 @@ pub fn count_locked(codes: &[u16], threads: NonZeroUsize) -> Counts {
 }
 ```
 
-`let counts = &counts;` は 8 章で見た借り直しで、`move` が奪うのを、`Mutex` ではなく `Mutex` への参照にしている。
+`let counts = &counts;` は 8 章で見た借り直しで、`move` がクロージャへ移す対象を、`Mutex` 本体から参照に変えている。
 この行を消すと、最初のスレッドが `Mutex` そのものを奪うので、2 本目から `E0382`（use of moved value）で断られた。
 逆に `move` を外すと、ループの変数 `chunk` を借りることになり、`E0373` で断られた。
 
@@ -353,6 +355,8 @@ Rust の `Mutex<T>` は、守るデータ `T` を中に持つ。
 共有しているあいだ、ロックを取らずに中身に触るコードは書けない。
 `Mutex<T>` は、`T` が `Send` でありさえすれば `Sync` を満たす。
 `T` そのものが `Sync` でなくても、`Mutex` が一度に 1 つのスレッドにしか触らせないからである。
+したがって、`Send` だが `Sync` でない `RefCell` も `Mutex<RefCell<i32>>` にすれば `Sync` になる。
+一方、`Send` でない `Rc` は `Mutex<Rc<i32>>` にしても `Sync` にならない（ロック越しに別スレッドから中身を取り出せるため）。
 
 `lock` は `Result` を返す。
 ロックを握ったまま panic したスレッドがあると、`Mutex` は「毒された」状態になり、毒を消す（`clear_poison`）までは、以後の `lock` は `Err`（`PoisonError`）を返す。
@@ -360,6 +364,7 @@ Rust の `Mutex<T>` は、守るデータ `T` を中に持つ。
 `count_locked` では、`PoisonError::into_inner` で知らせを読み捨てて中身を使っている。
 panic したスレッドがあれば、どのみち `thread::scope` の終わりで panic が呼んだ側に伝わるからである。
 最後の `Mutex::into_inner` は、`Mutex` を消費して中身を取り出す。全スレッドが終わったあとで、ほかに持ち手がいないので、ロックは要らない。
+それでも `Result`（`PoisonError`）を返すのは、それ以前に別スレッドがロックを握ったまま panic していれば毒が残っているからである。
 
 ## 分けて数えて最後に足すほうが、ロックを取り合わない
 
@@ -379,6 +384,7 @@ panic したスレッドがあれば、どのみち `thread::scope` の終わり
 `count_split` はスレッドを増やすと速くなり、`count_locked` は遅くなった。
 1 本のスレッドで数える `count` は約 29 ms だったので、`count_locked` は 1 本でもロックの費用のぶん遅く、増やすとロックの取り合いでさらに遅くなる。
 
+スレッドごとに手元の表へ数えて最後に 1 回だけロックして合流するなら速くなるが、それは結局 `count_split` と同じ「分けて最後に足す」構造に近づく。
 `Mutex` が要るのは、スレッドどうしが同じものを書き換える必要があるときである。
 書き換える相手を分けられるなら、分けたほうが単純で速い。
 型の上でも、`count_split` には `Mutex` も `Arc` も出てこない。
@@ -419,6 +425,7 @@ pub fn parse_all(lines: &[&str], threads: NonZeroUsize) -> Result<Vec<u16>, Line
 塊の中では最初の失敗で止まるので、塊の順に見て最初に出会う `Err` が、いちばん前の行の失敗である。
 テストでは、後ろの塊が先頭で失敗する入力を 100 回読ませ、毎回前の塊の失敗が返ることを確かめている。
 代わりに、前の塊に失敗があっても後ろの塊のスレッドは止めず、自分の塊を読み終えるか失敗するまで走らせる。
+ループの途中で `part?` が抜けても、前の節のとおり `thread::scope` が返る前に残りのスレッドをすべて待つので、走ったまま放置されることはない。
 速さを少し捨てて、返る失敗を決めている。
 
 ## 本物ではどうなっているか
@@ -440,7 +447,7 @@ where
 `jobs` の要素は、1 つの入力ファイルを開いて集計するクロージャである（8 章で見た `jobs` そのもの）。
 `par_iter` は `&[J]` を複数のスレッドで共有して、各スレッドが自分の担当の `&J` を呼ぶ。
 だから `J` に `Sync` が要る。
-`Fn` なのは、`&J` から呼べるのが `Fn` だけだからである（8 章）。
+[`Fn`](../glossary.md#fn-traits) なのは、`&J` から呼べるのが `Fn` だけだからである（8 章）。
 9 章で、テストがジョブを `[Box<dyn Fn() -> Result<Counter, CliError> + Sync>; 3]` に入れていたのは、この条件を満たすためである。
 
 手元で `+ Sync` を外すと、`E0599`（the method `par_iter` exists for reference `&[J]`, but its trait bounds were not satisfied）で断られた。
@@ -462,6 +469,9 @@ note は、`Box<dyn Error>`、`ExecutionError`、`CliErrorKind`、`CliError`、`
 `tally` は、全ジョブの結果を入力の順に並べてから、いちばん前の失敗を選ぶ。
 並列化で揺れうるのは集計の結果ではなく返る失敗のほうで、`tally` はそれを入力の順で決めている。
 
+ここまで見てきた並列化の仕組みは、新しい規則の積み増しではない。
+所有権や排他参照から始まり、クロージャ・trait 境界・`'static` まで順に見てきた仕組みの延長線上に、`Send` / `Sync` と `thread::scope` がある。
+
 ## 演習
 
 答えは [`book/code/ch12/src/exercises.rs`](https://github.com/karak/rust-learn/blob/main/book/code/ch12/src/exercises.rs) にある。
@@ -473,3 +483,4 @@ note は、`Box<dyn Error>`、`ExecutionError`、`CliErrorKind`、`CliError`、`
 2. 行の `Vec<String>` を受け取り、空白で区切った語ごとの件数を数える関数 `count_words_spawned` を、`thread::scope` を使わず `thread::spawn` で書く。
    全スレッドが 1 つの表に数え入れるようにする。
    入力を分けずに全スレッドで共有し、表も共有する。どちらも `spawn` に借りさせられないので、何で包めばよいかを考える。
+   全スレッドを待ったあとで `Arc` から中身を取り出すには、`Arc::into_inner` が使える。

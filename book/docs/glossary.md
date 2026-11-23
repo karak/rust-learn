@@ -26,7 +26,7 @@ Rust の値には必ず一人の所有者がいて、所有者がスコープを
 値の所有権を別の変数や関数へ移すこと。
 移したあとの元の変数は、コンパイラが使わせない。
 
-出てくる章: [1](part1/ownership.md)、[4](part2/enums.md)、[6](part2/structs.md)、[8](part3/iterators.md)
+出てくる章: [1](part1/ownership.md)、[4](part2/enums.md)、[6](part2/structs.md)、[8](part3/iterators.md)、[12](part4/concurrency.md)
 
 ### 部分 move（partial move） {/* #partial-move */}
 
@@ -124,7 +124,7 @@ UTF-8 のバイト列のうち、1 文字の先頭に当たる位置（と末尾
 要素をヒープ上に連続して並べる、長さを変えられる配列。
 C++ の `std::vector` に当たる。
 
-出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)
+出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)、[12](part4/concurrency.md)
 
 ### `HashMap` {/* #hashmap */}
 
@@ -138,7 +138,7 @@ C++ の `std::unordered_map` に当たる。
 キーの順序を保つ表。反復するとキーの昇順に出てくる。
 C++ の `std::map` に当たる。
 
-出てくる章: [7](part3/collections.md)、[8](part3/iterators.md)
+出てくる章: [7](part3/collections.md)、[8](part3/iterators.md)、[12](part4/concurrency.md)
 
 ### `Option` {/* #option */}
 
@@ -223,7 +223,7 @@ C++ の反復子と違い、終わりを自分で知っている。
 クロージャを、呼べる回数と条件で分けた 3 つの trait。
 `Fn` は共有のまま何度でも、`FnMut` は中身を書き換えながら何度でも、`FnOnce` は少なくとも 1 回呼べる。
 
-出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)
+出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)、[12](part4/concurrency.md)
 
 ### panic {/* #panic */}
 
