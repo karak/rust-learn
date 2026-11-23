@@ -122,7 +122,8 @@ article {
   font-weight: 700;
 }
 
-/* 見出しはプロポーショナルメトリクス（palt）で和文約物・仮名の空きを詰めて引き締める */
+/* 見出しはプロポーショナルメトリクス（palt）で和文約物・仮名の空きを詰めて引き締める。
+   狭い幅で文節の途中（助詞の直前など）から折り返されないよう auto-phrase を併用する */
 .markdown h1,
 .markdown h2,
 .markdown h3,
@@ -131,6 +132,7 @@ article {
 .pagination-nav__label {
   font-feature-settings: 'palt' 1;
   text-wrap: balance;
+  word-break: auto-phrase;
 }
 
 .markdown h1 {
@@ -199,24 +201,27 @@ article {
    インラインコードとコードブロック
    ========================================================================== */
 
-/* 和文中に挟まれる識別子（`Tally`, `&mut T` 等）が前後の文字と詰まらないようにする */
+/* 和文中に挟まれる識別子（`Tally`, `&mut T` 等）が前後の文字と詰まらないようにする。
+   JetBrains Mono の合字で `->` や `=>` が矢印に変わると Rust の記号と食い違うため無効化する */
 .markdown :not(pre) > code {
   background-color: var(--book-inline-code-bg);
   border: 1px solid var(--book-inline-code-border);
   margin: 0 0.14em;
   vertical-align: 0.02em;
   letter-spacing: 0;
-  font-feature-settings: 'palt' 0;
+  font-variant-ligatures: none;
+  font-feature-settings: 'palt' 0, 'liga' 0, 'calt' 0;
 }
 
-/* コードブロック内は通常の等幅・タブ幅 4（Rust 慣例）を保つ */
+/* コードブロック内は通常の等幅・タブ幅 4（Rust 慣例）を保ち、合字を無効化する */
 .markdown pre,
 .markdown pre code {
   letter-spacing: 0;
   line-break: auto;
   overflow-wrap: normal;
   tab-size: 4;
-  font-feature-settings: 'palt' 0;
+  font-variant-ligatures: none;
+  font-feature-settings: 'palt' 0, 'liga' 0, 'calt' 0;
 }
 
 .theme-code-block {
