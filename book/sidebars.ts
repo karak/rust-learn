@@ -35,7 +35,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'IV 外へ',
       collapsed: false,
-      items: ['part4/errors', 'part4/concurrency'],
+      items: ['part4/errors', 'part4/concurrency', 'part4/smart-pointers'],
     },
     'glossary',
   ],

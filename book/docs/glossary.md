@@ -19,14 +19,14 @@ title: 用語集
 
 Rust の値には必ず一人の所有者がいて、所有者がスコープを抜けると値が解放される、という規則。
 
-出てくる章: [はじめに](intro.md)、[1](part1/ownership.md)、[3](part1/strings.md)
+出てくる章: [はじめに](intro.md)、[1](part1/ownership.md)、[3](part1/strings.md)、[13](part4/smart-pointers.md)
 
 ### move {/* #move */}
 
 値の所有権を別の変数や関数へ移すこと。
 移したあとの元の変数は、コンパイラが使わせない。
 
-出てくる章: [1](part1/ownership.md)、[4](part2/enums.md)、[6](part2/structs.md)、[8](part3/iterators.md)、[12](part4/concurrency.md)
+出てくる章: [1](part1/ownership.md)、[4](part2/enums.md)、[6](part2/structs.md)、[8](part3/iterators.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
 
 ### 部分 move（partial move） {/* #partial-move */}
 
@@ -40,7 +40,7 @@ Rust の値には必ず一人の所有者がいて、所有者がスコープを
 `Copy` は代入のときに暗黙に複製される型の性質で、`Clone` は `.clone()` と書いたときだけ複製できる型の性質。
 どちらも trait である。
 
-出てくる章: [1](part1/ownership.md)、[4](part2/enums.md)、[7](part3/collections.md)、[8](part3/iterators.md)
+出てくる章: [1](part1/ownership.md)、[4](part2/enums.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[13](part4/smart-pointers.md)
 
 ### drop {/* #drop */}
 
@@ -48,13 +48,13 @@ Rust の値には必ず一人の所有者がいて、所有者がスコープを
 C++ のデストラクタの呼び出しに当たる。
 move された変数については走らない（値が移った先で 1 回だけ走る）。
 
-出てくる章: [1](part1/ownership.md)（デストラクタとして）、3（エラーメッセージの中）
+出てくる章: [1](part1/ownership.md)（デストラクタとして）、3（エラーメッセージの中）、[13](part4/smart-pointers.md)
 
 ### 借用（borrow） {/* #borrow */}
 
 値を所有したまま、参照を作って貸すこと。
 
-出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)、[12](part4/concurrency.md)
+出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
 
 ### 共有参照と可変参照（shared reference / mutable reference） {/* #references */}
 
@@ -62,21 +62,21 @@ move された変数については走らない（値が移った先で 1 回だ
 共有参照は同時にいくつでも作れるが、可変参照は同時に一つだけで、そのあいだは共有参照も作れない。
 この性質から、可変参照は排他参照（exclusive reference）とも呼ばれる。
 
-出てくる章: [2](part1/borrowing.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[12](part4/concurrency.md)
+出てくる章: [2](part1/borrowing.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
 
 ### 内部可変性（interior mutability） {/* #interior-mutability */}
 
 共有参照 `&T` しか持っていなくても中身を書き換えられるようにする仕組み。
 書き換えが重ならないことは、型の側が受け持つ。
 
-出てくる章: [2](part1/borrowing.md)、[6](part2/structs.md)、[12](part4/concurrency.md)
+出てくる章: [2](part1/borrowing.md)、[6](part2/structs.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
 
 ### 寿命（lifetime） {/* #lifetime */}
 
 値や参照が有効でいられる期間。
 Rust では、参照が指す先より長く生きないことをコンパイラが確かめる。
 
-出てくる章: [3](part1/strings.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)
+出てくる章: [3](part1/strings.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
 
 ### ライフタイム注釈（lifetime annotation） {/* #lifetime-annotation */}
 
@@ -96,7 +96,7 @@ Rust では、参照が指す先より長く生きないことをコンパイラ
 
 `String` はヒープ上の UTF-8 のバイト列を所有する文字列で、`&str` はどこかにある UTF-8 のバイト列を眺める参照。
 
-出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[7](part3/collections.md)
+出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[7](part3/collections.md)、[13](part4/smart-pointers.md)
 
 ### 文字列リテラル（string literal） {/* #string-literal */}
 
@@ -110,7 +110,7 @@ Rust では、参照が指す先より長く生きないことをコンパイラ
 連続した要素の並びの全体または一部。ふつうは参照として `&[T]` と書いて扱い、その参照は先頭へのポインタと長さを持つ。
 `&str` は文字列のスライスである。
 
-出てくる章: [3](part1/strings.md)、[5](part2/result.md)、[10](part3/lifetimes.md)、[12](part4/concurrency.md)
+出てくる章: [3](part1/strings.md)、[5](part2/result.md)、[10](part3/lifetimes.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
 
 ### 文字の境界（char boundary） {/* #char-boundary */}
 
@@ -124,7 +124,7 @@ UTF-8 のバイト列のうち、1 文字の先頭に当たる位置（と末尾
 要素をヒープ上に連続して並べる、長さを変えられる配列。
 C++ の `std::vector` に当たる。
 
-出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)、[12](part4/concurrency.md)
+出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
 
 ### `HashMap` {/* #hashmap */}
 
@@ -138,21 +138,21 @@ C++ の `std::unordered_map` に当たる。
 キーの順序を保つ表。反復するとキーの昇順に出てくる。
 C++ の `std::map` に当たる。
 
-出てくる章: [7](part3/collections.md)、[8](part3/iterators.md)、[12](part4/concurrency.md)
+出てくる章: [7](part3/collections.md)、[8](part3/iterators.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
 
 ### `Option` {/* #option */}
 
 値が有るか無いかを表す型。
 有れば `Some(値)`、無ければ `None` になる。
 
-出てくる章: [3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)
+出てくる章: [3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)、[13](part4/smart-pointers.md)
 
 ### `Result` {/* #result */}
 
 成功の値か失敗の値のどちらかを持つ型。
 成功なら `Ok(値)`、失敗なら `Err(エラー)` になる。
 
-出てくる章: [2](part1/borrowing.md)、[5](part2/result.md)、[6](part2/structs.md)、[8](part3/iterators.md)、[11](part4/errors.md)、[12](part4/concurrency.md)
+出てくる章: [2](part1/borrowing.md)、[5](part2/result.md)、[6](part2/structs.md)、[8](part3/iterators.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
 
 ### enum {/* #enum */}
 
@@ -200,7 +200,14 @@ Rust では起きる場所と種類が限られている。
 型強制の一種。
 `&String` を `&str` として渡せるように、行き先の型が決まっている場所でコンパイラが参照の型を変換すること。
 
-出てくる章: [3](part1/strings.md)
+出てくる章: [3](part1/strings.md)、[13](part4/smart-pointers.md)
+
+### `Deref` と `DerefMut` {/* #deref */}
+
+`*` による参照外しと、参照外し型強制の振る舞いを決める trait。
+`Deref` は共有参照の変換、`DerefMut` は可変参照の変換に使う。
+
+出てくる章: [13](part4/smart-pointers.md)
 
 ### イテレータ（iterator） {/* #iterator */}
 
@@ -231,7 +238,7 @@ C++ の反復子と違い、終わりを自分で知っている。
 既定では、スタックを巻き戻しながら値の後始末を走らせ、そのスレッドを終える。
 main スレッドで起きれば、プログラム全体が終わる。
 
-出てくる章: [3](part1/strings.md)、[5](part2/result.md)、[7](part3/collections.md)、[12](part4/concurrency.md)
+出てくる章: [3](part1/strings.md)、[5](part2/result.md)、[7](part3/collections.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
 
 ### `unsafe` {/* #unsafe */}
 
@@ -243,7 +250,7 @@ main スレッドで起きれば、プログラム全体が終わる。
 
 型が持つ操作や性質をまとめて宣言するもの。
 
-出てくる章: [はじめに](intro.md)、[5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)、[9](part3/traits.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、3、4（エラーメッセージの中）
+出てくる章: [はじめに](intro.md)、[5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)、[9](part3/traits.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)、3、4（エラーメッセージの中）
 
 ### 型引数（type parameter） {/* #type-parameter */}
 
@@ -304,19 +311,40 @@ trait を型に実装するとき、trait か型の少なくとも一方が、�
 
 出てくる章: [12](part4/concurrency.md)
 
+### `Box` {/* #box */}
+
+値をヒープに置いて単独の所有権で管理するポインタ（サイズ 0 の型や空のスライスでは実際にはヒープを確保しない）。
+再帰的な型の大きさを確定させるときや、`Box<str>` のような長さを変えないスライス、`Box<dyn Trait>` を持つときに使う。
+
+出てくる章: [6](part2/structs.md)、[9](part3/traits.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
+
 ### `Rc` と `Arc` {/* #rc-arc */}
 
 指す先を参照カウントで共有し、持ち主を複数にするポインタ。
 `Arc` はカウントを不可分な操作で増減するので、中身が `Send` と `Sync` を満たせばスレッドをまたげる。`Rc` はそうしないので、スレッドをまたげない。
 
-出てくる章: [12](part4/concurrency.md)
+出てくる章: [12](part4/concurrency.md)、[13](part4/smart-pointers.md)
+
+### `Weak` {/* #weak */}
+
+`Rc` や `Arc` が指す先を、所有権を増やさずに指す弱い参照。
+中身を読むときは `upgrade` で相手がまだ生きているかを確かめる。循環参照を切るために使う。
+
+出てくる章: [13](part4/smart-pointers.md)
+
+### `Cell` と `RefCell` {/* #cell-refcell */}
+
+1 本のスレッドの中で内部可変性を実現する型。
+`Cell` は値を丸ごと出し入れし、`RefCell` は借用の規則を実行時に確かめる。
+
+出てくる章: [12](part4/concurrency.md)（`RefCell`）、[13](part4/smart-pointers.md)
 
 ### `Mutex` {/* #mutex */}
 
 守るデータを中に持ち、共有参照からは `lock` などで得たガードを通してだけ中身に触らせる排他ロック。
 ガードが消えるとロックが外れる。
 
-出てくる章: [12](part4/concurrency.md)
+出てくる章: [12](part4/concurrency.md)、[13](part4/smart-pointers.md)
 
 ### derive {/* #derive */}
 
@@ -329,7 +357,7 @@ derive した実装は、フィールドの型の実装を使う。
 
 trait の中で `type Reader;` のように宣言し、実装ごとに 1 つに決める型。
 
-出てくる章: [9](part3/traits.md)、[10](part3/lifetimes.md)
+出てくる章: [9](part3/traits.md)、[10](part3/lifetimes.md)、[13](part4/smart-pointers.md)
 
 ### クレート（crate） {/* #crate */}
 
@@ -350,14 +378,14 @@ Rust のコンパイルの単位。
 値を作るときにフィールドを書き漏らすと、コンパイルが通らない。
 フィールドに名前を付けず位置で並べる形（タプル構造体）もあり、中身は `.0`、`.1` で読む。
 
-出てくる章: [6](part2/structs.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)
+出てくる章: [6](part2/structs.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
 
 ### メソッドと関連関数（method / associated function） {/* #method */}
 
 `impl` の中に書く関数のうち、第 1 引数に `self`、`&self`、`&mut self` のどれかを取り、`値.名前(...)` で呼ぶもの。
 `self` を取らず `型::名前(...)` で呼ぶものは関連関数と呼び、C++ の static メンバ関数に当たる。
 
-出てくる章: [6](part2/structs.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)
+出てくる章: [6](part2/structs.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
 
 ### モジュール（module） {/* #module */}
 
@@ -459,13 +487,13 @@ Rust でも `*` と書く。
 変数の名前が有効な範囲。
 Rust では、所有者の変数がスコープを抜けると値が解放される。
 
-出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[8](part3/iterators.md)
+出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[8](part3/iterators.md)、[13](part4/smart-pointers.md)
 
 ### ヒープ（heap） {/* #heap */}
 
 実行中に大きさを決めて確保し、使い終わったら解放するメモリの領域。
 
-出てくる章: [1](part1/ownership.md)、[3](part1/strings.md)、[8](part3/iterators.md)、[9](part3/traits.md)
+出てくる章: [1](part1/ownership.md)、[3](part1/strings.md)、[8](part3/iterators.md)、[9](part3/traits.md)、[13](part4/smart-pointers.md)
 
 ### ファットポインタ（fat pointer） {/* #fat-pointer */}
 
@@ -473,13 +501,13 @@ Rust では、所有者の変数がスコープを抜けると値が解放され
 wide pointer とも呼ばれる。
 3 章で「二語の値」と呼んだ `&str` やスライスがこれに当たる。
 
-出てくる章: [3](part1/strings.md)、[9](part3/traits.md)
+出てくる章: [3](part1/strings.md)、[9](part3/traits.md)、[13](part4/smart-pointers.md)
 
 ### スタックの巻き戻し（stack unwinding） {/* #stack-unwinding */}
 
 例外や panic が起きたときに、呼び出しを逆にたどりながら、各関数が持っていた値の後始末を走らせること。
 
-出てくる章: [3](part1/strings.md)
+出てくる章: [3](part1/strings.md)、[13](part4/smart-pointers.md)
 
 ### 未定義動作（undefined behavior） {/* #undefined-behavior */}
 
@@ -576,21 +604,21 @@ U+FFFD。
 Resource Acquisition Is Initialization。
 資源の解放をオブジェクトのデストラクタに任せ、スコープを抜けたときに確実に解放させる書き方。
 
-出てくる章: [1](part1/ownership.md)
+出てくる章: [1](part1/ownership.md)、[13](part4/smart-pointers.md)
 
 ### `std::unique_ptr` {/* #unique-ptr */}
 
 指す先のオブジェクトを一つだけの持ち主として管理するスマートポインタ。
 move すると、元の `unique_ptr` は `nullptr` を持つ有効なオブジェクトとして残る。
 
-出てくる章: [1](part1/ownership.md)
+出てくる章: [1](part1/ownership.md)、[13](part4/smart-pointers.md)
 
 ### `std::shared_ptr` {/* #shared-ptr */}
 
 指す先のオブジェクトを、参照カウントで複数の持ち主が共有するスマートポインタ。
 同じ先を指す別々の `shared_ptr` を複数のスレッドが同時に複製したり消したりしても、参照カウントの増減で競合しないことが規格で求められている。
 
-出てくる章: [12](part4/concurrency.md)
+出てくる章: [12](part4/concurrency.md)、[13](part4/smart-pointers.md)
 
 ### 右辺値参照（rvalue reference） {/* #rvalue-reference */}
 
