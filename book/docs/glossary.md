@@ -54,7 +54,7 @@ move された変数については走らない（値が移った先で 1 回だ
 
 値を所有したまま、参照を作って貸すこと。
 
-出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)
+出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)、[12](part4/concurrency.md)
 
 ### 共有参照と可変参照（shared reference / mutable reference） {/* #references */}
 
@@ -69,14 +69,14 @@ move された変数については走らない（値が移った先で 1 回だ
 共有参照 `&T` しか持っていなくても中身を書き換えられるようにする仕組み。
 書き換えが重ならないことは、型の側が受け持つ。
 
-出てくる章: [2](part1/borrowing.md)、[6](part2/structs.md)
+出てくる章: [2](part1/borrowing.md)、[6](part2/structs.md)、[12](part4/concurrency.md)
 
 ### 寿命（lifetime） {/* #lifetime */}
 
 値や参照が有効でいられる期間。
 Rust では、参照が指す先より長く生きないことをコンパイラが確かめる。
 
-出てくる章: [3](part1/strings.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)
+出てくる章: [3](part1/strings.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)
 
 ### ライフタイム注釈（lifetime annotation） {/* #lifetime-annotation */}
 
@@ -153,14 +153,14 @@ C++ の `std::map` に当たる。
 成功の値か失敗の値のどちらかを持つ型。
 成功なら `Ok(値)`、失敗なら `Err(エラー)` になる。
 
-出てくる章: [2](part1/borrowing.md)、[5](part2/result.md)、[6](part2/structs.md)、[8](part3/iterators.md)、[11](part4/errors.md)
+出てくる章: [2](part1/borrowing.md)、[5](part2/result.md)、[6](part2/structs.md)、[8](part3/iterators.md)、[11](part4/errors.md)、[12](part4/concurrency.md)
 
 ### enum {/* #enum */}
 
 取りうる場合（バリアント）を並べて定義する型。
 バリアントごとに別の値を持たせられる。
 
-出てくる章: [4](part2/enums.md)、[5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)
+出てくる章: [4](part2/enums.md)、[5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)
 
 ### パターン（pattern） {/* #pattern */}
 
@@ -209,7 +209,7 @@ Rust では起きる場所と種類が限られている。
 `map` や `filter` で包んでも、その処理は `next` が呼ばれたときに初めて走る。
 C++ の反復子と違い、終わりを自分で知っている。
 
-出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)
+出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)
 
 ### クロージャ（closure） {/* #closure */}
 
@@ -217,7 +217,7 @@ C++ の反復子と違い、終わりを自分で知っている。
 変数（やそのフィールド）ごとに、共有で借りるか、可変で借りるか、値で受け取るかを、本体での使い方からコンパイラが決める。
 `move` を付けると、すべて値で受け取る。
 
-出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)
+出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)
 
 ### `Fn` と `FnMut` と `FnOnce` {/* #fn-traits */}
 
@@ -232,19 +232,19 @@ C++ の反復子と違い、終わりを自分で知っている。
 既定では、スタックを巻き戻しながら値の後始末を走らせ、そのスレッドを終える。
 main スレッドで起きれば、プログラム全体が終わる。
 
-出てくる章: [3](part1/strings.md)、[5](part2/result.md)、[7](part3/collections.md)
+出てくる章: [3](part1/strings.md)、[5](part2/result.md)、[7](part3/collections.md)、[12](part4/concurrency.md)
 
 ### `unsafe` {/* #unsafe */}
 
 コンパイラが安全性を確かめられない操作を、書く人の責任で許すための印。
 
-出てくる章: [3](part1/strings.md)、[4](part2/enums.md)、[10](part3/lifetimes.md)
+出てくる章: [3](part1/strings.md)、[4](part2/enums.md)、[10](part3/lifetimes.md)、[12](part4/concurrency.md)
 
 ### trait {/* #trait */}
 
 型が持つ操作や性質をまとめて宣言するもの。
 
-出てくる章: [はじめに](intro.md)、[5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)、[9](part3/traits.md)、[11](part4/errors.md)、3、4（エラーメッセージの中）
+出てくる章: [はじめに](intro.md)、[5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)、[9](part3/traits.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、3、4（エラーメッセージの中）
 
 ### 型引数（type parameter） {/* #type-parameter */}
 
@@ -282,7 +282,7 @@ trait を型に実装するとき、trait か型の少なくとも一方が、�
 メソッドの呼び先は、値と一緒に持つ表（vtable）から実行時に引く。
 `Self` を返すメソッドのように、表に載せられないメソッドを持つ trait は、そのままでは `dyn` にできない。
 
-出てくる章: [9](part3/traits.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)
+出てくる章: [9](part3/traits.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)
 
 ### `Error` trait {/* #error-trait */}
 
@@ -297,6 +297,27 @@ trait を型に実装するとき、trait か型の少なくとも一方が、�
 `dyn Error` では `downcast_ref` などで行う。
 
 出てくる章: [11](part4/errors.md)
+
+### `Send` と `Sync` {/* #send-sync */}
+
+`Send` はその型の値を別のスレッドへ移してよいこと、`Sync` はその型への共有参照を複数のスレッドが同時に持ってよいことを表す trait。
+フィールドがすべて満たせば、構造体や enum も自動で満たす。
+
+出てくる章: [12](part4/concurrency.md)
+
+### `Rc` と `Arc` {/* #rc-arc */}
+
+指す先を参照カウントで共有し、持ち主を複数にするポインタ。
+`Arc` はカウントを不可分な操作で増減するので、中身が `Send` と `Sync` を満たせばスレッドをまたげる。`Rc` はそうしないので、スレッドをまたげない。
+
+出てくる章: [12](part4/concurrency.md)
+
+### `Mutex` {/* #mutex */}
+
+守るデータを中に持ち、共有参照からは `lock` で得たガードを通してだけ中身に触らせる排他ロック。
+ガードが消えるとロックが外れる。
+
+出てくる章: [12](part4/concurrency.md)
 
 ### derive {/* #derive */}
 
@@ -330,14 +351,14 @@ Rust のコンパイルの単位。
 値を作るときにフィールドを書き漏らすと、コンパイルが通らない。
 フィールドに名前を付けず位置で並べる形（タプル構造体）もあり、中身は `.0`、`.1` で読む。
 
-出てくる章: [6](part2/structs.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)
+出てくる章: [6](part2/structs.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)
 
 ### メソッドと関連関数（method / associated function） {/* #method */}
 
 `impl` の中に書く関数のうち、第 1 引数に `self`、`&self`、`&mut self` のどれかを取り、`値.名前(...)` で呼ぶもの。
 `self` を取らず `型::名前(...)` で呼ぶものは関連関数と呼び、C++ の static メンバ関数に当たる。
 
-出てくる章: [6](part2/structs.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)
+出てくる章: [6](part2/structs.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)
 
 ### モジュール（module） {/* #module */}
 
@@ -397,6 +418,13 @@ C や C++ のプログラムに検査のコードを埋め込み、解放済み�
 clang と gcc では `-fsanitize=address` で有効にする。
 
 出てくる章: [8](part3/iterators.md)
+
+### ThreadSanitizer {/* #tsan */}
+
+C や C++ のプログラムに検査のコードを埋め込み、データ競合を実行時に報告する道具。
+clang と gcc では `-fsanitize=thread` で有効にする。
+
+出てくる章: [12](part4/concurrency.md)
 
 ### rustup {/* #rustup */}
 
@@ -459,7 +487,7 @@ wide pointer とも呼ばれる。
 言語の規格が結果を何も定めていない動作。
 動いているように見えても、何が起きても文句は言えない。
 
-出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)、[7](part3/collections.md)、[8](part3/iterators.md)
+出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[12](part4/concurrency.md)
 
 ### 安定ソート（stable sort） {/* #stable-sort */}
 
@@ -505,7 +533,7 @@ Rust では書き手が宣言せず、コンパイラが型の構造から決め
 
 複数のスレッドが同じ場所に同時にアクセスし、少なくとも一方が書き込みで、間に同期が無い状態。
 
-出てくる章: [2](part1/borrowing.md)
+出てくる章: [2](part1/borrowing.md)、[12](part4/concurrency.md)
 
 ### UTF-8 {/* #utf-8 */}
 
@@ -557,6 +585,13 @@ Resource Acquisition Is Initialization。
 move すると、元の `unique_ptr` は `nullptr` を持つ有効なオブジェクトとして残る。
 
 出てくる章: [1](part1/ownership.md)
+
+### `std::shared_ptr` {/* #shared-ptr */}
+
+指す先のオブジェクトを、参照カウントで複数の持ち主が共有するスマートポインタ。
+同じ先を指す別々の `shared_ptr` を複数のスレッドが同時に複製したり消したりしても、参照カウントの増減で競合しないことが規格で求められている。
+
+出てくる章: [12](part4/concurrency.md)
 
 ### 右辺値参照（rvalue reference） {/* #rvalue-reference */}
 
