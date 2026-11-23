@@ -2,29 +2,360 @@
  * Any CSS included here will be global. The classic template
  * bundles Infima by default. Infima is a CSS framework designed to
  * work well for content-centric websites.
+ *
+ * 日本語技術書（「CLI ツールで学ぶ Rust」）向けのタイポグラフィ調整。
+ * 和文の可読性（行長・行間・約物・和欧混植・斜体回避）と、
+ * Rust コード片との視認性の両立を目的にしている。
  */
 
 /* You can override the default Infima variables here. */
 :root {
-  --ifm-color-primary: #2e8555;
-  --ifm-color-primary-dark: #29784c;
-  --ifm-color-primary-darker: #277148;
-  --ifm-color-primary-darkest: #205d3b;
-  --ifm-color-primary-light: #33925d;
-  --ifm-color-primary-lighter: #359962;
-  --ifm-color-primary-lightest: #3cad6e;
-  --ifm-code-font-size: 95%;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  /* Rust 技術書らしい落ち着いた錆色（ライト背景で WCAG AA 以上のコントラストを確保） */
+  --ifm-color-primary: #a83b0c;
+  --ifm-color-primary-dark: #97350b;
+  --ifm-color-primary-darker: #8f320a;
+  --ifm-color-primary-darkest: #762908;
+  --ifm-color-primary-light: #b9410d;
+  --ifm-color-primary-lighter: #c1440e;
+  --ifm-color-primary-lightest: #da4d10;
+
+  /* 地の色と文字色: 純黒と純白の強いコントラストをわずかに和らげ、長文読解の疲労を抑える */
+  --ifm-background-color: #fcfcfb;
+  --ifm-background-surface-color: #f6f5f2;
+  --ifm-font-color-base: #22252a;
+  --ifm-font-color-secondary: #57606a;
+  --book-strong-color: #14171a;
+  --book-border-subtle: rgba(34, 37, 42, 0.12);
+  --book-inline-code-bg: #f1efe9;
+  --book-inline-code-border: rgba(34, 37, 42, 0.1);
+  --book-blockquote-bg: #f7f4ef;
+
+  /* 書体: Noto Sans JP + 各 OS の高品質な日本語ゴシック体をフォールバックに置く */
+  --ifm-font-family-base:
+    'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans',
+    'BIZ UDPGothic', 'Yu Gothic UI', 'YuGothic', 'Meiryo', sans-serif;
+  --ifm-heading-font-family: var(--ifm-font-family-base);
+  /* コード内の日本語コメントが明朝体等へ崩れないよう、等幅フォント末尾に日本語ゴシックを添える */
+  --ifm-font-family-monospace:
+    'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas,
+    'Hiragino Kaku Gothic ProN', 'BIZ UDGothic', monospace;
+
+  /* 日本語は仮想ボディに対する文字の占有率が高いため、欧文既定（1.65）より行間を広げる */
+  --ifm-font-size-base: 16px;
+  --ifm-line-height-base: 1.9;
+  --ifm-paragraph-margin-bottom: 1.45rem;
+  --ifm-leading: 1.45rem;
+  --ifm-heading-line-height: 1.4;
+  --ifm-font-weight-bold: 700;
+  --ifm-heading-font-weight: 700;
+
+  /* 和文中のインラインコードが周囲の漢字より大きく見えない比率に抑える */
+  --ifm-code-font-size: 87.5%;
+  --ifm-code-border-radius: 4px;
+  --ifm-code-padding-vertical: 0.12em;
+  --ifm-code-padding-horizontal: 0.36em;
+  --ifm-pre-line-height: 1.65;
+  --ifm-pre-border-radius: 8px;
+
+  --docusaurus-highlighted-code-line-bg: rgba(168, 59, 12, 0.08);
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
 [data-theme='dark'] {
-  --ifm-color-primary: #25c2a0;
-  --ifm-color-primary-dark: #21af90;
-  --ifm-color-primary-darker: #1fa588;
-  --ifm-color-primary-darkest: #1a8870;
-  --ifm-color-primary-light: #29d5b0;
-  --ifm-color-primary-lighter: #32d8b4;
-  --ifm-color-primary-lightest: #4fddbf;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+  --ifm-color-primary: #e8895c;
+  --ifm-color-primary-dark: #e37642;
+  --ifm-color-primary-darker: #e16c35;
+  --ifm-color-primary-darkest: #ca551e;
+  --ifm-color-primary-light: #ed9c76;
+  --ifm-color-primary-lighter: #efa683;
+  --ifm-color-primary-lightest: #f6c3aa;
+
+  --ifm-background-color: #17191e;
+  --ifm-background-surface-color: #1e2128;
+  --ifm-font-color-base: #dde1e8;
+  --ifm-font-color-secondary: #9aa3b2;
+  --book-strong-color: #f3f5f8;
+  --book-border-subtle: rgba(221, 225, 232, 0.14);
+  --book-inline-code-bg: #262a33;
+  --book-inline-code-border: rgba(221, 225, 232, 0.12);
+  --book-blockquote-bg: rgba(232, 137, 92, 0.08);
+
+  --docusaurus-highlighted-code-line-bg: rgba(232, 137, 92, 0.16);
+}
+
+/* ==========================================================================
+   日本語組版の基本設定
+   ========================================================================== */
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-kerning: normal;
+  /* 禁則処理を厳密に適用し、句読点や小書き仮名の行頭・行末崩れを防ぐ */
+  line-break: strict;
+  word-break: normal;
+  overflow-wrap: anywhere;
+  /* 和欧間の自動アキ調整（対応ブラウザで自然に効く） */
+  text-autospace: normal;
+}
+
+/* ==========================================================================
+   本文エリア（行長・段落・見出し）
+   ========================================================================== */
+
+/* 1 行あたり全角 40〜44 字前後に収め、行の折り返しで視線を見失わないようにする */
+article {
+  max-width: 45rem;
+}
+
+.markdown {
+  letter-spacing: 0.02em;
+  hanging-punctuation: allow-end;
+}
+
+.markdown p {
+  text-wrap: pretty;
+}
+
+.markdown strong {
+  color: var(--book-strong-color);
+  font-weight: 700;
+}
+
+/* 見出しはプロポーショナルメトリクス（palt）で和文約物・仮名の空きを詰めて引き締める */
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.navbar__title,
+.pagination-nav__label {
+  font-feature-settings: 'palt' 1;
+  text-wrap: balance;
+}
+
+.markdown h1 {
+  font-size: 1.95rem;
+  line-height: 1.35;
+  letter-spacing: 0.015em;
+  margin-bottom: 1.75rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 2px solid var(--book-border-subtle);
+}
+
+.markdown h2 {
+  font-size: 1.4rem;
+  line-height: 1.45;
+  letter-spacing: 0.02em;
+  margin-top: 2.85rem;
+  margin-bottom: 1.15rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--book-border-subtle);
+}
+
+.markdown h3 {
+  font-size: 1.15rem;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  margin-top: 2.1rem;
+  margin-bottom: 0.75rem;
+}
+
+.markdown h4 {
+  font-size: 1.02rem;
+  line-height: 1.55;
+  margin-top: 1.6rem;
+  margin-bottom: 0.6rem;
+}
+
+/* ==========================================================================
+   本文中のリンク（用語集リンクが漢字の下端に重ならないよう下線を離す）
+   ========================================================================== */
+
+.markdown a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.24em;
+  text-decoration-color: color-mix(in srgb, currentColor 38%, transparent);
+  transition:
+    color 0.15s ease,
+    text-decoration-color 0.15s ease;
+}
+
+.markdown a:hover {
+  text-decoration-color: currentColor;
+}
+
+/* 見出しのアンカーアイコンには下線を出さない */
+.markdown a.hash-link {
+  text-decoration: none;
+}
+
+/* リンク内のインラインコードはリンク色になじませる */
+.markdown a code {
+  color: inherit;
+}
+
+/* ==========================================================================
+   インラインコードとコードブロック
+   ========================================================================== */
+
+/* 和文中に挟まれる識別子（`Tally`, `&mut T` 等）が前後の文字と詰まらないようにする */
+.markdown :not(pre) > code {
+  background-color: var(--book-inline-code-bg);
+  border: 1px solid var(--book-inline-code-border);
+  margin: 0 0.14em;
+  vertical-align: 0.02em;
+  letter-spacing: 0;
+  font-feature-settings: 'palt' 0;
+}
+
+/* コードブロック内は通常の等幅・タブ幅 4（Rust 慣例）を保つ */
+.markdown pre,
+.markdown pre code {
+  letter-spacing: 0;
+  line-break: auto;
+  overflow-wrap: normal;
+  tab-size: 4;
+  font-feature-settings: 'palt' 0;
+}
+
+.theme-code-block {
+  border: 1px solid var(--book-border-subtle);
+  box-shadow: none;
+  margin-top: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+/* ==========================================================================
+   箇条書き・引用・表
+   ========================================================================== */
+
+.markdown ul,
+.markdown ol {
+  padding-left: 1.5em;
+  margin-bottom: 1.4rem;
+}
+
+.markdown li {
+  line-height: 1.85;
+}
+
+.markdown li + li {
+  margin-top: 0.45rem;
+}
+
+.markdown li > ul,
+.markdown li > ol {
+  margin-top: 0.45rem;
+  margin-bottom: 0.45rem;
+}
+
+/* 日本語での斜体（oblique）は可読性を損なうため、引用でも正体を維持する */
+.markdown blockquote {
+  font-style: normal;
+  background-color: var(--book-blockquote-bg);
+  border-left: 3px solid var(--ifm-color-primary);
+  border-radius: 0 6px 6px 0;
+  padding: 0.9rem 1.25rem;
+  margin: 1.5rem 0;
+  color: var(--ifm-font-color-base);
+}
+
+.markdown blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+/* 表: 過度な格子線を抑え、実測値などの数字を等幅数字（tabular-nums）で揃える */
+.markdown table {
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  margin: 1.5rem 0;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.markdown table th {
+  font-weight: 700;
+  font-feature-settings: 'palt' 1;
+  background-color: var(--ifm-background-surface-color);
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  border-bottom: 2px solid var(--book-border-subtle);
+  padding: 0.65rem 0.9rem;
+  text-align: left;
+}
+
+.markdown table td {
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  border-bottom: 1px solid var(--book-border-subtle);
+  padding: 0.65rem 0.9rem;
+  vertical-align: top;
+}
+
+.markdown table tr:nth-child(2n) {
+  background-color: transparent;
+}
+
+/* ==========================================================================
+   ナビゲーション・サイドバー・目次（TOC）
+   ========================================================================== */
+
+.navbar {
+  border-bottom: 1px solid var(--book-border-subtle);
+  box-shadow: none;
+}
+
+.navbar__title {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.menu {
+  font-size: 0.92rem;
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+}
+
+.menu__list-item-collapsible > .menu__link {
+  font-weight: 700;
+  font-feature-settings: 'palt' 1;
+  letter-spacing: 0.03em;
+}
+
+.table-of-contents {
+  font-size: 0.82rem;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+}
+
+.pagination-nav__link {
+  border-color: var(--book-border-subtle);
+  transition: border-color 0.15s ease;
+}
+
+/* ==========================================================================
+   狭い画面（モバイル）向けの微調整
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  :root {
+    --ifm-font-size-base: 15.5px;
+    --ifm-line-height-base: 1.85;
+  }
+
+  .markdown h1 {
+    font-size: 1.6rem;
+  }
+
+  .markdown h2 {
+    font-size: 1.25rem;
+    margin-top: 2.25rem;
+  }
+
+  .markdown h3 {
+    font-size: 1.08rem;
+  }
 }

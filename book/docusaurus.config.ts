@@ -31,6 +31,30 @@ const config: Config = {
     locales: ['ja'],
   },
 
+  // 日本語本文（Noto Sans JP）とコード（JetBrains Mono）の Web フォント。
+  // display=swap とシステムフォントのフォールバックを併用し、
+  // 読み込み中やオフライン環境でも本文の表示を止めない。
+  headTags: [
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'preconnect',
+        href: 'https://fonts.googleapis.com',
+      },
+    },
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'preconnect',
+        href: 'https://fonts.gstatic.com',
+        crossorigin: 'anonymous',
+      },
+    },
+  ],
+  stylesheets: [
+    'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+JP:wght@400;500;700&display=swap',
+  ],
+
   presets: [
     [
       'classic',
@@ -53,6 +77,12 @@ const config: Config = {
   themeConfig: {
     colorMode: {
       respectPrefersColorScheme: true,
+    },
+    docs: {
+      sidebar: {
+        // 本文に集中して読めるよう、左サイドバーを折りたためるようにする。
+        hideable: true,
+      },
     },
     navbar: {
       title: 'CLI ツールで学ぶ Rust',
