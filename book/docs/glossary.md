@@ -19,14 +19,14 @@ title: 用語集
 
 Rust の値には必ず一人の所有者がいて、所有者がスコープを抜けると値が解放される、という規則。
 
-出てくる章: [はじめに](intro.md)、[1](part1/ownership.md)、[3](part1/strings.md)、[13](part4/smart-pointers.md)
+出てくる章: [はじめに](intro.md)、[1](part1/ownership.md)、[3](part1/strings.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
 
 ### move {/* #move */}
 
 値の所有権を別の変数や関数へ移すこと。
 移したあとの元の変数は、コンパイラが使わせない。
 
-出てくる章: [1](part1/ownership.md)、[4](part2/enums.md)、[6](part2/structs.md)、[8](part3/iterators.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
+出てくる章: [1](part1/ownership.md)、[4](part2/enums.md)、[6](part2/structs.md)、[8](part3/iterators.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
 
 ### 部分 move（partial move） {/* #partial-move */}
 
@@ -40,7 +40,7 @@ Rust の値には必ず一人の所有者がいて、所有者がスコープを
 `Copy` は代入のときに暗黙に複製される型の性質で、`Clone` は `.clone()` と書いたときだけ複製できる型の性質。
 どちらも trait である。
 
-出てくる章: [1](part1/ownership.md)、[4](part2/enums.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[13](part4/smart-pointers.md)
+出てくる章: [1](part1/ownership.md)、[4](part2/enums.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
 
 ### drop {/* #drop */}
 
@@ -48,13 +48,13 @@ Rust の値には必ず一人の所有者がいて、所有者がスコープを
 C++ のデストラクタの呼び出しに当たる。
 move された変数については走らない（値が移った先で 1 回だけ走る）。
 
-出てくる章: [1](part1/ownership.md)（デストラクタとして）、3（エラーメッセージの中）、[13](part4/smart-pointers.md)
+出てくる章: [1](part1/ownership.md)（デストラクタとして）、3（エラーメッセージの中）、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
 
 ### 借用（borrow） {/* #borrow */}
 
 値を所有したまま、参照を作って貸すこと。
 
-出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
+出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
 
 ### 共有参照と可変参照（shared reference / mutable reference） {/* #references */}
 
@@ -76,7 +76,7 @@ move された変数については走らない（値が移った先で 1 回だ
 値や参照が有効でいられる期間。
 Rust では、参照が指す先より長く生きないことをコンパイラが確かめる。
 
-出てくる章: [3](part1/strings.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
+出てくる章: [3](part1/strings.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
 
 ### ライフタイム注釈（lifetime annotation） {/* #lifetime-annotation */}
 
@@ -96,7 +96,7 @@ Rust では、参照が指す先より長く生きないことをコンパイラ
 
 `String` はヒープ上の UTF-8 のバイト列を所有する文字列で、`&str` はどこかにある UTF-8 のバイト列を眺める参照。
 
-出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[7](part3/collections.md)、[13](part4/smart-pointers.md)
+出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[7](part3/collections.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
 
 ### 文字列リテラル（string literal） {/* #string-literal */}
 
@@ -124,7 +124,7 @@ UTF-8 のバイト列のうち、1 文字の先頭に当たる位置（と末尾
 要素をヒープ上に連続して並べる、長さを変えられる配列。
 C++ の `std::vector` に当たる。
 
-出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
+出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
 
 ### `HashMap` {/* #hashmap */}
 
@@ -145,21 +145,21 @@ C++ の `std::map` に当たる。
 値が有るか無いかを表す型。
 有れば `Some(値)`、無ければ `None` になる。
 
-出てくる章: [3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)、[13](part4/smart-pointers.md)
+出てくる章: [3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
 
 ### `Result` {/* #result */}
 
 成功の値か失敗の値のどちらかを持つ型。
 成功なら `Ok(値)`、失敗なら `Err(エラー)` になる。
 
-出てくる章: [2](part1/borrowing.md)、[5](part2/result.md)、[6](part2/structs.md)、[8](part3/iterators.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
+出てくる章: [2](part1/borrowing.md)、[5](part2/result.md)、[6](part2/structs.md)、[8](part3/iterators.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
 
 ### enum {/* #enum */}
 
 取りうる場合（バリアント）を並べて定義する型。
 バリアントごとに別の値を持たせられる。
 
-出てくる章: [4](part2/enums.md)、[5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)
+出てくる章: [4](part2/enums.md)、[5](part2/result.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[14](part4/type-invariants.md)
 
 ### パターン（pattern） {/* #pattern */}
 
@@ -207,7 +207,7 @@ Rust では起きる場所と種類が限られている。
 `*` による参照外しと、参照外し型強制の振る舞いを決める trait。
 `Deref` は共有参照の変換、`DerefMut` は可変参照の変換に使う。
 
-出てくる章: [13](part4/smart-pointers.md)
+出てくる章: [13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
 
 ### イテレータ（iterator） {/* #iterator */}
 
@@ -215,7 +215,7 @@ Rust では起きる場所と種類が限られている。
 `map` や `filter` で包んでも、その処理は `next` が呼ばれたときに初めて走る。
 C++ の反復子と違い、終わりを自分で知っている。
 
-出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)
+出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[14](part4/type-invariants.md)
 
 ### クロージャ（closure） {/* #closure */}
 
@@ -238,7 +238,7 @@ C++ の反復子と違い、終わりを自分で知っている。
 既定では、スタックを巻き戻しながら値の後始末を走らせ、そのスレッドを終える。
 main スレッドで起きれば、プログラム全体が終わる。
 
-出てくる章: [3](part1/strings.md)、[5](part2/result.md)、[7](part3/collections.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
+出てくる章: [3](part1/strings.md)、[5](part2/result.md)、[7](part3/collections.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
 
 ### `unsafe` {/* #unsafe */}
 
@@ -316,7 +316,7 @@ trait を型に実装するとき、trait か型の少なくとも一方が、�
 値をヒープに置いて単独の所有権で管理するポインタ（サイズ 0 の型や空のスライスでは実際にはヒープを確保しない）。
 再帰的な型の大きさを確定させるときや、`Box<str>` のような長さを変えないスライス、`Box<dyn Trait>` を持つときに使う。
 
-出てくる章: [6](part2/structs.md)、[9](part3/traits.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
+出てくる章: [6](part2/structs.md)、[9](part3/traits.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
 
 ### `Rc` と `Arc` {/* #rc-arc */}
 
@@ -337,7 +337,7 @@ trait を型に実装するとき、trait か型の少なくとも一方が、�
 1 本のスレッドの中で内部可変性を実現する型。
 `Cell` は値を丸ごと出し入れし、`RefCell` は借用の規則を実行時に確かめる。
 
-出てくる章: [12](part4/concurrency.md)（`RefCell`）、[13](part4/smart-pointers.md)
+出てくる章: [12](part4/concurrency.md)（`RefCell`）、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)（`RefCell`）
 
 ### `Mutex` {/* #mutex */}
 
@@ -351,7 +351,7 @@ trait を型に実装するとき、trait か型の少なくとも一方が、�
 `#[derive(Debug, Clone)]` のように書き、trait の実装をコンパイラやライブラリに書かせる属性。
 derive した実装は、フィールドの型の実装を使う。
 
-出てくる章: [6](part2/structs.md)、[9](part3/traits.md)、[11](part4/errors.md)
+出てくる章: [6](part2/structs.md)、[9](part3/traits.md)、[11](part4/errors.md)、[14](part4/type-invariants.md)
 
 ### 関連型（associated type） {/* #associated-type */}
 
@@ -370,7 +370,14 @@ Rust のコンパイルの単位。
 
 `#[...]` の形で項目に付ける、コンパイラへの指示や注記。
 
-出てくる章: [4](part2/enums.md)、[6](part2/structs.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)
+出てくる章: [4](part2/enums.md)、[6](part2/structs.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[14](part4/type-invariants.md)
+
+### `#[must_use]` {/* #must-use */}
+
+型や関数に付ける属性。
+値や戻り値を使わずに捨てたときに、コンパイラに警告を出させる。
+
+出てくる章: [6](part2/structs.md)、[14](part4/type-invariants.md)
 
 ### 構造体（struct） {/* #struct */}
 
@@ -378,14 +385,14 @@ Rust のコンパイルの単位。
 値を作るときにフィールドを書き漏らすと、コンパイルが通らない。
 フィールドに名前を付けず位置で並べる形（タプル構造体）もあり、中身は `.0`、`.1` で読む。
 
-出てくる章: [6](part2/structs.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
+出てくる章: [6](part2/structs.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
 
 ### メソッドと関連関数（method / associated function） {/* #method */}
 
 `impl` の中に書く関数のうち、第 1 引数に `self`、`&self`、`&mut self` のどれかを取り、`値.名前(...)` で呼ぶもの。
 `self` を取らず `型::名前(...)` で呼ぶものは関連関数と呼び、C++ の static メンバ関数に当たる。
 
-出てくる章: [6](part2/structs.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
+出てくる章: [6](part2/structs.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
 
 ### モジュール（module） {/* #module */}
 
@@ -393,14 +400,21 @@ Rust のコンパイルの単位。
 非公開の項目は、定義したモジュールとその子孫からだけ見える。
 `mod 名前;` と書くと、別のファイル（たとえば `src/名前.rs`）の中身がそのモジュールになる。
 
-出てくる章: [6](part2/structs.md)
+出てくる章: [6](part2/structs.md)、[14](part4/type-invariants.md)
 
 ### newtype {/* #newtype */}
 
 既存の型を、フィールド 1 つのタプル構造体で包んで作る新しい型。
 フィールドを非公開にして、作る関数で条件を確かめれば、モジュールの外では条件を満たす値しか作れなくなる。
 
-出てくる章: [6](part2/structs.md)、[7](part3/collections.md)、[9](part3/traits.md)、[11](part4/errors.md)
+出てくる章: [6](part2/structs.md)、[7](part3/collections.md)、[9](part3/traits.md)、[11](part4/errors.md)、[14](part4/type-invariants.md)
+
+### typestate（型状態） {/* #typestate */}
+
+手順の段階ごとに別の型を用意し、遷移のメソッドが `self` を move で受け取って次の段階の型を返す設計。
+手順の前後違いや古い状態の再利用をコンパイルエラーにできる。
+
+出てくる章: [14](part4/type-invariants.md)
 
 ### エラーコード（error code） {/* #error-code */}
 
@@ -487,7 +501,7 @@ Rust でも `*` と書く。
 変数の名前が有効な範囲。
 Rust では、所有者の変数がスコープを抜けると値が解放される。
 
-出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[8](part3/iterators.md)、[13](part4/smart-pointers.md)
+出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[8](part3/iterators.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
 
 ### ヒープ（heap） {/* #heap */}
 
@@ -604,7 +618,7 @@ U+FFFD。
 Resource Acquisition Is Initialization。
 資源の解放をオブジェクトのデストラクタに任せ、スコープを抜けたときに確実に解放させる書き方。
 
-出てくる章: [1](part1/ownership.md)、[13](part4/smart-pointers.md)
+出てくる章: [1](part1/ownership.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
 
 ### `std::unique_ptr` {/* #unique-ptr */}
 
@@ -647,7 +661,7 @@ Rust にはこれに当たるものが無い。
 壊れてはいないが、中身が何であるかは規格が定めていない。
 型ごとに別の定めがある場合はそれに従う（`std::unique_ptr` は `nullptr` になる）。
 
-出てくる章: [1](part1/ownership.md)、[6](part2/structs.md)
+出てくる章: [1](part1/ownership.md)、[6](part2/structs.md)、[14](part4/type-invariants.md)
 
 ### `= delete`（deleted function） {/* #deleted-function */}
 
