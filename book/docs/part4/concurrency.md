@@ -11,7 +11,7 @@ sidebar_position: 12
 10 章の `'static` も、ここでもう一度出てくる。
 
 C++ の `std::thread` は、渡す関数オブジェクトが何を参照していても受け取る。
-ふつうの（`std::atomic` でない）変数を 2 つのスレッドが同期なしに書き換えれば[未定義動作](../glossary.md#undefined-behavior)だが、それを知らせるのは、実行時に検査を埋め込む [ThreadSanitizer](../glossary.md#tsan) のような道具である。
+`std::atomic` でない同じ変数を 2 つのスレッドが同期なしに書き換えれば[未定義動作](../glossary.md#undefined-behavior)だが、それを知らせるのは、実行時に検査を埋め込む [ThreadSanitizer](../glossary.md#tsan) のような道具である。
 Java や C# でも、どのオブジェクトも別のスレッドに渡せて、同期を書くかどうかは書く側に任されている。
 Rust では、スレッドをまたいでよいかどうかを型が持ち、コンパイラがそれを確かめる。
 この章では、その仕組みと、それを前提にした並列化の書き方を見る。
