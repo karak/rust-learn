@@ -54,7 +54,7 @@ move された変数については走らない（値が移った先で 1 回だ
 
 値を所有したまま、参照を作って貸すこと。
 
-出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
+出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)、[付録 A](appendix/performance.md)
 
 ### 共有参照と可変参照（shared reference / mutable reference） {/* #references */}
 
@@ -96,7 +96,7 @@ Rust では、参照が指す先より長く生きないことをコンパイラ
 
 `String` はヒープ上の UTF-8 のバイト列を所有する文字列で、`&str` はどこかにある UTF-8 のバイト列を眺める参照。
 
-出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[7](part3/collections.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
+出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[7](part3/collections.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)、[付録 A](appendix/performance.md)
 
 ### 文字列リテラル（string literal） {/* #string-literal */}
 
@@ -131,14 +131,14 @@ C++ の `std::vector` に当たる。
 キーから値を引くハッシュ表。
 C++ の `std::unordered_map` に当たる。
 
-出てくる章: [1](part1/ownership.md)、[3](part1/strings.md)、[7](part3/collections.md)、[8](part3/iterators.md)
+出てくる章: [1](part1/ownership.md)、[3](part1/strings.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[付録 A](appendix/performance.md)
 
 ### `BTreeMap` {/* #btreemap */}
 
 キーの順序を保つ表。反復するとキーの昇順に出てくる。
 C++ の `std::map` に当たる。
 
-出てくる章: [7](part3/collections.md)、[8](part3/iterators.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
+出てくる章: [7](part3/collections.md)、[8](part3/iterators.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)、[付録 A](appendix/performance.md)
 
 ### `Option` {/* #option */}
 
@@ -215,7 +215,7 @@ Rust では起きる場所と種類が限られている。
 `map` や `filter` で包んでも、その処理は `next` が呼ばれたときに初めて走る。
 C++ の反復子と違い、終わりを自分で知っている。
 
-出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[14](part4/type-invariants.md)
+出てくる章: [8](part3/iterators.md)、[9](part3/traits.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[14](part4/type-invariants.md)、[付録 A](appendix/performance.md)
 
 ### クロージャ（closure） {/* #closure */}
 
@@ -507,7 +507,7 @@ Rust では、所有者の変数がスコープを抜けると値が解放され
 
 実行中に大きさを決めて確保し、使い終わったら解放するメモリの領域。
 
-出てくる章: [1](part1/ownership.md)、[3](part1/strings.md)、[8](part3/iterators.md)、[9](part3/traits.md)、[13](part4/smart-pointers.md)
+出てくる章: [1](part1/ownership.md)、[3](part1/strings.md)、[8](part3/iterators.md)、[9](part3/traits.md)、[13](part4/smart-pointers.md)、[付録 A](appendix/performance.md)
 
 ### ファットポインタ（fat pointer） {/* #fat-pointer */}
 
@@ -581,7 +581,7 @@ Rust では書き手が宣言せず、コンパイラが型の構造から決め
 Unicode の文字を 1 から 4 バイトの可変長で表す符号化方式。
 ASCII の文字は 1 バイトで、日本語の多くの文字は 3 バイトになる。
 
-出てくる章: [3](part1/strings.md)、[11](part4/errors.md)
+出てくる章: [3](part1/strings.md)、[11](part4/errors.md)、[付録 A](appendix/performance.md)
 
 ### 符号点（code point） {/* #code-point */}
 

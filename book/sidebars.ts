@@ -42,6 +42,12 @@ const sidebars: SidebarsConfig = {
         'part4/type-invariants',
       ],
     },
+    {
+      type: 'category',
+      label: '付録',
+      collapsed: false,
+      items: ['appendix/performance'],
+    },
     'glossary',
   ],
 };
