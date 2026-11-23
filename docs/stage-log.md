@@ -501,7 +501,7 @@ Mac16,10（性能コア 4 + 効率コア 6）、`profile.profiling` でプロフ
 
 | 対象 | `unsafe` の数 | 読んだ範囲 | なぜこれか |
 | --- | --- | --- | --- |
-| `foldhash` 0.1.5 `src/seed.rs` | 5 | `GlobalSeedStorage` と `GlobalSeed` の全体 | 段階 7 で自分が入れた依存。**共有可変状態を `Sync` と宣言する**題材 |
+| `foldhash` 0.2.0 `src/seed.rs`（2026-11-24 訂正: 当初 `0.1.5` と誤記していたが `Cargo.lock` の実物は `0.2.0`） | 5（うち `unsafe` 構文は 3、残り 2 はフィールド名の部分一致） | `GlobalSeedStorage` と `GlobalSeed` の全体 | 段階 7 で自分が入れた依存。**共有可変状態を `Sync` と宣言する**題材 |
 | `serde_json` 1.0.151 `src/read.rs` | 3 | `skip_to_escape`、`StrRead::parse_str`、`push_wtf8_codepoint` | 段階 7 で最も時間を削った経路そのもの。**検証を省く**題材 |
 | `rayon-core` 1.13.0 `src/scope/mod.rs` | （クレート全体で 88） | `ScopePtr` と `Scope::complete` 周辺 | 段階 6 の `rayon` が借用をスレッドへ渡せる理由。**寿命を型から消す**題材 |
 
