@@ -46,7 +46,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: '付録',
       collapsed: false,
-      items: ['appendix/performance'],
+      items: ['appendix/performance', 'appendix/distribution'],
     },
     'glossary',
   ],

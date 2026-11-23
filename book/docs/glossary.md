@@ -364,7 +364,7 @@ trait の中で `type Reader;` のように宣言し、実装ごとに 1 つに�
 Rust のコンパイルの単位。
 ライブラリ一つ、または実行ファイル一つに当たる。
 
-出てくる章: [4](part2/enums.md)、[6](part2/structs.md)、[9](part3/traits.md)、[11](part4/errors.md)、[12](part4/concurrency.md)
+出てくる章: [4](part2/enums.md)、[6](part2/structs.md)、[9](part3/traits.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[付録 B](appendix/distribution.md)
 
 ### 属性（attribute） {/* #attribute */}
 
@@ -430,7 +430,7 @@ Rust のコンパイルの単位。
 Rust のビルドとパッケージ管理の道具。
 `cargo run`、`cargo test` などでビルド・実行・テストを行う。
 
-出てくる章: [はじめに](intro.md)、各章の演習（コードの中）
+出てくる章: [はじめに](intro.md)、各章の演習（コードの中）、[付録 B](appendix/distribution.md)
 
 ### rustc {/* #rustc */}
 
@@ -471,7 +471,7 @@ clang と gcc では `-fsanitize=thread` で有効にする。
 
 Rust のツールチェーン（コンパイラや `cargo` の版）を入れて切り替える道具。
 
-出てくる章: [はじめに](intro.md)
+出てくる章: [はじめに](intro.md)、[付録 B](appendix/distribution.md)
 
 ## プログラミング言語の用語
 
