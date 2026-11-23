@@ -1,16 +1,6 @@
-# git-secrets が検出したもののうち、意図的に許可するもの。
-#
-# **1 行 1 正規表現。** 照合対象は `ファイル:行番号:行の内容` の形をした出力行なので、
-# ファイル名で範囲を絞れる。**絞ること** — 広い正規表現は本物の秘密を通す。
-#
-# **literal な空白を書かないこと。** git-secrets は .gitallowed の各行も
-# 空白で単語分割する（`for pattern in $patterns`）。空白は `[[:space:]]` で書く。
-# 同じ制約が secrets.patterns にもある（scripts/setup-git-secrets.sh を参照）。
+# git-secrets の誤検知許可（追跡される正本。docs/container-git.md）。
+# 空白は literal で書かない（git-secrets が空白で分割するため）。
+# 広い正規表現は避け、誤検知したテスト入力の具体的な文字列だけに絞る。
 
-# **`--scan-history` は出力にコミット SHA を前置する**（`<sha>:path:line:内容`）。
-# `^path` でアンカーすると作業ツリーの `--scan` にしか効かない。
-# SHA の有無を任意にすること。
-
-# セットアップスクリプト自身の自己検査。偽の秘密鍵を書いて
-# 「検出できること」を毎回確かめている。ファイルと形を固定して許可する。
-^([0-9a-f]{40}:)?scripts/setup-git-secrets\.sh:[0-9]+:.*BEGIN[[:space:]]RSA[[:space:]]PRIVATE[[:space:]]KEY
+# .agents/skills/rust-port/evals/port-c-config-parser/files/test_config.c の整数オーバーフロー検査値（9 が 20 桁）
+config_parse\("a=12x\\nb=\\nc=-7\\nd=9{20}\\n"

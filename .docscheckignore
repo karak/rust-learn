@@ -13,3 +13,7 @@
 # （check-docs.sh の「本に書かないもの」の節）。
 
 book/
+
+# `npx skills` で導入した外部の Agent Skills。
+# リポジトリ外の文書であり、docs/ の書き分け規則の対象外。
+.agents/

@@ -1,0 +1,110 @@
+{
+  "version": 2,
+  "skills": {
+    "rust-api-design": {
+      "source": "takurot/rust-skills-comprehensive",
+      "commit": "fec5f120d2f253971737928e5bb746892bfe73fc",
+      "sourceType": "github",
+      "skillPath": "skills/rust-api-design/SKILL.md",
+      "computedHash": "30fa40e1221ff77ac6c81f13f5e9de2fca7a958dfee2aafc2a6b1042fc67710d"
+    },
+    "rust-async": {
+      "source": "takurot/rust-skills-comprehensive",
+      "commit": "fec5f120d2f253971737928e5bb746892bfe73fc",
+      "sourceType": "github",
+      "skillPath": "skills/rust-async/SKILL.md",
+      "computedHash": "f97057a8a399029e4f96cbecf17d23817f7b14e6f446cc6c3bb5cb15af5c3c8d"
+    },
+    "rust-best-practices": {
+      "source": "morganlinton/BeautifulRust",
+      "commit": "b9718436d77ee7bcf17cdcb6aa27628feb95d97a",
+      "sourceType": "github",
+      "skillPath": "skills/rust-best-practices/SKILL.md",
+      "computedHash": "313bea7637531b7f6fe60798bed2108e49594914d4db44e303b7d2312868b3d1"
+    },
+    "rust-concurrency-sync": {
+      "source": "takurot/rust-skills-comprehensive",
+      "commit": "fec5f120d2f253971737928e5bb746892bfe73fc",
+      "sourceType": "github",
+      "skillPath": "skills/rust-concurrency-sync/SKILL.md",
+      "computedHash": "40865ec5709bd3edf2ca54597fc67f022862a3523ce817a72da2eea6744a3212"
+    },
+    "rust-ffi": {
+      "source": "takurot/rust-skills-comprehensive",
+      "commit": "fec5f120d2f253971737928e5bb746892bfe73fc",
+      "sourceType": "github",
+      "skillPath": "skills/rust-ffi/SKILL.md",
+      "computedHash": "40fa0629f393dd6985e63f51683a185f956142bc71b38317da3fc246a6f4b7f8"
+    },
+    "rust-newtype-and-raii": {
+      "source": "takurot/rust-skills-comprehensive",
+      "commit": "fec5f120d2f253971737928e5bb746892bfe73fc",
+      "sourceType": "github",
+      "skillPath": "skills/rust-newtype-and-raii/SKILL.md",
+      "computedHash": "5ba23725c0b2054168485b1dde1597d767a6cd82db6e6208907b818c6e7fe3c2"
+    },
+    "rust-ownership-and-lifetimes": {
+      "source": "takurot/rust-skills-comprehensive",
+      "commit": "fec5f120d2f253971737928e5bb746892bfe73fc",
+      "sourceType": "github",
+      "skillPath": "skills/rust-ownership-and-lifetimes/SKILL.md",
+      "computedHash": "6a68b5a414d5edd88bfaa72c1d9f874ea5e839eeaff52ad2bc7d75a5be6fe986"
+    },
+    "rust-pinning": {
+      "source": "takurot/rust-skills-comprehensive",
+      "commit": "fec5f120d2f253971737928e5bb746892bfe73fc",
+      "sourceType": "github",
+      "skillPath": "skills/rust-pinning/SKILL.md",
+      "computedHash": "13799f9b316de17d228ee27c9b1a5b66b6637e3f343abc7888a044be590808f4"
+    },
+    "rust-polymorphism": {
+      "source": "takurot/rust-skills-comprehensive",
+      "commit": "fec5f120d2f253971737928e5bb746892bfe73fc",
+      "sourceType": "github",
+      "skillPath": "skills/rust-polymorphism/SKILL.md",
+      "computedHash": "5a1e99cbba949a911113bed68f00304f80ebcf6c9a2d11031b796edea968b1f8"
+    },
+    "rust-port": {
+      "source": "morganlinton/BeautifulRust",
+      "commit": "b9718436d77ee7bcf17cdcb6aa27628feb95d97a",
+      "sourceType": "github",
+      "skillPath": "skills/rust-port/SKILL.md",
+      "computedHash": "b125be23ffeac1c4b67d018282f60acee159a228a83d6aebfc4848dd3d3c2efa"
+    },
+    "rust-review": {
+      "source": "morganlinton/BeautifulRust",
+      "commit": "b9718436d77ee7bcf17cdcb6aa27628feb95d97a",
+      "sourceType": "github",
+      "skillPath": "skills/rust-review/SKILL.md",
+      "computedHash": "a12087e797445bac38dc7c0b3e7441cb515fe7decb31ed983fcf24008c0523c1"
+    },
+    "rust-skills": {
+      "source": "leonardomso/rust-skills",
+      "commit": "fd2a861ab0406a4ac536a55274d14ea6fd1ca9c9",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "94e92a36737ebd97af3c79710bf413609fd161cbdf02ce3fac5d9d5b5966697b"
+    },
+    "rust-typestate-and-tokens": {
+      "source": "takurot/rust-skills-comprehensive",
+      "commit": "fec5f120d2f253971737928e5bb746892bfe73fc",
+      "sourceType": "github",
+      "skillPath": "skills/rust-typestate-and-tokens/SKILL.md",
+      "computedHash": "8669de9cbb182ab79a3999098dfb19436a037e1f2b70882e64a183f516e7a335"
+    },
+    "rust-unsafe-fundamentals": {
+      "source": "takurot/rust-skills-comprehensive",
+      "commit": "fec5f120d2f253971737928e5bb746892bfe73fc",
+      "sourceType": "github",
+      "skillPath": "skills/rust-unsafe-fundamentals/SKILL.md",
+      "computedHash": "ebc464f54dca99160c9cdcc206fbbede37cf3f01cedfd598a853c6ec09da9917"
+    },
+    "rust-unsafe-soundness": {
+      "source": "takurot/rust-skills-comprehensive",
+      "commit": "fec5f120d2f253971737928e5bb746892bfe73fc",
+      "sourceType": "github",
+      "skillPath": "skills/rust-unsafe-soundness/SKILL.md",
+      "computedHash": "30824a067fdbafde16b1bc21ff7be9f7fdc5313d3f8d9c023bdb86dda7967a46"
+    }
+  }
+}
