@@ -62,7 +62,7 @@ move された変数については走らない（値が移った先で 1 回だ
 共有参照は同時にいくつでも作れるが、可変参照は同時に一つだけで、そのあいだは共有参照も作れない。
 この性質から、可変参照は排他参照（exclusive reference）とも呼ばれる。
 
-出てくる章: [2](part1/borrowing.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)
+出てくる章: [2](part1/borrowing.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[12](part4/concurrency.md)
 
 ### 内部可変性（interior mutability） {/* #interior-mutability */}
 
@@ -111,7 +111,7 @@ Rust では、参照が指す先より長く生きないことをコンパイラ
 先頭へのポインタと長さを持つ。
 `&str` は文字列のスライスである。
 
-出てくる章: [3](part1/strings.md)、[5](part2/result.md)、[10](part3/lifetimes.md)
+出てくる章: [3](part1/strings.md)、[5](part2/result.md)、[10](part3/lifetimes.md)、[12](part4/concurrency.md)
 
 ### 文字の境界（char boundary） {/* #char-boundary */}
 
@@ -314,7 +314,7 @@ trait を型に実装するとき、trait か型の少なくとも一方が、�
 
 ### `Mutex` {/* #mutex */}
 
-守るデータを中に持ち、共有参照からは `lock` で得たガードを通してだけ中身に触らせる排他ロック。
+守るデータを中に持ち、共有参照からは `lock` などで得たガードを通してだけ中身に触らせる排他ロック。
 ガードが消えるとロックが外れる。
 
 出てくる章: [12](part4/concurrency.md)
@@ -337,7 +337,7 @@ trait の中で `type Reader;` のように宣言し、実装ごとに 1 つに�
 Rust のコンパイルの単位。
 ライブラリ一つ、または実行ファイル一つに当たる。
 
-出てくる章: [4](part2/enums.md)、[6](part2/structs.md)、[9](part3/traits.md)、[11](part4/errors.md)
+出てくる章: [4](part2/enums.md)、[6](part2/structs.md)、[9](part3/traits.md)、[11](part4/errors.md)、[12](part4/concurrency.md)
 
 ### 属性（attribute） {/* #attribute */}
 

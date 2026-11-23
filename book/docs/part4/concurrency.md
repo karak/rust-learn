@@ -6,12 +6,12 @@ sidebar_position: 12
 # 12 並列化とその前提（Send / Sync）
 
 2 章で、`&mut` が効かせているのは「可変」より「排他」だと書いた。
-書き手が一人しかいなければ、[データ競合](../glossary.md#data-race)は起きない。
+書き手がいるあいだ、ほかの書き手も読み手も同時に触れなければ、[データ競合](../glossary.md#data-race)は起きない。
 8 章ではスレッドに渡す[クロージャ](../glossary.md#closure)を、9 章ではジョブの配列に付いた `+ Sync` と `Box<dyn Error + Send + Sync>` を、この章に送った。
 10 章の `'static` も、ここでもう一度出てくる。
 
 C++ の `std::thread` は、渡す関数オブジェクトが何を参照していても受け取る。
-同じ変数を 2 つのスレッドが同期なしに書き換えれば[未定義動作](../glossary.md#undefined-behavior)だが、それを知らせるのは、実行時に検査を埋め込む [ThreadSanitizer](../glossary.md#tsan) のような道具である。
+ふつうの（`std::atomic` でない）変数を 2 つのスレッドが同期なしに書き換えれば[未定義動作](../glossary.md#undefined-behavior)だが、それを知らせるのは、実行時に検査を埋め込む [ThreadSanitizer](../glossary.md#tsan) のような道具である。
 Java や C# でも、どのオブジェクトも別のスレッドに渡せて、同期を書くかどうかは書く側に任されている。
 Rust では、スレッドをまたいでよいかどうかを型が持ち、コンパイラがそれを確かめる。
 この章では、その仕組みと、それを前提にした並列化の書き方を見る。
@@ -30,11 +30,12 @@ pub fn count_locked(codes: &[u16], threads: NonZeroUsize) -> Counts
 pub fn count_spawned(codes: &Arc<[u16]>, threads: NonZeroUsize) -> Counts
 ```
 
+`type Counts = …` は型の別名で、C++ の `using` に当たる。
 `count` は 1 本のスレッドで数える。ほかの 3 つは、これと同じ答えを返す。
 `NonZeroUsize` は 0 にならない `usize` で、スレッドの本数に 0 を渡せないようにしている。
 `count_split` は、スレッドごとに別の表で数えて最後に足す。
 `count_locked` は、1 つの表を全スレッドで書き換える。
-`count_spawned` は、`count_split` と同じ分け方を、[借用](../glossary.md#borrow)を使わずに書いたものである。
+`count_spawned` は、`count_split` と同じ分け方を、スレッドに入力を[借用](../glossary.md#borrow)させずに書いたものである。
 
 `cargo run -p book-ch12` を実行すると、4 つが同じ表を出す。
 
@@ -171,7 +172,7 @@ pub fn count_spawned(codes: &Arc<[u16]>, threads: NonZeroUsize) -> Counts {
 }
 ```
 
-`Arc<[u16]>` は、指す先がスライスの `Arc` で、`Arc::from` で配列や `Vec` から作れる。
+`Arc<[u16]>` は、指す先が[スライス](../glossary.md#slice)の `Arc` で、`Arc::from` で配列や `Vec` から作れる。
 `chunk_len` は 1 本あたりの要素数を決める小さな関数、`merge` は表を足し合わせる関数で、どちらも `src/lib.rs` にある。
 `(0..codes.len()).step_by(size)` は、0 から `size` おきの数を順に返す。各スレッドの持ち分の先頭である。
 `Arc::clone(codes)` を外し、引数の `codes`（`&Arc` の参照）をそのままクロージャに渡すと、`E0521`（borrowed data escapes outside of function）で断られた。
@@ -223,7 +224,7 @@ where
 スコープの終わりで、まだ `join` されていないスレッドも待たれる。
 そのどれかが panic していると、`thread::scope` 自身が panic する。
 手元では `a scoped thread panicked` という文で panic した。
-スレッドの中の失敗が黙って消えることはない。
+`join` し忘れたスレッドの panic が、黙って消えることはない。
 
 C++20 の `std::jthread` も、オブジェクトが消えるときに、停止を求めてからスレッドを待つ。
 ただし、待つことと、参照先がまだ生きていることを結びつけるのは書く側である。
@@ -236,7 +237,7 @@ Rust の `thread::scope` では、その結びつきが `'scope` という型の
 [`Send` と `Sync`](../glossary.md#send-sync) は、次の意味を持つ [trait](../glossary.md#trait) である。
 
 - `Send`: その型の値を、別のスレッドに移してよい
-- `Sync`: その型の値への共有参照 `&T` を、複数のスレッドが同時に持ってよい
+- `Sync`: その型の値への[共有参照](../glossary.md#references) `&T` を、複数のスレッドが同時に持ってよい
 
 2 つはつながっている。
 `T` が `Sync` であることは、`&T` が `Send` であることと同じ意味である。
@@ -316,10 +317,10 @@ error[E0277]: `RefCell<i32>` cannot be shared between threads safely
 （後ろに続く note は省いた。）
 
 最後の note が、前の節の「`T` が `Sync` であることは、`&T` が `Send` であることと同じ」を言っている。
-`RefCell` を `move` で 1 本のスレッドに丸ごと渡すのは通った。
-`RefCell` は `Send` は満たすので、持ち主が 1 人のまま移るぶんには問題が無い。
+`RefCell<i32>` を `move` で 1 本のスレッドに丸ごと渡すのは通った。
+中身が `Send` なら `RefCell` は `Send` を満たすので、持ち主が 1 人のまま移るぶんには問題が無い。
 `Arc<RefCell<i32>>` にして `thread::spawn` に渡しても、`required for Arc<RefCell<i32>> to implement Send` という note つきで同じく断られた。
-`Arc` は複数のスレッドから同じ中身を指させるので、中身に `Sync` を求める。
+`Arc` は複数のスレッドから同じ中身を指させ、どのスレッドで中身を片付けるかも決まらないので、中身に `Send` に加えて `Sync` も求める。
 
 スレッドをまたいで書き換えるには、[`Mutex`](../glossary.md#mutex) を使う。
 `count_locked` は、1 つの表を `Mutex` で包み、全スレッドがそこへ書く。
@@ -348,13 +349,13 @@ pub fn count_locked(codes: &[u16], threads: NonZeroUsize) -> Counts {
 
 C++ の `std::mutex` は、守るデータとは別の変数で、どのデータをどの mutex で守るかは書く側が覚えておく。
 Rust の `Mutex<T>` は、守るデータ `T` を中に持つ。
-`&Mutex<T>` しか持たないスレッドが中身に触る道は、`lock` が返すガードだけで、ガードが消えるとロックが外れる。
+`&Mutex<T>` しか持たないスレッドが中身に触る道は、`lock`（や、待たずに試す `try_lock`）が返すガードだけで、ガードが消えるとロックが外れる。
 共有しているあいだ、ロックを取らずに中身に触るコードは書けない。
 `Mutex<T>` は、`T` が `Send` でありさえすれば `Sync` を満たす。
 `T` そのものが `Sync` でなくても、`Mutex` が一度に 1 つのスレッドにしか触らせないからである。
 
 `lock` は `Result` を返す。
-ロックを握ったまま panic したスレッドがあると、`Mutex` は「毒された」状態になり、以後の `lock` は `Err`（`PoisonError`）を返す。
+ロックを握ったまま panic したスレッドがあると、`Mutex` は「毒された」状態になり、毒を消す（`clear_poison`）までは、以後の `lock` は `Err`（`PoisonError`）を返す。
 中身が書きかけのまま残っているかもしれない、という知らせである。
 `count_locked` では、`PoisonError::into_inner` で知らせを読み捨てて中身を使っている。
 panic したスレッドがあれば、どのみち `thread::scope` の終わりで panic が呼んだ側に伝わるからである。
@@ -408,6 +409,7 @@ pub fn parse_all(lines: &[&str], threads: NonZeroUsize) -> Result<Vec<u16>, Line
 }
 ```
 
+`extend` は、受け取った列の要素をまとめて `Vec` の末尾に足す。
 `parse_chunk` は 1 つの塊を前から読み、最初に読めなかった行で止まって、その行の `LineError` を返す。
 `["200", "x", "404", "y"]` を 2 本に分けると、2 行目の `x` と 4 行目の `y` は別のスレッドで読まれる。
 どちらのスレッドが先に終わるかは、実行ごとに変わりうる。
@@ -416,13 +418,13 @@ pub fn parse_all(lines: &[&str], threads: NonZeroUsize) -> Result<Vec<u16>, Line
 `parse_all` は、スレッドが終わった順ではなく、塊の順に `join` する。
 塊の中では最初の失敗で止まるので、塊の順に見て最初に出会う `Err` が、いちばん前の行の失敗である。
 テストでは、後ろの塊が先頭で失敗する入力を 100 回読ませ、毎回前の塊の失敗が返ることを確かめている。
-代わりに、後ろの塊のスレッドは前の塊に失敗があっても最後まで走る。
+代わりに、前の塊に失敗があっても後ろの塊のスレッドは止めず、自分の塊を読み終えるか失敗するまで走らせる。
 速さを少し捨てて、返る失敗を決めている。
 
 ## 本物ではどうなっているか
 
 `tally` は、複数の入力ファイルを並列に集計する。
-並列化は `crates/tally/src/aggregate.rs` にあり、`rayon` というクレートを使っている。
+並列化は `crates/tally/src/aggregate.rs` にあり、`rayon` という[クレート](../glossary.md#crate)を使っている。
 `rayon` の `par_iter` は、スライスの要素をスレッドの集まりに配って処理する。
 スレッドを何本立て、どう配るかは、既定では `rayon` が決める。
 

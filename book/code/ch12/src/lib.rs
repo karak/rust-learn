@@ -204,6 +204,7 @@ mod tests {
     fn 読めればすべての行を順に返す() {
         let lines = ["200", "404", "500"];
         assert_eq!(parse_all(&lines, threads(2)), Ok(vec![200, 404, 500]));
+        assert_eq!(parse_all(&[], threads(2)), Ok(Vec::new()));
     }
 
     #[test]

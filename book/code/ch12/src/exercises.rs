@@ -20,7 +20,7 @@ fn max_parallel(values: &[u64], threads: NonZeroUsize) -> Option<u64> {
             .collect();
         handles
             .into_iter()
-            .filter_map(|handle| handle.join().expect("数えるだけでは panic しない"))
+            .filter_map(|handle| handle.join().expect("最大を探すだけでは panic しない"))
             .max()
     })
 }
