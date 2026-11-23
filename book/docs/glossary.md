@@ -54,7 +54,7 @@ move された変数については走らない（値が移った先で 1 回だ
 
 値を所有したまま、参照を作って貸すこと。
 
-出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)、[付録 A](appendix/performance.md)
+出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[10](part3/lifetimes.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)、[付録 A](appendix/performance.md)、[付録 C](appendix/unsafe-reading.md)
 
 ### 共有参照と可変参照（shared reference / mutable reference） {/* #references */}
 
@@ -76,7 +76,7 @@ move された変数については走らない（値が移った先で 1 回だ
 値や参照が有効でいられる期間。
 Rust では、参照が指す先より長く生きないことをコンパイラが確かめる。
 
-出てくる章: [3](part1/strings.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
+出てくる章: [3](part1/strings.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)、[付録 C](appendix/unsafe-reading.md)
 
 ### ライフタイム注釈（lifetime annotation） {/* #lifetime-annotation */}
 
@@ -96,7 +96,7 @@ Rust では、参照が指す先より長く生きないことをコンパイラ
 
 `String` はヒープ上の UTF-8 のバイト列を所有する文字列で、`&str` はどこかにある UTF-8 のバイト列を眺める参照。
 
-出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[7](part3/collections.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)、[付録 A](appendix/performance.md)
+出てくる章: [1](part1/ownership.md)、[2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[7](part3/collections.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)、[付録 A](appendix/performance.md)、[付録 C](appendix/unsafe-reading.md)
 
 ### 文字列リテラル（string literal） {/* #string-literal */}
 
@@ -186,7 +186,7 @@ C++ の `std::map` に当たる。
 `()` と書く、値を一つしか持たない型。
 返すものが無いことを表す。
 
-出てくる章: [5](part2/result.md)
+出てくる章: [5](part2/result.md)、[付録 C](appendix/unsafe-reading.md)
 
 ### 型強制（coercion） {/* #coercion */}
 
@@ -244,7 +244,7 @@ main スレッドで起きれば、プログラム全体が終わる。
 
 コンパイラが安全性を確かめられない操作を、書く人の責任で許すための印。
 
-出てくる章: [3](part1/strings.md)、[4](part2/enums.md)、[10](part3/lifetimes.md)、[12](part4/concurrency.md)
+出てくる章: [3](part1/strings.md)、[4](part2/enums.md)、[10](part3/lifetimes.md)、[12](part4/concurrency.md)、[付録 C](appendix/unsafe-reading.md)
 
 ### trait {/* #trait */}
 
@@ -309,7 +309,7 @@ trait を型に実装するとき、trait か型の少なくとも一方が、�
 `Send` はその型の値を別のスレッドへ移してよいこと、`Sync` はその型への共有参照を複数のスレッドが同時に持ってよいことを表す trait。
 フィールドがすべて満たせば、構造体や enum も自動で満たす。
 
-出てくる章: [12](part4/concurrency.md)
+出てくる章: [12](part4/concurrency.md)、[付録 C](appendix/unsafe-reading.md)
 
 ### `Box` {/* #box */}
 
@@ -364,7 +364,7 @@ trait の中で `type Reader;` のように宣言し、実装ごとに 1 つに�
 Rust のコンパイルの単位。
 ライブラリ一つ、または実行ファイル一つに当たる。
 
-出てくる章: [4](part2/enums.md)、[6](part2/structs.md)、[9](part3/traits.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[付録 B](appendix/distribution.md)
+出てくる章: [4](part2/enums.md)、[6](part2/structs.md)、[9](part3/traits.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[付録 B](appendix/distribution.md)、[付録 C](appendix/unsafe-reading.md)
 
 ### 属性（attribute） {/* #attribute */}
 
@@ -385,7 +385,7 @@ Rust のコンパイルの単位。
 値を作るときにフィールドを書き漏らすと、コンパイルが通らない。
 フィールドに名前を付けず位置で並べる形（タプル構造体）もあり、中身は `.0`、`.1` で読む。
 
-出てくる章: [6](part2/structs.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
+出てくる章: [6](part2/structs.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)、[付録 C](appendix/unsafe-reading.md)
 
 ### メソッドと関連関数（method / associated function） {/* #method */}
 
@@ -400,7 +400,7 @@ Rust のコンパイルの単位。
 非公開の項目は、定義したモジュールとその子孫からだけ見える。
 `mod 名前;` と書くと、別のファイル（たとえば `src/名前.rs`）の中身がそのモジュールになる。
 
-出てくる章: [6](part2/structs.md)、[14](part4/type-invariants.md)
+出てくる章: [6](part2/structs.md)、[14](part4/type-invariants.md)、[付録 C](appendix/unsafe-reading.md)
 
 ### newtype {/* #newtype */}
 
@@ -494,7 +494,7 @@ Java で、投げうることを `throws` として宣言に書かなければ�
 参照やポインタが指している先の値を読み書きすること。
 Rust でも `*` と書く。
 
-出てくる章: 1、2（コードの中）、[3](part1/strings.md)、[7](part3/collections.md)
+出てくる章: 1、2（コードの中）、[3](part1/strings.md)、[7](part3/collections.md)、[付録 C](appendix/unsafe-reading.md)
 
 ### スコープ（scope） {/* #scope */}
 
@@ -528,7 +528,7 @@ wide pointer とも呼ばれる。
 言語の規格が結果を何も定めていない動作。
 動いているように見えても、何が起きても文句は言えない。
 
-出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[12](part4/concurrency.md)
+出てくる章: [2](part1/borrowing.md)、[3](part1/strings.md)、[4](part2/enums.md)、[5](part2/result.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[12](part4/concurrency.md)、[付録 C](appendix/unsafe-reading.md)
 
 ### 安定ソート（stable sort） {/* #stable-sort */}
 
@@ -574,14 +574,14 @@ Rust では書き手が宣言せず、コンパイラが型の構造から決め
 
 複数のスレッドが同じ場所に同時にアクセスし、少なくとも一方が書き込みで、間に同期が無い状態。
 
-出てくる章: [2](part1/borrowing.md)、[12](part4/concurrency.md)
+出てくる章: [2](part1/borrowing.md)、[12](part4/concurrency.md)、[付録 C](appendix/unsafe-reading.md)
 
 ### UTF-8 {/* #utf-8 */}
 
 Unicode の文字を 1 から 4 バイトの可変長で表す符号化方式。
 ASCII の文字は 1 バイトで、日本語の多くの文字は 3 バイトになる。
 
-出てくる章: [3](part1/strings.md)、[11](part4/errors.md)、[付録 A](appendix/performance.md)
+出てくる章: [3](part1/strings.md)、[11](part4/errors.md)、[付録 A](appendix/performance.md)、[付録 C](appendix/unsafe-reading.md)
 
 ### 符号点（code point） {/* #code-point */}
 
