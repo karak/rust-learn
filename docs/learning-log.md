@@ -375,8 +375,10 @@ expression problem の「どちらが楽か」は、
 
 **C# / Java との差分は enum 側にある。** インターフェースへのメソッド追加は
 あちらでも全実装が壊れる（E0046 と同じ）。違うのは変種の追加で —
-C# の `switch` は既定で網羅性エラーにならず、Java も enum の `switch` は
-`default` 無しで**警告**にとどまる（Java 21 の sealed + pattern switch でようやくエラー）。
+C# の `switch` は既定で網羅性エラーにならず、Java も enum の従来の `switch` 文は
+`default` 無しで**何も言わない**（`-Xlint:all` でも。`switch` 式にすれば漏れはコンパイルエラー）。
+（2026-11-27 訂正: 当初「`default` 無しで警告にとどまる（Java 21 の sealed + pattern switch でようやくエラー）」と誤記。
+2026-11-21 に本の 4 章を書くとき Java 21 で実測した結果に合わせた）
 **Rust は既定でコンパイルエラー**であり、`#[non_exhaustive]` を付けたときだけ緩む。
 
 **Scala の `sealed trait` は網羅性を検査する**が、既定では警告であり、
