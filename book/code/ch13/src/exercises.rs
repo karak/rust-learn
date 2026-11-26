@@ -9,7 +9,8 @@ use std::rc::Rc;
 /// 演習 1: スコープの出入りをログに積むガード。
 ///
 /// 作ったときに `"enter: 名前"` を積み、スコープを抜けて `Drop` が走るときに
-/// `"leave: 名前"` を積む。途中で早期 `return` しても必ず出口が記録される。
+/// `"leave: 名前"` を積む。通常の終了経路なら、途中で早期 `return` しても出口が記録される
+/// （`std::mem::forget` などで `Drop` が走らない場合を除く）。
 struct ScopeLog<'a> {
     name: &'static str,
     log: &'a RefCell<Vec<String>>,
