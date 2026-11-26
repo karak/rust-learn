@@ -429,7 +429,7 @@ Rust では、その関係が `Field<'n>` という型に出る。
 既定では無効で、`rust_2018_idioms` という lint の組に含まれている。
 有効にして 9 章の書き方を検査すると、`hidden lifetime parameters in types are deprecated` と警告し、`'_` を足すよう示す。
 
-`fn quote_field(value: &str) -> Cow<str>` のように、引数では `&` と書いた寿命を戻り値では型の名前に隠すと、`mismatched_lifetime_syntaxes` が `hiding a lifetime that's elided elsewhere is confusing` と警告する。
+`fn quote_field(value: &str) -> Cow<str>`（`Cow` はこの章の後半で扱う）のように、引数では `&` と書いた寿命を戻り値では型の名前に隠すと、`mismatched_lifetime_syntaxes` が `hiding a lifetime that's elided elsewhere is confusing` と警告する。
 どちらも同じ寿命なのに、書き方がそろっていないからである。
 
 ## `'static` は、借用を含まないことも表す

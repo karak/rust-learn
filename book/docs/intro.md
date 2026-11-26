@@ -53,7 +53,7 @@ cargo run -p book-ch01
 ## この本が扱わないもの
 
 **設計判断の経緯はこの本の正本ではない。**
-「なぜ `Selector` を [trait](glossary.md#trait) にしなかったのか」のような、設計に至るまでの判断は [ADR](https://github.com/karak/rust-learn/tree/main/docs/adr) に記録してある。
+「なぜ出力形式の `Format` を [trait](glossary.md#trait) にしなかったのか」のような、設計に至るまでの判断は [ADR](https://github.com/karak/rust-learn/tree/main/docs/adr) に記録してある。
 この本が設計判断に触れるときは、結論と、その結論が言語機能のどこを使っているかだけを書く。
 
 `tally` の現在の実装状態も書かない。

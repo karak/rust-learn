@@ -26,6 +26,8 @@ pub struct Host(String);
 impl Host {
     /// ホスト名を作る。
     #[must_use]
+    // `impl Into<String>` は「`String` に変換できる型なら何でも」を受ける書き方で、
+    // `&str` でも `String` でも呼べる。
     pub fn new(host: impl Into<String>) -> Self {
         Self(host.into())
     }
