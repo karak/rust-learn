@@ -21,14 +21,15 @@ pub struct TraceGuard<'a> { ... }
 pub enum Filter { Code(u16), And(Box<Self>, Box<Self>), Not(Box<Self>) }
 pub struct Label { text: Box<str> }
 pub struct SharedCounter { counts: Rc<RefCell<Counts>> }
-pub struct Node { ... }
+pub struct Node { name: &'static str, parent: RefCell<Weak<Self>>, children: RefCell<Vec<Rc<Self>>> }
 ```
 
 `TraceGuard` は破棄されたときにログへ自分の名前を残す型で、`Drop` が走る順を見るために使う。
 `Filter` は状態コードを選ぶ条件の木、`Label` は長さを変えない名前のラッパである。
-`SharedCounter` は複数の記録係（`Recorder`）が 1 つの集計表を共有して書き込む仕組みを持ち、`Node` は親への弱い参照で循環を切る木の節になっている。
+`SharedCounter` は複数の記録係（`Recorder` 型）が 1 つの集計表を共有して書き込む仕組みを持ち、`Node` は親への弱い参照で循環を切る木の節になっている（`RefCell` はこの章の最後の節で扱う）。
 
-`cargo run -p book-ch13` を実行すると、それぞれの動きが 1 行ずつ出る。
+`cargo run -p book-ch13` を実行すると、`Node` を除く 4 つの動きが 1 行ずつ出る。
+`drop:` の行は、`first` を `drop(first)` で先に手放した結果である。何もしなければ、宣言の逆順で `second` が先に記録される。
 
 ```text
 drop:    ["first", "second"]
@@ -101,7 +102,7 @@ help: consider using `drop` function
 
 ## `Box` は値をヒープに置き、再帰的な型と長さを変えないスライスを持てる
 
-値を[ヒープ](../glossary.md#heap)に置いて単独の所有権で管理する型が [`Box<T>`](../glossary.md#box) である（サイズ 0 の型や空の[スライス](../glossary.md#slice)では実際にはヒープを確保しない）。
+値を[ヒープ](../glossary.md#heap)に置いて単独の所有権で管理する型が [`Box<T>`](../glossary.md#box) である（`()` のようなサイズ 0 の型や空の[スライス](../glossary.md#slice)では実際にはヒープを確保しない）。
 C++ の `std::unique_ptr` に近いが、空（`nullptr`）の状態を持たない。
 値があるかないかを表したいときは [`Option`](../glossary.md#option)`<Box<T>>` と書く。
 
@@ -134,11 +135,12 @@ error[E0072]: recursive type `Filter` has infinite size
 ## `Deref` を実装した型は、`*` による参照外しと型強制の両方で中身を見せられる
 
 3 章で、`&String` を `&str` を取る関数にそのまま渡せることを見た。
-この変換（[参照外し型強制](../glossary.md#deref-coercion)）と、`*x` で中身を辿る操作の両方を支えているのが [`Deref`](../glossary.md#deref) trait である。
+この変換（[参照外し型強制](../glossary.md#deref-coercion)）と、`*x` で中身を辿る操作（[参照外し](../glossary.md#dereference)）の両方を支えているのが [`Deref`](../glossary.md#deref) trait である。
 
 `Deref` は[関連型](../glossary.md#associated-type) `Target` とメソッド `deref(&self) -> &Self::Target` を持つ。
 `Label` に `Deref<Target = str>` を実装すると、`*label` は裏で `*label.deref()` として扱われ、`&*label` は `&str` になる。
-さらに、`&str` が求められる場所ではコンパイラが自動で `&Label` を `&str` へ変換する。
+さらに、行き先の型が `&str` と決まっている場所では、コンパイラが自動で `&Label` を `&str` へ変換する（[型強制](../glossary.md#coercion)）。
+型引数の境界（`T: AsRef<str>` など）で受ける場所では、この変換は起きない。
 
 ```rust
 impl Deref for Label {
@@ -151,7 +153,7 @@ impl Deref for Label {
 ```
 
 このおかげで、`fn is_api(name: &str) -> bool` に対して `is_api(&label)` とそのまま渡せるし、`label.len()` のように `str` のメソッドも直接呼べる。
-`Box<T>` や `Rc<T>`、`MutexGuard` が中身 `T` のメソッドをそのまま呼べるのも、同じ `Deref` の仕組みによる。
+`Box<T>` や `Rc<T>`、12 章で見た `Mutex` の `lock` が返すガード（`MutexGuard`）が中身 `T` のメソッドをそのまま呼べるのも、同じ `Deref` の仕組みによる。
 
 書き換え用の参照外しと型強制には `DerefMut` がある。
 `Label` は中身を書き換えさせたくないので `DerefMut` を実装していない。
@@ -204,7 +206,7 @@ pub fn parent_name(&self) -> Option<&'static str> {
 
 ## `Cell` と `RefCell` は、共有参照のまま中身を書き換える
 
-`Rc<T>` は中身を直接書き換えられない。
+`Rc<T>` は、持ち主が複数いるあいだは中身を直接書き換えられない（持ち主が 1 人なら `Rc::get_mut` で書き換えられる）。
 それでも複数の持ち主から同じ集計表に件数を足したいときに使うのが、共有参照 `&T` のまま中身を書き換える仕組み（[内部可変性](../glossary.md#interior-mutability)）である。
 C++ の `mutable` に近い役割だが、Rust では修飾子の代わりに [`Cell<T>` と `RefCell<T>`](../glossary.md#cell-refcell) のような型で書き換えの許可と安全性の保証を表す。
 
@@ -247,7 +249,7 @@ pub struct JsonPointer {
 }
 ```
 
-構築したあとに綴りやセグメント数を変えないので、`String` や `Vec` の容量フィールドを持たずに済ませている。
+構築したあとに綴りやセグメント数を変えないので、`String` や `Vec` の容量フィールドを持たずに済んでいる。
 同じファイルで `JsonPointer` は `Deref<Target = str>` も実装している。
 
 ```rust
@@ -266,7 +268,7 @@ impl Deref for JsonPointer {
 `Drop` による後始末は、`crates/tally/src/input.rs` の標準入力の読み取りに出ている。
 `impl Input for Stdin` の `open` メソッドは、`self.lock()` で得た `StdinLock<'static>` を `Ok` に包んで返す。
 `StdinLock` は標準入力の排他ロックを握ったガードであり、集計が終わってスコープを抜けると `Drop` が走ってロックを外す。
-12 章で見た `crates/tally/src/error.rs` の `ExecutionError` が持つ `Box<dyn Error + Send + Sync>` も、`Box` でヒープに置いて型を消す使い方の 1 つである。
+12 章で見た `crates/tally/src/error.rs` の `ExecutionError` が持つ `Box<dyn Error + Send + Sync>` も、`Box` でヒープに置いて[型を消す](../glossary.md#type-erasure)使い方の 1 つである。
 
 なお、`tally` 本体には `Rc` や `RefCell` は出てこない。
 普通の所有権と借用（`&` と `&mut`）だけで書ける範囲では、実行時の検査や参照カウントを持ち込まないほうが単純で速いからである。

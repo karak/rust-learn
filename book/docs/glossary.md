@@ -46,7 +46,7 @@ Rust の値には必ず一人の所有者がいて、所有者がスコープを
 
 値の所有者がスコープを抜けたときに、その値の後始末を走らせて解放すること。
 C++ のデストラクタの呼び出しに当たる。
-move された変数については走らない（値が移った先で 1 回だけ走る）。
+move された変数については走らない（後始末は値が移った先で扱われ、二重には走らない）。
 
 出てくる章: [1](part1/ownership.md)（デストラクタとして）、3（エラーメッセージの中）、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
 
@@ -193,7 +193,7 @@ C++ の `std::map` に当たる。
 ある型の値を、コンパイラが暗黙に別の型として扱うこと。
 Rust では起きる場所と種類が限られている。
 
-出てくる章: [3](part1/strings.md)、[9](part3/traits.md)
+出てくる章: [3](part1/strings.md)、[9](part3/traits.md)、[13](part4/smart-pointers.md)
 
 ### 参照外し型強制（deref coercion） {/* #deref-coercion */}
 
@@ -313,7 +313,7 @@ trait を型に実装するとき、trait か型の少なくとも一方が、�
 
 ### `Box` {/* #box */}
 
-値をヒープに置いて単独の所有権で管理するポインタ（サイズ 0 の型や空のスライスでは実際にはヒープを確保しない）。
+値をヒープに置いて単独の所有権で管理するポインタ（`()` のようなサイズ 0 の型や空のスライスでは実際にはヒープを確保しない）。
 再帰的な型の大きさを確定させるときや、`Box<str>` のような長さを変えないスライス、`Box<dyn Trait>` を持つときに使う。
 
 出てくる章: [6](part2/structs.md)、[9](part3/traits.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)、[14](part4/type-invariants.md)
@@ -494,7 +494,7 @@ Java で、投げうることを `throws` として宣言に書かなければ�
 参照やポインタが指している先の値を読み書きすること。
 Rust でも `*` と書く。
 
-出てくる章: 1、2（コードの中）、[3](part1/strings.md)、[7](part3/collections.md)、[付録 C](appendix/unsafe-reading.md)
+出てくる章: 1、2（コードの中）、[3](part1/strings.md)、[7](part3/collections.md)、[13](part4/smart-pointers.md)、[付録 C](appendix/unsafe-reading.md)
 
 ### スコープ（scope） {/* #scope */}
 
@@ -554,7 +554,7 @@ Rust では、`dyn` を書いたときだけ、呼び出しがこの表を引く
 総称型の型引数を、コンパイルの後に消すこと。
 Java の総称型がこの形で、`List<String>` と `List<Integer>` は実行時には同じクラスになる。
 
-出てくる章: [9](part3/traits.md)
+出てくる章: [9](part3/traits.md)、[13](part4/smart-pointers.md)
 
 ### 公開依存（public dependency） {/* #public-dependency */}
 

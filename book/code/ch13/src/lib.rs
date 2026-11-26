@@ -304,6 +304,45 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "RefCell already borrowed")]
+    fn borrow_を持ったままの_borrow_mut_も同じ文面で_panic_する() {
+        let cell = RefCell::new(0u64);
+        let _shared = cell.borrow();
+        let _exclusive = cell.borrow_mut();
+    }
+
+    /// 互いを `Rc` で指す 2 つの値。`Drop` が走ったかを外の旗で見る。
+    struct Cyclic {
+        other: RefCell<Option<Rc<Cyclic>>>,
+        dropped: Rc<std::cell::Cell<u32>>,
+    }
+
+    impl Drop for Cyclic {
+        fn drop(&mut self) {
+            self.dropped.set(self.dropped.get() + 1);
+        }
+    }
+
+    #[test]
+    fn rc_の循環は外の変数が消えても_drop_が走らない() {
+        let dropped = Rc::new(std::cell::Cell::new(0));
+        {
+            let a = Rc::new(Cyclic {
+                other: RefCell::new(None),
+                dropped: Rc::clone(&dropped),
+            });
+            let b = Rc::new(Cyclic {
+                other: RefCell::new(None),
+                dropped: Rc::clone(&dropped),
+            });
+            *a.other.borrow_mut() = Some(Rc::clone(&b));
+            *b.other.borrow_mut() = Some(Rc::clone(&a));
+        }
+        // 循環が残したカウントのせいで、どちらの `Drop` も走らない（このテストは意図してリークする）。
+        assert_eq!(dropped.get(), 0);
+    }
+
+    #[test]
     fn try_borrow_mut_なら_panic_せずに_err_で受け取れる() {
         let cell = RefCell::new(0u64);
         let first = cell.borrow();
