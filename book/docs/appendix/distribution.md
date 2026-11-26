@@ -30,7 +30,7 @@ libc を抱えるぶん、実行ファイルは macOS 版より約 22% 大きく
 1 つ目は、macOS の実物を `otool -L` で見たとき、`libSystem.B.dylib` だけでなく `libiconv.2.dylib` も付いていたことである。
 `/usr/lib` にあるシステムライブラリなので実用上は問題ないが、検査条件を「`libSystem` だけ」に絞っていたら自分の CI で落ちていた。
 2 つ目は、Linux の `ldd` の出力文言である。
-静的バイナリなら `not a dynamic executable` と出る想定だったが、Ubuntu 上で生成された static-pie バイナリに対する `ldd` の出力は `statically linked` だった。
+静的バイナリなら `not a dynamic executable` と出る想定だったが、Ubuntu 上で生成された static-pie バイナリ（静的リンクのうえで、読み込む位置を毎回変えられる形式）に対する `ldd` の出力は `statically linked` だった。
 検査では両方を受け入れる分岐にしていたため通ったが、期待する文言を 1 つに決めていたら静的リンクに成功しているのに落ちていたことになる。
 
 なお、`v0.1.0-rc.2` のビルドでは、`Cargo.toml` の `[profile.release]` に `lto = "thin"`、`codegen-units = 1`、`strip = "symbols"` を指定して最適化とシンボル削除を行っていた。
@@ -39,6 +39,8 @@ libc を抱えるぶん、実行ファイルは macOS 版より約 22% 大きく
 
 CLI の配布物には、シェル補完と man ページを同梱したい。
 `tally` では、これを本体とは別の `xtask` という[クレート](../glossary.md#crate)に切り出し、`cargo run -p xtask -- <出力先>` で生成する構成を採っている。
+
+実物から要点だけを抜き出すと、次の形になる。
 
 ```rust
 let mut cmd = tally::cli::Cli::command();
@@ -57,8 +59,8 @@ std::fs::write(&page, buf)?;
 また、`clap_complete` や `clap_mangen` は `xtask` だけが依存するため、集計だけを行う `tally` 本体の依存には乗らない。
 
 可変個の位置引数を持つ CLI に必須引数つきのサブコマンド（たとえば `tally completions <shell>`）を同居させると、同じ名前空間を争う。
-`completions` という名前のファイルを `--` 無しで渡したときにサブコマンドと解釈され、必須引数 `<SHELL>` が足りないという無関係なエラー（`clap::error::ErrorKind::MissingRequiredArgument`）になりうる（`clap` 4.6.6 で実測）。
-別クレートの `xtask` に切り出しておけば、本体の引数空間を汚さずに済む（設計判断の経緯は [ADR-0009](https://github.com/karak/rust-learn/blob/main/docs/adr/0009-release-distribution.md) にある）。
+`completions` という名前のファイルを `--` 無しで先頭の位置引数に渡したときにサブコマンドと解釈され、必須引数 `<SHELL>` が足りないという無関係なエラー（`clap::error::ErrorKind::MissingRequiredArgument`）になりうる（`clap` 4.6.6 の最小例で実測。2 つ目以降の位置引数や `./completions` と書いた場合は、ファイルとして扱われた）。
+補完を本体のサブコマンドにせず `xtask` に置いた判断の経緯は [ADR-0009](https://github.com/karak/rust-learn/blob/main/docs/adr/0009-release-distribution.md) にある。
 
 ## ツールチェーンの固定とプレリリース版には、固有の落とし穴がある
 
@@ -67,14 +69,14 @@ std::fs::write(&page, buf)?;
 1 つ目は、タグを打つ前に版を書き換えた段階で起きたプレリリース版のバージョン解決である。
 `crates/tally/Cargo.toml` の版を `0.1.0` から `0.1.0-rc.1` へ書き換えたところ、`tally = { path = "../tally", version = "0.1.0" }` と書いていた `xtask` のビルドが落ちた。
 セマンティックバージョニング（semver）の順序では `0.1.0-rc.1` は `0.1.0` より手前の版であり、`"0.1.0"`（`^0.1.0` の範囲）はプレリリースを自動では拾わない。
-[`cargo`](../glossary.md#cargo) は `path` で場所が確定しているワークスペース内依存でも、`version` が書かれていれば照合を省かない。
+[`cargo`](../glossary.md#cargo) は `path` で場所が確定しているワークスペース（1 つの `Cargo.toml` で束ねた複数のクレート）内の依存でも、`version` が書かれていれば照合を省かない。
 そのため、新しい版が元の semver 要求（プレリリース制約を含む）から外れる場合は参照側も更新する必要がある。
 
 2 つ目は、タグを打ってリリースワークフローを走らせたときに起きた、[`rustup`](../glossary.md#rustup) のツールチェーン固定とターゲットの食い違いである。
 リポジトリ直下に `rust-toolchain.toml` を置いてコンパイラの版を固定していると、ツールチェーンを明示指定しない呼び出しでは固定版が優先される。
 ところが CI の設定で別の版（たとえば `stable`）へ `x86_64-unknown-linux-musl` ターゲットを足すと、実際にビルドに使う固定版にはターゲットが入っておらず、`` error[E0463]: can't find crate for `core` `` で落ちる。
 macOS 側はホスト自身のターゲットが最初から入っているため通り、Linux 側だけ落ちる形になった。
-版を固定しているときは、`--toolchain` を付けずに `rustup target add x86_64-unknown-linux-musl` を実行するか、`rust-toolchain.toml` の `targets` に書いて、固定版自身へターゲットを足す必要がある。
+版を固定しているときは、`--toolchain` を付けずに `rustup target add x86_64-unknown-linux-musl` を実行して、固定版自身へターゲットを足す必要がある（`rust-toolchain.toml` の `targets` に書く方法もあるが、こちらは試していない）。
 
 ## 配布物の形は外部の契約であり、別の機械で展開して確かめる
 

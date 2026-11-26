@@ -5,15 +5,15 @@ sidebar_position: 3
 
 # 付録 C `unsafe` の境界を読む（不変条件と `miri`）
 
-3〜5 章では「[`unsafe`](../glossary.md#unsafe) を使わない限り〜」という留保を置き、12 章でも手動の `Send`/`Sync` 実装には `unsafe impl` が要ると触れた。
-`tally` のワークスペースでは `Cargo.toml` の lint 設定（`unsafe_code = "deny"`）で `unsafe` をコンパイルエラーにしていたが、依存している[クレート](../glossary.md#crate)や標準ライブラリの内側には `unsafe` がある。
+3〜5 章では「[`unsafe`](../glossary.md#unsafe) を使わない限り〜」という留保を置き、12 章でも手動の [`Send`/`Sync`](../glossary.md#send-sync) 実装には `unsafe impl` が要ると触れた。
+`tally` のワークスペース（複数のクレートを束ねる単位）では、ルートの `Cargo.toml` の lint 設定（`unsafe_code = "deny"`）で `unsafe` をコンパイルエラーにしていたが、依存している[クレート](../glossary.md#crate)や標準ライブラリの内側には `unsafe` がある。
 
 この付録では、`unsafe` を書く手順ではなく、**依存クレートの実物の `unsafe` を読んで安全性の根拠を確かめる視点**を扱う。
 題材は、2026 年 10 月時点で `tally` が依存していた 3 つのクレート（`foldhash` 0.2.0、`serde_json` 1.0.151、`rayon-core` 1.13.0）である。
 
 ## `unsafe` が外すのは借用検査ではなく、限られた操作だけ
 
-`unsafe` ブロックや `unsafe impl` を書いても、参照（`&T` / `&mut T`）に対する 2 章の[借用](../glossary.md#borrow)検査は止まらない。
+`unsafe` ブロックや `unsafe impl` を書いても、[参照](../glossary.md#references)（`&T` / `&mut T`）に対する 2 章の[借用](../glossary.md#borrow)検査は止まらない。
 借用規則も型の整合もそのまま効いたうえで、コンパイラが静的に確かめられない一部の操作だけが許される。
 代表的には次の 5 つである。
 
@@ -21,7 +21,7 @@ sidebar_position: 3
 - `unsafe fn` の呼び出し（外部言語の関数を含む）
 - 可変な静的変数（`static mut`）へのアクセス
 - 共用体（`union`）のフィールド読み
-- `unsafe trait`（[`Send` や `Sync`](../glossary.md#send-sync) など）の実装（`unsafe impl` 宣言）
+- `unsafe trait`（`Send` や `Sync` など）の実装（`unsafe impl` 宣言）
 
 C++ には構文上の境界が無い。
 生ポインタの演算も型変換も地の文にそのまま混ざるため、どこから先が人間の証明責任なのかを機械的に抜き出しにくい。
@@ -41,7 +41,7 @@ Rust は境界を `unsafe` で囲うため、ソースを `grep` しておおよ
 
 ### 1. `foldhash`: 型と可視性で「初期化済み」を証明する
 
-`foldhash` の `GlobalSeed` は、サイズ 0 の[ユニット型](../glossary.md#unit-type) `()` を非公開フィールドとして 1 つだけ持つ[構造体](../glossary.md#struct)である。
+`foldhash` の `GlobalSeed` は、サイズ 0 の[ユニット型](../glossary.md#unit-type) `()` を非公開フィールドとして 1 つだけ持つ[構造体](../glossary.md#struct)である（8 ビットの不可分操作がある環境の場合。下はその枝の定義）。
 
 ```rust
 pub struct GlobalSeed {
@@ -103,17 +103,17 @@ unsafe impl<T: Sync> Send for ScopePtr<T> {}
 ## `miri` は未定義動作を解釈実行で見つけるが、時間と対象に限界がある
 
 `miri` は Rust の中間表現（MIR）を解釈実行し、未定義動作やメモリリークを検出する道具である。
-実行には nightly のツールチェーンが要る。
+実行には nightly（毎晩作られる開発版）のツールチェーンが要り、`+nightly` でその版を指定して `cargo` を呼ぶ。
 
 ```bash
 cargo +nightly miri test -p tally-core
 ```
 
 2026 年 10 月時点で `tally-core` の単体テスト 64 件に当てたところ、通常実行の 0.675 秒に対して 10.56 秒（およそ 16 倍）掛かり、全件通った。
-`tally-core` はファイルを開かずメモリ上の読み取りだけを行う設計なので `miri` の下でも回る。
-一方、`miri` は既定では OS 呼び出しやファイル・プロセス起動を制限しており、外部の C ライブラリ（FFI）も解釈できない。
-そのため、プロセス起動とファイル I/O を含む `tally` 本体には当てていない。
+この遅さから、プロセス起動とファイル I/O を含む `tally` 本体のテストは現実的な時間で終わらないと判断し、当てていない。
+（`miri` が既定で OS 呼び出しやファイル・プロセス起動を制限することは公式の説明にあるが、`tally` 本体で試してはいない。）
 
 また、`miri` は動的検査であり、テストが実際に通った実行経路だけを確かめる。
-上の実行では、自分のコードに `unsafe` を書いていないため想定どおり通過し、あわせてテストが通った範囲の依存クレートの処理にも問題が出ないことを確かめられた。
+上の実行は、自分のコードに `unsafe` を書いていないため想定どおり通過した。確かめられたのは、テストが通った経路で呼ばれる `foldhash` と `serde_json` の処理までである。
+`rayon-core` は `tally-core` の依存に入っていないため、題材 3 の `ScopePtr` は `miri` の下で一度も走っていない。
 依存クレートの挙動を疑ったときや、将来やむを得ず `unsafe` を書く場面が来たときに、目視だけに頼らず未定義動作を確かめる手段になる。

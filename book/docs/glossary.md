@@ -62,7 +62,7 @@ move された変数については走らない（後始末は値が移った先
 共有参照は同時にいくつでも作れるが、可変参照は同時に一つだけで、そのあいだは共有参照も作れない。
 この性質から、可変参照は排他参照（exclusive reference）とも呼ばれる。
 
-出てくる章: [2](part1/borrowing.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
+出てくる章: [2](part1/borrowing.md)、[6](part2/structs.md)、[7](part3/collections.md)、[8](part3/iterators.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)、[付録 C](appendix/unsafe-reading.md)
 
 ### 内部可変性（interior mutability） {/* #interior-mutability */}
 
@@ -430,7 +430,7 @@ Rust のコンパイルの単位。
 Rust のビルドとパッケージ管理の道具。
 `cargo run`、`cargo test` などでビルド・実行・テストを行う。
 
-出てくる章: [はじめに](intro.md)、各章の演習（コードの中）、[付録 B](appendix/distribution.md)
+出てくる章: [はじめに](intro.md)、各章の演習（コードの中）、[付録 A](appendix/performance.md)、[付録 B](appendix/distribution.md)
 
 ### rustc {/* #rustc */}
 
