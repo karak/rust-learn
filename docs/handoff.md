@@ -158,12 +158,12 @@
 
 セットアップとコマンドは `README.md` を参照。
 
-## 次の作業: 積み上げたブランチの `main` 反映と、今後の扱いを決める
+## 次の作業: 本の今後の扱いを決める
 
-**第 14 章と付録 A〜C まで終わった**（2026-11-24）。[ADR-0013](adr/0013-book-phase.md) 論点 4 の表の章と付録は、すべて置いた。
-`adr-0013/extend-chapters`、`book/ch13`、`book/ch14`、`book/appendix-a`、`book/appendix-b`、`book/appendix-c`、`docs/post-appendix-cleanup` の各ブランチが `main` へ未マージのまま直列に積まれている。
+**第 14 章と付録 A〜C まで `main` に載った**（2026-11-24）。[ADR-0013](adr/0013-book-phase.md) 論点 4 の表の章と付録は、すべて置いた。
+載せたあとのトピックブランチは 2026-11-27 に手元と `origin` の両方から消した。
 
-次は、`main` への反映（`--ff-only`）と、さらに先（たとえば 6 章 `structs.md` から `#must-use` への遡及リンクや、ADR-0013 の `accepted` 化）をどうするかを学習者が決める。
+次は、さらに先（たとえば 6 章 `structs.md` から `#must-use` への遡及リンクや、ADR-0013 の `accepted` 化）をどうするかを学習者が決める。
 章を足す場合は、引き続き **1 章 = 1 ブランチ**にする。本文と `book/code/chNN` を同じ単位で載せる。
 
 **章を書くときの制約のうち、ADR に書いていないもの:**
