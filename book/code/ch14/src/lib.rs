@@ -217,6 +217,22 @@ impl<T> Drop for OverrideGuard<'_, T> {
 /// typestate の第 1 段階: まだ入力を読み込んでいない状態。
 ///
 /// この型には `aggregate` も `counts` も生えていないため、読み込み前に集計は呼べない。
+///
+/// 読み込む前に集計を呼ぶと、コンパイルが通らない。
+///
+/// ```compile_fail,E0599
+/// let _ = book_ch14::Draft::new().aggregate();
+/// ```
+///
+/// `load` が `self` を消費するので、同じ `Draft` を二度読み込むこともできない。
+///
+/// ```compile_fail,E0382
+/// let draft = book_ch14::Draft::new();
+/// let _loaded = draft.load(vec![200]);
+/// let _again = draft.load(vec![404]);
+/// ```
+// 本文は `Default` を検証の迂回路として戒めているが、`Draft` は守る条件を持たない
+// 最初の状態なので、既定値で作れても飛ばせる手順が無い。
 #[derive(Debug, Default)]
 pub struct Draft {
     _private: (),
@@ -303,6 +319,10 @@ mod tests {
     #[test]
     fn non_empty_は空の_vec_から作れず先頭を直接返せる() {
         assert_eq!(NonEmpty::<u16>::from_vec(Vec::new()), None);
+
+        let from_vec = NonEmpty::from_vec(vec![200u16, 404, 500]).expect("空でない");
+        assert_eq!(*from_vec.first(), 200);
+        assert_eq!(from_vec.len().get(), 3);
 
         let mut list = NonEmpty::new(200u16);
         list.push(404);

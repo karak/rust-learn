@@ -7,13 +7,14 @@ sidebar_position: 14
 
 「この文字列は `/` で始まる」「この配列は空ではない」「読み込みが終わるまで集計を呼ばない」といった約束は、コメントや毎回の `if` で守ることもできる。
 しかし、呼び出しが増えるほど検査の書き忘れが紛れ込み、壊れた値が奥まで流れてから別の場所で失敗する。
+こうした、値や手順がいつも満たしているべき約束を、不変条件と呼ぶ。
 
 1 章の[所有権](../glossary.md#ownership)、6 章の[モジュール](../glossary.md#module)による可視性、13 章の [drop](../glossary.md#drop) と [`Deref`](../glossary.md#deref) を組み合わせると、こうした約束の多くを型へ移せる。
-誤った呼び出しが実行時のバグではなくコンパイルエラーで止まる設計を、4 つの形に分けて確かめる。
+誤った呼び出しを、奥で起きる実行時のバグではなく、コンパイルエラーや警告、入口の 1 箇所の検査で止める設計を、5 つの形に分けて確かめる。
 
 ## この章のコードは、経路・空でない列・一時変更ガード・手順つき集計器で制約を確かめる
 
-この章のコード（`book/code/ch14`）は、型に約束を持たせる 4 つの部品を並べている。
+この章のコード（`book/code/ch14`）は、型に約束を持たせる 5 つの部品を並べている。
 
 ```rust
 pub struct Host(String);
@@ -24,7 +25,7 @@ pub struct OverrideGuard<'a, T> { ... }
 pub struct Draft { ... } // -> Loaded -> Aggregated
 ```
 
-`Host` と `Endpoint` はどちらも中身が [`String`](../glossary.md#string-str) の [newtype](../glossary.md#newtype) で、引数の取り違えをコンパイル時に止める。
+`Host` と `Endpoint` はどちらも中身が [`String`](../glossary.md#string-str) の newtype で、引数の取り違えをコンパイル時に止める。
 `FieldPath` は先頭の `/` と空でないセグメントを入口で一度だけ検証する型、`NonEmpty<T>` は構造そのもので空を禁じる型である。
 `OverrideGuard` は[スコープ](../glossary.md#scope)のあいだだけ値を差し替えて元へ戻すガード、`Draft` から `Aggregated` への連なりは手順の順序を型で縛る例になっている。
 
@@ -44,7 +45,7 @@ pipeline:  {200: 2, 404: 1}
 `fn format_url(host: &str, endpoint: &str) -> String` のように同じ型の引数が並ぶ関数は、順番を逆にして渡してもコンパイルが通る。
 C++ の `using Host = std::string;` のような型別名（Rust の `type Host = String;` も同じ）は元の型と区別されないため、取り違えを防げない。
 
-フィールドが 1 つのタプル[構造体](../glossary.md#struct)（newtype）で包むと、コンパイラは別の型として扱う。
+フィールドが 1 つのタプル[構造体](../glossary.md#struct)（[newtype](../glossary.md#newtype)）で包むと、コンパイラは別の型として扱う。
 
 ```rust
 pub struct Host(String);
@@ -72,13 +73,13 @@ help: swap these arguments
 8 +     let _ = format_url(&host, &endpoint);
 ```
 
-（このメッセージは、同じ形の小さな例で出したものである。）
+（このメッセージは、同じ形の小さな例で出したもので、途中の `note` の行を省いた。）
 
 余分なフィールドを持たない単一フィールドのタプル構造体では、手元の 64 ビット環境で `std::mem::size_of` を測ると、`String` も `Host` も同じ 24 バイトだった。
 
 ## 入口で一度だけ検証し、不正な値を作れない型にする
 
-非公開フィールドと検証つきのコンストラクタを組み合わせると、「この型の値が存在する時点で条件を満たしている」と保証できる。
+非公開フィールドと、検証つきの関連関数（`new`）を組み合わせると、「この型の値が存在する時点で条件を満たしている」と保証できる。
 `FieldPath::new` は、先頭が `/` で始まり、空のセグメントを含まない文字列だけを受け入れ、合わなければ `Err(FieldPathError)` を返す（[`Result`](../glossary.md#result)）。
 
 フィールドを非公開にしてあるため、定義元のモジュールの外から構造体を直接組み立てる道は塞がれている。
@@ -103,11 +104,11 @@ error[E0451]: fields `raw`, `first` and `rest` of struct `FieldPath` are private
 ただし、フィールドを非公開にするだけでは抜け道が残ることがある。
 たとえば中身への `&mut String` を返す[メソッド](../glossary.md#method)や `DerefMut<Target = String>` を生やすと、構築のあとで外から中身を書き換えて検証を迂回できてしまう。
 `FieldPath` の場合も、`DerefMut<Target = str>` を生やせば `make_ascii_uppercase` などで `raw` だけ書き換わり、`first` や `rest` との整合が崩れる。
-ほかにも [`#[derive(Default)]`](../glossary.md#derive) をうっかり付けると、コンストラクタを通らずに空の値が作れてしまう。
+ほかにも [`#[derive(Default)]`](../glossary.md#derive) をうっかり付けると、`new` を通らずに空の値が作れてしまう。
 `FieldPath` が `Deref<Target = str>` だけを実装して `DerefMut` や `Default` を付けないのは、こうした迂回路を塞ぐためである。
 
-なお、非公開の壁が効くのは定義したモジュールの外に対してだけである。
-同じモジュールの中のコードはフィールドへ直接触れられるので、不変条件を堅く保ちたい型は専用のモジュールに分けておくと、検証を迂回できる範囲を小さくできる。
+なお、非公開の壁が効くのは、定義したモジュールとその子孫の外に対してだけである（6 章）。
+それらの中のコードはフィールドへ直接触れられるので、不変条件を堅く保ちたい型は専用のモジュールに分けておくと、検証を迂回できる範囲を小さくできる。
 
 ## 構造そのもので「空」を禁じると、毎回の検査が消える
 
@@ -132,6 +133,7 @@ pub struct NonEmpty<T> {
 
 13 章で見た `Drop` による [RAII](../glossary.md#raii) は、資源の解放だけでなく「一時的な変更をスコープの終わりに元へ戻す」約束にも使える。
 `OverrideGuard` は、[`RefCell`](../glossary.md#cell-refcell) の中身を一時的に差し替え、スコープを抜けたときに元の値へ戻すガードである。
+ガードを 2 つ重ねたときに元の値まで戻るのは、作ったのと逆の順（入れ子の順）に破棄される場合に限る。`drop` で先に外側のガードを捨てると、最後に残るのは内側が覚えていた値になる。
 
 ```rust
 let level = RefCell::new("info");
@@ -143,13 +145,14 @@ assert_eq!(*level.borrow(), "info");
 ```
 
 途中で早期 `return` しても、通常の終了経路ではスコープを抜けるときに `Drop` が走るので戻し忘れを防げる（ただし 13 章で見た `std::mem::forget` や `std::process::exit` など、`Drop` 自体が走らない例外は残る）。
-また `OverrideGuard` は `Drop` の中で `borrow_mut()` を呼ぶため、同じ `RefCell` の[借用](../glossary.md#borrow)をガードより外側の[寿命](../glossary.md#lifetime)へ持ち出すと実行時に [panic](../glossary.md#panic) する。
+また `OverrideGuard` は `new` と `Drop` の両方で `borrow_mut()` を呼ぶため、ガードを作る時点で同じ `RefCell` を借りたままでも、同じ `RefCell` の[借用](../glossary.md#borrow)をガードより外側の[寿命](../glossary.md#lifetime)へ持ち出すと実行時に [panic](../glossary.md#panic) する。
 
 ガードを使うときに踏みやすい落とし穴が 2 つある。
 1 つ目は、戻り値を変数に受け取らず `OverrideGuard::new(&level, "debug");` とだけ書いてしまう誤りである。
-無名の一時値はその文の終わりですぐに破棄されるため、次の行へ進む前に元の値へ戻ってしまう。
+無名の一時オブジェクトはその文の終わりですぐに破棄されるため、次の行へ進む前に元の値へ戻ってしまう。
 
 6 章でも触れた [`#[must_use]`](../glossary.md#must-use) [属性](../glossary.md#attribute)を型や関数に付けておくと、値を使わずに捨てた箇所をコンパイラが警告する。
+ただし型に付けた場合に警告が出るのは、その型の値を文でそのまま捨てたときである。`Option<OverrideGuard>` のように包んで返された値を捨てても、警告は出なかった。
 
 ```text
 warning: unused `OverrideGuard` that must be used
@@ -169,7 +172,7 @@ help: use `let _ = ...` to ignore the resulting value
 （このメッセージは、同じ形の小さな例で出したものである。）
 
 2 つ目の落とし穴は、この `help` にそのまま従って `let _ = OverrideGuard::new(...);` と書いてしまうことである。
-5 章で見た `let _ = ...` は、右辺が一時値のとき変数へ束縛せずその場で即座に破棄する。
+5 章で見た `let _ = ...` は、右辺が一時オブジェクトのとき変数へ束縛せずその場で即座に破棄する。
 スコープの終わりまで生かしておきたいガードは、`let guard = ...;` のように変数へ束縛する（以後その変数名を使わないときの未使用警告を避けたいなら、`let _guard = ...;` と先頭に `_` を付ける）。
 
 ## 所有権を消費して型を変えると、手順の前後をコンパイル時に縛れる
@@ -206,7 +209,8 @@ error[E0599]: no method named `aggregate` found for struct `Draft` in the curren
 
 （このメッセージは、同じ形の小さな例で出したものである。）
 
-さらに、状態の型が [`Copy`](../glossary.md#copy-clone) も `Clone` も実装しておらず、遷移のメソッドが `self` を [move](../glossary.md#move) で受け取るため、前の段階の変数を二度使う誤りもコンパイルエラーになる。
+さらに、状態の型が [`Copy`](../glossary.md#copy-clone) を実装しておらず、遷移のメソッドが `self` を [move](../glossary.md#move) で受け取るため、前の段階の変数を二度使う誤りもコンパイルエラーになる。
+`Clone` だけを付けても同じエラーになる（`.clone()` と明示すれば複製できてしまう点は別に残る）。
 
 ```text
 error[E0382]: use of moved value: `draft`
@@ -233,7 +237,8 @@ Rust では `Copy` でない型を move するとコンパイラが元の変数�
 値への条件も取り違える恐れも無い単なる文字列を newtype で包んでも、呼び出し側の手間が増えるだけで守れるものが無い。
 
 typestate にも向き不向きがある。
-状態が一直線に進む手順や、6 章で見た `Tally::new(field).strict(true)` のように設定を順に足して組み立てるビルダーとは相性がよい。
+状態が一直線に進む手順や、6 章で見た `Tally::new(field).strict(true)` のように、`self` を受け取って `Self` を返すメソッドで設定を順に足していく組み立て方をビルダーと呼ぶ。
+ビルダーは型が変わらないので typestate ではないが、段階ごとに戻り値の型を変えれば、必須の設定を済ませるまで `build` を呼べないビルダーにできる。
 一方、入力しだいで実行時に状態が分岐したり、同じ配列に違う状態の値を混ぜて持ちたくなったりすると、型が別のままでは扱いにくくなる。
 実行時の分岐が中心なら、4 章で見た [`enum`](../glossary.md#enum) と `match` に戻すほうが素直に書ける。
 
