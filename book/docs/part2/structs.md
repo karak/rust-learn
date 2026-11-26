@@ -193,7 +193,7 @@ let mut tally = Tally::new(field).strict(true);
 
 多重定義も既定の引数も無いので、省略できる設定はこうしてメソッドの名前で足していく。
 
-`#[must_use]` は、戻り値を捨てたら警告を出させる[属性](../glossary.md#attribute)である。
+[`#[must_use]`](../glossary.md#must-use) は、戻り値を捨てたら警告を出させる[属性](../glossary.md#attribute)である。
 `tally.strict(true);` とだけ書くと、strict にした `Tally` は戻り値としてその場で捨てられる。
 元の `tally` も `strict` に move されているので、もう使えない。
 この属性があれば `` unused return value of `Tally::strict` that must be used `` と警告が出る。

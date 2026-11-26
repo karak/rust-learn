@@ -477,10 +477,15 @@ note は、`Box<dyn Error>`、`ExecutionError`、`CliErrorKind`、`CliError`、`
 答えは [`book/code/ch12/src/exercises.rs`](https://github.com/karak/rust-learn/blob/main/book/code/ch12/src/exercises.rs) にある。
 `cargo test -p book-ch12` で確かめられる。
 
-1. `u64` のスライスからいちばん大きい値を探す関数 `max_parallel` を、`thread::scope` でスレッドに分けて書く。
-   空なら `None` を返す。
-   各スレッドに自分の塊の最大を返させ、最後にその中の最大を取る。
-2. 行の `Vec<String>` を受け取り、空白で区切った語ごとの件数を数える関数 `count_words_spawned` を、`thread::scope` を使わず `thread::spawn` で書く。
-   全スレッドが 1 つの表に数え入れるようにする。
-   入力を分けずに全スレッドで共有し、表も共有する。どちらも `spawn` に借りさせられないので、何で包めばよいかを考える。
-   全スレッドを待ったあとで `Arc` から中身を取り出すには、`Arc::into_inner` が使える。
+**演習 1**
+
+`u64` のスライスからいちばん大きい値を探す関数 `max_parallel` を、`thread::scope` でスレッドに分けて書く。
+空なら `None` を返す。
+各スレッドに自分の塊の最大を返させ、最後にその中の最大を取る。
+
+**演習 2**
+
+行の `Vec<String>` を受け取り、空白で区切った語ごとの件数を数える関数 `count_words_spawned` を、`thread::scope` を使わず `thread::spawn` で書く。
+全スレッドが 1 つの表に数え入れるようにする。
+入力を分けずに全スレッドで共有し、表も共有する。どちらも `spawn` に借りさせられないので、何で包めばよいかを考える。
+全スレッドを待ったあとで `Arc` から中身を取り出すには、`Arc::into_inner` が使える。

@@ -628,14 +628,19 @@ impl Input for Stdin {
 
 ## 演習
 
-答えは `book/code/ch10/src/exercises.rs` にある。
+答えは [`book/code/ch10/src/exercises.rs`](https://github.com/karak/rust-learn/blob/main/book/code/ch10/src/exercises.rs) にある。
 `cargo test -p book-ch10` で確かめられる。
 
-1. `key: value` のような行を、区切りの文字列でキーと値に分ける関数 `split_key` を書く。
-   引数は行 `line: &str` と区切り `sep: &str` の 2 つで、区切りが無ければ `None` を返す。
-   区切りを `String` で作って渡し、その `String` が消えたあとでも、返したキーと値を使えるようにする。
-   割るには、`pick` でも使った `str::split_once` が使える。
-2. 文字列を 1 行ずつ切り出す構造体 `Lines` を作り、`next_line(&mut self)` で次の行を返す。
-   切り出した 1 行目を持ったまま `next_line` をもう一度呼び、2 行目も取れるようにする。
-   行の割り方は標準の `str::lines` に合わせ、末尾の改行の後ろに空の行を作らない（行末の `\r` は扱わなくてよい）。
-   省略規則に任せたときにどのエラーになるかも見る。
+**演習 1**
+
+`key: value` のような行を、区切りの文字列でキーと値に分ける関数 `split_key` を書く。
+引数は行 `line: &str` と区切り `sep: &str` の 2 つで、区切りが無ければ `None` を返す。
+区切りを `String` で作って渡し、その `String` が消えたあとでも、返したキーと値を使えるようにする。
+割るには、`pick` でも使った `str::split_once` が使える。
+
+**演習 2**
+
+文字列を 1 行ずつ切り出す構造体 `Lines` を作り、`next_line(&mut self)` で次の行を返す。
+切り出した 1 行目を持ったまま `next_line` をもう一度呼び、2 行目も取れるようにする。
+行の割り方は標準の `str::lines` に合わせ、末尾の改行の後ろに空の行を作らない（行末の `\r` は扱わなくてよい）。
+省略規則に任せたときにどのエラーになるかも見る。

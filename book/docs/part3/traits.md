@@ -587,12 +587,17 @@ where
 
 ## 演習
 
-答えは `book/code/ch09/src/exercises.rs` にある。
+答えは [`book/code/ch09/src/exercises.rs`](https://github.com/karak/rust-learn/blob/main/book/code/ch09/src/exercises.rs) にある。
 `cargo test -p book-ch09` で確かめられる。
 
-1. `tally` の結果から、いちばん多い欄の名前を返す関数 `most_common` を書く。
-   同数なら名前の小さいほうを返し、空なら `None` を返す。
-   `u16` の列でも `Level` の列でも呼べるようにする。
-2. 応答時間をミリ秒で持つ型 `struct Latency(u32);` を作り、`Bucket` を実装する。
-   100 未満を `fast`、それ以外を `slow` に数え、1000 以上を失敗とする。
-   そのうえで、`Latency` と `u16` と `Level` を混ぜて `buckets` に渡す。
+**演習 1**
+
+`tally` の結果から、いちばん多い欄の名前を返す関数 `most_common` を書く。
+同数なら名前の小さいほうを返し、空なら `None` を返す。
+`u16` の列でも `Level` の列でも呼べるようにする。
+
+**演習 2**
+
+応答時間をミリ秒で持つ型 `struct Latency(u32);` を作り、`Bucket` を実装する。
+100 未満を `fast`、それ以外を `slow` に数え、1000 以上を失敗とする。
+そのうえで、`Latency` と `u16` と `Level` を混ぜて `buckets` に渡す。

@@ -239,16 +239,7 @@ panic させずに失敗を扱いたいときは、`try_borrow` や `try_borrow_
 
 `tally` のコードは、ここまで見てきた部品を必要な場所だけに絞って使っている。
 
-`crates/tally-core/src/select.rs` の `JsonPointer` は、検証済みの JSON Pointer を持つ構造体で、文字列とセグメント列に `Box<str>` と `Box<[Box<str>]>` を使っている。
-
-```rust
-pub struct JsonPointer {
-    raw: Box<str>,
-    first: Box<str>,
-    rest: Box<[Box<str>]>,
-}
-```
-
+6 章で定義を見た `JsonPointer`（`crates/tally-core/src/select.rs`）は、検証済みの JSON Pointer を持つ構造体で、文字列とセグメント列に `Box<str>` と `Box<[Box<str>]>` を使っている。
 構築したあとに綴りやセグメント数を変えないので、`String` や `Vec` の容量フィールドを持たずに済んでいる。
 同じファイルで `JsonPointer` は `Deref<Target = str>` も実装している。
 
@@ -279,8 +270,13 @@ impl Deref for JsonPointer {
 答えは [`book/code/ch13/src/exercises.rs`](https://github.com/karak/rust-learn/blob/main/book/code/ch13/src/exercises.rs) にある。
 `cargo test -p book-ch13` で確かめられる。
 
-1. `log: &RefCell<Vec<String>>` と名前 `name: &'static str` を受け取るガード型 `ScopeLog` を書く。
-   `ScopeLog::enter(log, name)` で `"enter: {name}"` を `log` に積み、スコープを抜けて `Drop` が走ったときに `"leave: {name}"` を積むようにする。
-   途中で早期 `return` する関数の中で使い、正常終了でもエラー終了でも `"leave: ..."` が記録されることをテストで確かめる。
-2. `Rc<RefCell<BTreeMap<String, u64>>>` を共有して語ごとの件数を数える `WordRecorder` を書く。
-   2 つの `WordRecorder` が同じ表に `record(&self, word: &str)` で数え入れられるようにし、各 `WordRecorder` 自身が記録した回数も `Cell<usize>` で数えて `own_count(&self) -> usize` で返せるようにする。
+**演習 1**
+
+`log: &RefCell<Vec<String>>` と名前 `name: &'static str` を受け取るガード型 `ScopeLog` を書く。
+`ScopeLog::enter(log, name)` で `"enter: {name}"` を `log` に積み、スコープを抜けて `Drop` が走ったときに `"leave: {name}"` を積むようにする。
+途中で早期 `return` する関数の中で使い、正常終了でもエラー終了でも `"leave: ..."` が記録されることをテストで確かめる。
+
+**演習 2**
+
+`Rc<RefCell<BTreeMap<String, u64>>>` を共有して語ごとの件数を数える `WordRecorder` を書く。
+2 つの `WordRecorder` が同じ表に `record(&self, word: &str)` で数え入れられるようにし、各 `WordRecorder` 自身が記録した回数も `Cell<usize>` で数えて `own_count(&self) -> usize` で返せるようにする。

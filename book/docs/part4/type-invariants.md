@@ -247,17 +247,8 @@ typestate にも向き不向きがある。
 
 `tally` の中にも、ここまで見てきた使い分けがそのまま現れている。
 
-`crates/tally-core/src/select.rs` の `JsonPointer` は、入口で一度だけ検証する型であり、同時に構造で空を禁じる例でもある。
-単一フィールドのタプル構造体からさらに踏み込み、解釈済みのセグメント列を 3 フィールドに分けて持っている。
-
-```rust
-pub struct JsonPointer {
-    raw: Box<str>,
-    first: Box<str>,
-    rest: Box<[Box<str>]>,
-}
-```
-
+6 章で定義を見た `JsonPointer`（`crates/tally-core/src/select.rs`）は、入口で一度だけ検証する型であり、同時に構造で空を禁じる例でもある。
+単一フィールドのタプル構造体からさらに踏み込み、解釈済みのセグメント列を `raw`、`first`、`rest` の 3 フィールドに分けて持っている。
 先頭が `/` でない綴りを `JsonPointer::new` の時点で弾くため、綴り間違いのポインタが「どの行にも一致しない」結果へ静かに化ける事故を防いでいる。
 さらに `first` と `rest` を分けることで、走査のたびにセグメント列が空かどうかを確かめずに済ませている。
 13 章で見たとおり、`Deref<Target = str>` は実装しているが `DerefMut` は実装していない。
@@ -272,9 +263,14 @@ pub struct JsonPointer {
 答えは [`book/code/ch14/src/exercises.rs`](https://github.com/karak/rust-learn/blob/main/book/code/ch14/src/exercises.rs) にある。
 `cargo test -p book-ch14` で確かめられる。
 
-1. 1 以上 65535 以下のポート番号だけを表す検証つき newtype `Port(u16)` を書く。
-   フィールドを非公開にし、`Port::new(raw: u16) -> Result<Self, ZeroPortError>` が `0` を `Err(ZeroPortError)` で弾くようにする。
-   構築後に値を取り出す `get(self) -> u16` を付け、0 が弾かれて 8080 が通ることをテストで確かめる。
-2. typestate を使って、閉じている `ClosedBuffer` と開いている `OpenBuffer` の 2 つの型を書く。
-   `ClosedBuffer::new()` で空のバッファを作り、`ClosedBuffer::open(self) -> OpenBuffer` で開き、`OpenBuffer::push(&mut self, line: &str)` で行を追加し、`OpenBuffer::close(self) -> ClosedBuffer` で閉じてから `ClosedBuffer::lines(&self) -> &[String]` で読めるようにする。
-   開く前に `push` できないこと、閉じたあとに元の `OpenBuffer` を使えないことが型の上で成り立つことを確かめる。
+**演習 1**
+
+1 以上 65535 以下のポート番号だけを表す検証つき newtype `Port(u16)` を書く。
+フィールドを非公開にし、`Port::new(raw: u16) -> Result<Self, ZeroPortError>` が `0` を `Err(ZeroPortError)` で弾くようにする。
+構築後に値を取り出す `get(self) -> u16` を付け、0 が弾かれて 8080 が通ることをテストで確かめる。
+
+**演習 2**
+
+typestate を使って、閉じている `ClosedBuffer` と開いている `OpenBuffer` の 2 つの型を書く。
+`ClosedBuffer::new()` で空のバッファを作り、`ClosedBuffer::open(self) -> OpenBuffer` で開き、`OpenBuffer::push(&mut self, line: &str)` で行を追加し、`OpenBuffer::close(self) -> ClosedBuffer` で閉じてから `ClosedBuffer::lines(&self) -> &[String]` で読めるようにする。
+開く前に `push` できないこと、閉じたあとに元の `OpenBuffer` を使えないことが型の上で成り立つことを確かめる。

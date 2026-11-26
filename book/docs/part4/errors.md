@@ -448,14 +448,19 @@ hint: --strict を外すと、この行はスキップされます
 
 ## 演習
 
-答えは `book/code/ch11/src/exercises.rs` にある。
+答えは [`book/code/ch11/src/exercises.rs`](https://github.com/karak/rust-learn/blob/main/book/code/ch11/src/exercises.rs) にある。
 `cargo test -p book-ch11` で確かめられる。
 
-1. 欄の値を状態コードとして読む関数 `parse_code(value: &str) -> Result<u16, CodeError>` を書く。
-   `CodeError` は `thiserror` で作り、数として読めない場合と、100 から 599 の範囲の外の場合を分ける。
-   数として読めない場合は `ParseIntError` を原因に持ち、`?` で包めるようにする。
-   範囲の外の場合は原因を持たず、`700 は 100 から 599 の範囲にありません` のように値を文に埋め込む。
-2. 失敗の連鎖をいちばん奥までたどり、最後の失敗を返す関数 `root_cause` を書く。
-   引数と戻り値の型は `&(dyn Error + 'static)` にし、原因が無ければ引数そのものを返す。
-   `count_codes` に数でない行を読ませた失敗を渡し、返った値が `ParseIntError` であることを `downcast_ref` で確かめる。
-   10 章の[省略規則](../glossary.md#lifetime-elision)が、この関数の形に効くかどうかも確かめる。
+**演習 1**
+
+欄の値を状態コードとして読む関数 `parse_code(value: &str) -> Result<u16, CodeError>` を書く。
+`CodeError` は `thiserror` で作り、数として読めない場合と、100 から 599 の範囲の外の場合を分ける。
+数として読めない場合は `ParseIntError` を原因に持ち、`?` で包めるようにする。
+範囲の外の場合は原因を持たず、`700 は 100 から 599 の範囲にありません` のように値を文に埋め込む。
+
+**演習 2**
+
+失敗の連鎖をいちばん奥までたどり、最後の失敗を返す関数 `root_cause` を書く。
+引数と戻り値の型は `&(dyn Error + 'static)` にし、原因が無ければ引数そのものを返す。
+`count_codes` に数でない行を読ませた失敗を渡し、返った値が `ParseIntError` であることを `downcast_ref` で確かめる。
+10 章の[省略規則](../glossary.md#lifetime-elision)が、この関数の形に効くかどうかも確かめる。
