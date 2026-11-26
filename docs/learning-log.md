@@ -1645,7 +1645,7 @@ str::trim_ascii   0x09, 0x0A, 0x0C, 0x0D, 0x20（0x0B を含まない）
 コンパイラの内部では入力が信頼できるので `FxHash` で問題にならない —
 **「速いクレート」ではなく「その前提が自分の用途でも成り立つか」を見る。**
 
-差し替えの効果は JSON で -5%、行全体で -10% だった。
+差し替えの効果は JSON で -5%、行全体で -13%（422 → 366 ms）だった（2026-11-27 訂正: 当初「-10%」と誤記。`stage-log.md` 段階 7 の実測の表から計算し直した）。
 
 ---
 
@@ -1779,7 +1779,7 @@ str::trim_ascii   0x09, 0x0A, 0x0C, 0x0D, 0x20（0x0B を含まない）
 | 対象 | 前提が破れたときの未定義動作 |
 | --- | --- |
 | `foldhash` の `GlobalSeed::get` | `INIT` 前に読むと、`UnsafeCell` の読み出しが `init_slow()` の書き込みと重なる。**「古い種が返る」ではなくデータ競合そのもの**で、最適化が読みを巻き上げてよい |
-| `serde_json` の `StrRead::parse_str` | 不正なバイト列から `&str` を作った**時点**で UB。使う前に壊れている。**`&str` の不変条件は型の側の約束**なので、後で `chars()` するかどうかに関係しない |
+| `serde_json` の `StrRead::parse_str` | 不正なバイト列から `&str` を作っただけでは、即座の UB ではない。ただし **`&str` の不変条件は型の側の約束**なので、その値を受け取るどの関数も UTF-8 を前提にしてよく、以後の操作が UB を起こしうる（2026-11-27 訂正: 当初「作った時点で UB」と誤記。1.97.1 の `core` の `str` の文書は "Constructing a non-UTF-8 string slice is not immediate undefined behavior" と書く） |
 | `serde_json` の `skip_to_escape` | `offset_from` を別の確保領域をまたいで呼ぶ、または範囲外で呼ぶと UB |
 | `serde_json` の `push_wtf8_codepoint` | `reserve(4)` 済みの範囲を越えて `ptr.write` すると、確保領域の外への書き込みになる |
 | `rayon-core` の `ScopePtr::as_ref` | ジョブが `Scope::complete` の後に走ると `*const Scope` が dangling。**解放後の使用** |
