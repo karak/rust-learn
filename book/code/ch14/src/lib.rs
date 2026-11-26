@@ -341,6 +341,24 @@ mod tests {
     }
 
     #[test]
+    fn override_guard_を外側から先に捨てると内側が覚えた値が残る() {
+        let level = RefCell::new("info");
+        let outer = OverrideGuard::new(&level, "debug");
+        let inner = OverrideGuard::new(&level, "trace");
+        drop(outer);
+        drop(inner);
+        assert_eq!(*level.borrow(), "debug");
+    }
+
+    #[test]
+    #[should_panic(expected = "RefCell already borrowed")]
+    fn override_guard_は借りたままの_refcell_に作ると_panic_する() {
+        let level = RefCell::new("info");
+        let _shared = level.borrow();
+        let _guard = OverrideGuard::new(&level, "debug");
+    }
+
+    #[test]
     fn typestate_で読み込みから集計まで順に進む() {
         let aggregated = Draft::new().load(vec![200, 404, 200]).aggregate();
         assert_eq!(*aggregated.counts(), Counts::from([(200, 2), (404, 1)]));

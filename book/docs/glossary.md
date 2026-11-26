@@ -265,7 +265,7 @@ main スレッドで起きれば、プログラム全体が終わる。
 `T: Ord` や `where T: Ord` と書く。
 関数の本体で使える `T` の操作は、境界に書いた trait が持つものに限られる。
 
-出てくる章: [9](part3/traits.md)、[10](part3/lifetimes.md)
+出てくる章: [9](part3/traits.md)、[10](part3/lifetimes.md)、[13](part4/smart-pointers.md)
 
 ### 孤児ルール（orphan rule） {/* #orphan-rule */}
 
@@ -288,7 +288,7 @@ trait を型に実装するとき、trait か型の少なくとも一方が、�
 メソッドの呼び先は、値と一緒に持つ表（vtable）から実行時に引く。
 `Self` を返すメソッドのように、表に載せられないメソッドを持つ trait は、そのままでは `dyn` にできない。
 
-出てくる章: [9](part3/traits.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)
+出てくる章: [9](part3/traits.md)、[10](part3/lifetimes.md)、[11](part4/errors.md)、[12](part4/concurrency.md)、[13](part4/smart-pointers.md)
 
 ### `Error` trait {/* #error-trait */}
 
@@ -554,7 +554,7 @@ Rust では、`dyn` を書いたときだけ、呼び出しがこの表を引く
 総称型の型引数を、コンパイルの後に消すこと。
 Java の総称型がこの形で、`List<String>` と `List<Integer>` は実行時には同じクラスになる。
 
-出てくる章: [9](part3/traits.md)、[13](part4/smart-pointers.md)
+出てくる章: [9](part3/traits.md)
 
 ### 公開依存（public dependency） {/* #public-dependency */}
 

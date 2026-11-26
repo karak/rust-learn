@@ -12,7 +12,7 @@ sidebar_position: 14
 1 章の[所有権](../glossary.md#ownership)、6 章の[モジュール](../glossary.md#module)による可視性、13 章の [drop](../glossary.md#drop) と [`Deref`](../glossary.md#deref) を組み合わせると、こうした約束の多くを型へ移せる。
 誤った呼び出しを、奥で起きる実行時のバグではなく、コンパイルエラーや警告、入口の 1 箇所の検査で止める設計を、5 つの形に分けて確かめる。
 
-## この章のコードは、経路・空でない列・一時変更ガード・手順つき集計器で制約を確かめる
+## この章のコードは、取り違えない名前・経路・空でない列・一時変更ガード・手順つき集計器で制約を確かめる
 
 この章のコード（`book/code/ch14`）は、型に約束を持たせる 5 つの部品を並べている。
 
@@ -79,7 +79,7 @@ help: swap these arguments
 
 ## 入口で一度だけ検証し、不正な値を作れない型にする
 
-非公開フィールドと、検証つきの関連関数（`new`）を組み合わせると、「この型の値が存在する時点で条件を満たしている」と保証できる。
+非公開フィールドと、検証つきの[関連関数](../glossary.md#method)（`new`）を組み合わせると、「この型の値が存在する時点で条件を満たしている」と保証できる。
 `FieldPath::new` は、先頭が `/` で始まり、空のセグメントを含まない文字列だけを受け入れ、合わなければ `Err(FieldPathError)` を返す（[`Result`](../glossary.md#result)）。
 
 フィールドを非公開にしてあるため、定義元のモジュールの外から構造体を直接組み立てる道は塞がれている。
@@ -102,7 +102,7 @@ error[E0451]: fields `raw`, `first` and `rest` of struct `FieldPath` are private
 
 一度 `FieldPath` にしてしまえば、受け取る側の関数は先頭が `/` かどうかを毎回問い直す必要が無い。
 ただし、フィールドを非公開にするだけでは抜け道が残ることがある。
-たとえば中身への `&mut String` を返す[メソッド](../glossary.md#method)や `DerefMut<Target = String>` を生やすと、構築のあとで外から中身を書き換えて検証を迂回できてしまう。
+たとえば中身への `&mut String` を返すメソッドや `DerefMut<Target = String>` を生やすと、構築のあとで外から中身を書き換えて検証を迂回できてしまう。
 `FieldPath` の場合も、`DerefMut<Target = str>` を生やせば `make_ascii_uppercase` などで `raw` だけ書き換わり、`first` や `rest` との整合が崩れる。
 ほかにも [`#[derive(Default)]`](../glossary.md#derive) をうっかり付けると、`new` を通らずに空の値が作れてしまう。
 `FieldPath` が `Deref<Target = str>` だけを実装して `DerefMut` や `Default` を付けないのは、こうした迂回路を塞ぐためである。
@@ -145,14 +145,14 @@ assert_eq!(*level.borrow(), "info");
 ```
 
 途中で早期 `return` しても、通常の終了経路ではスコープを抜けるときに `Drop` が走るので戻し忘れを防げる（ただし 13 章で見た `std::mem::forget` や `std::process::exit` など、`Drop` 自体が走らない例外は残る）。
-また `OverrideGuard` は `new` と `Drop` の両方で `borrow_mut()` を呼ぶため、ガードを作る時点で同じ `RefCell` を借りたままでも、同じ `RefCell` の[借用](../glossary.md#borrow)をガードより外側の[寿命](../glossary.md#lifetime)へ持ち出すと実行時に [panic](../glossary.md#panic) する。
+また `OverrideGuard` は `new` と `Drop` の両方で `borrow_mut()` を呼ぶため、ガードを作る時点で同じ `RefCell` を借りたままでも、同じ `RefCell` の[借用](../glossary.md#borrow)をガードより外側の[寿命](../glossary.md#lifetime)へ持ち出しても、実行時に [panic](../glossary.md#panic) する。
 
 ガードを使うときに踏みやすい落とし穴が 2 つある。
 1 つ目は、戻り値を変数に受け取らず `OverrideGuard::new(&level, "debug");` とだけ書いてしまう誤りである。
 無名の一時オブジェクトはその文の終わりですぐに破棄されるため、次の行へ進む前に元の値へ戻ってしまう。
 
 6 章でも触れた [`#[must_use]`](../glossary.md#must-use) [属性](../glossary.md#attribute)を型や関数に付けておくと、値を使わずに捨てた箇所をコンパイラが警告する。
-ただし型に付けた場合に警告が出るのは、その型の値を文でそのまま捨てたときである。`Option<OverrideGuard>` のように包んで返された値を捨てても、警告は出なかった。
+ただし型に付けた場合に警告が出るのは、その型の値を文でそのまま捨てたときである。`Option<OverrideGuard>` に包んで返された値を捨てても、警告は出なかった（`Box` やタプルに包んだ場合は出たので、包み方しだいである）。
 
 ```text
 warning: unused `OverrideGuard` that must be used
@@ -237,8 +237,9 @@ Rust では `Copy` でない型を move するとコンパイラが元の変数�
 値への条件も取り違える恐れも無い単なる文字列を newtype で包んでも、呼び出し側の手間が増えるだけで守れるものが無い。
 
 typestate にも向き不向きがある。
-状態が一直線に進む手順や、6 章で見た `Tally::new(field).strict(true)` のように、`self` を受け取って `Self` を返すメソッドで設定を順に足していく組み立て方をビルダーと呼ぶ。
-ビルダーは型が変わらないので typestate ではないが、段階ごとに戻り値の型を変えれば、必須の設定を済ませるまで `build` を呼べないビルダーにできる。
+状態が一直線に進む手順とは相性がよい。
+6 章で見た `Tally::new(field).strict(true)` のように、`self` を受け取って `Self` を返すメソッドで設定を順に足していく組み立て方を、ビルダーと呼ぶ。
+ビルダーは型が変わらないので、そのままでは typestate ではないが、段階ごとに戻り値の型を変えれば、必須の設定を済ませるまで `build` を呼べないビルダーにできる。
 一方、入力しだいで実行時に状態が分岐したり、同じ配列に違う状態の値を混ぜて持ちたくなったりすると、型が別のままでは扱いにくくなる。
 実行時の分岐が中心なら、4 章で見た [`enum`](../glossary.md#enum) と `match` に戻すほうが素直に書ける。
 
